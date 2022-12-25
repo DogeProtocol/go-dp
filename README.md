@@ -1,20 +1,27 @@
-## Go Ethereum
+## Go DogeP
 
-Official Golang implementation of the Ethereum protocol.
+go-dogep is a Golang implementation of the Doge Protocol blockchain node client. This is a fork of go-ethereum with additions such as post quantum cryptography.
 
-[![API Reference](
-https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/68747470733a2f2f676f646f632e6f72672f6769746875622e636f6d2f676f6c616e672f6764646f3f7374617475732e737667
-)](https://pkg.go.dev/github.com/ethereum/go-ethereum?tab=doc)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ethereum/go-ethereum)](https://goreportcard.com/report/github.com/ethereum/go-ethereum)
-[![Travis](https://travis-ci.com/ethereum/go-ethereum.svg?branch=master)](https://travis-ci.com/ethereum/go-ethereum)
-[![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/nthXNEv)
+[![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/bbbMPyzJTM)
 
-Automated builds are available for stable releases and the unstable master branch. Binary
-archives are published at https://geth.ethereum.org/downloads/.
+## Prerequisites
+
+1) Follow the steps in https://github.com/DogeProtocol/liboqs to build the liboqs binaries (Post Quantum Cryptography Libraries)
+2) Install Package Manager:
+#### Linux
+```
+apt-get install -y pkg-config
+```
+#### Windows
+- 1) Download and extract https://download.gnome.org/binaries/win64/dependencies/pkg-config_0.23-2_win64.zip to c:\pkg-config
+- 2) Download and extract https://download.gnome.org/binaries/win64/glib/2.26/glib_2.26.1-1_win64.zip to c:\pkg-config
+- 3) Download and extract https://download.gnome.org/binaries/win64/dependencies/gettext-runtime-dev_0.18.1.1-2_win64.zip to c:\pkg-config
+- 4) Add c:\pkg-config to the PATH environment variable
+4) Edit go-dogep/.config/liboqs.pc to point to the liboqs build folder from Step 1)
+5) Set the PKG_CONFIG_PATH environment variable to point to the absolute path of go-dogep/.config/liboqc.pc file in your computer.
+6) Add the build/bin folder where liboqs.dll (example C:\liboqs\build\bin) is located to the PATH environment variable.
 
 ## Building the source
-
-For prerequisites and detailed build instructions please read the [Installation Instructions](https://geth.ethereum.org/docs/install-and-build/installing-geth).
 
 Building `geth` requires both a Go (version 1.14 or later) and a C compiler. You can install
 them using your favourite package manager. Once the dependencies are installed, run
@@ -360,3 +367,4 @@ also included in our repository in the `COPYING.LESSER` file.
 The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the
 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also
 included in our repository in the `COPYING` file.
+
