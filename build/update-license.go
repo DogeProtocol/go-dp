@@ -69,7 +69,6 @@ var (
 		"common/prque/",
 		"consensus/ethash/xor.go",
 		"crypto/bn256/",
-		"crypto/ecies/",
 		"graphql/graphiql.go",
 		"internal/jsre/deps",
 		"log/",

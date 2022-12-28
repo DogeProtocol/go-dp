@@ -17,6 +17,7 @@
 package keystore
 
 import (
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 )
 
@@ -344,25 +344,25 @@ func TestWalletNotifications(t *testing.T) {
 }
 
 // TestImportExport tests the import functionality of a keystore.
-func TestImportECDSA(t *testing.T) {
+func TestImportKey(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
 	defer os.RemoveAll(dir)
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", key)
 	}
-	if _, err = ks.ImportECDSA(key, "old"); err != nil {
+	if _, err = ks.ImportKey(key, "old"); err != nil {
 		t.Errorf("importing failed: %v", err)
 	}
-	if _, err = ks.ImportECDSA(key, "old"); err == nil {
+	if _, err = ks.ImportKey(key, "old"); err == nil {
 		t.Errorf("importing same key twice succeeded")
 	}
-	if _, err = ks.ImportECDSA(key, "new"); err == nil {
+	if _, err = ks.ImportKey(key, "new"); err == nil {
 		t.Errorf("importing same key twice succeeded")
 	}
 }
 
-// TestImportECDSA tests the import and export functionality of a keystore.
+// TestImportKey tests the import and export functionality of a keystore.
 func TestImportExport(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
 	defer os.RemoveAll(dir)

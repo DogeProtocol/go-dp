@@ -260,7 +260,6 @@ func TestSignTx(t *testing.T) {
 
 	methodSig := "test(uint)"
 	tx := mkTestTx(a)
-
 	control.approveCh <- "Y"
 	control.inputCh <- "wrongpassword"
 	res, err = api.SignTransaction(context.Background(), tx, &methodSig)
@@ -282,7 +281,6 @@ func TestSignTx(t *testing.T) {
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
 	res, err = api.SignTransaction(context.Background(), tx, &methodSig)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +293,6 @@ func TestSignTx(t *testing.T) {
 	}
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
-
 	res2, err = api.SignTransaction(context.Background(), tx, &methodSig)
 	if err != nil {
 		t.Fatal(err)
@@ -303,7 +300,6 @@ func TestSignTx(t *testing.T) {
 	if !bytes.Equal(res.Raw, res2.Raw) {
 		t.Error("Expected tx to be unmodified by UI")
 	}
-
 	//The tx is modified by the UI
 	control.approveCh <- "M"
 	control.inputCh <- "a_long_password"

@@ -235,7 +235,6 @@ func (c *BoundContract) Transfer(opts *TransactOpts) (*types.Transaction, error)
 // authorization fields, and then scheduling the transaction for execution.
 func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, input []byte) (*types.Transaction, error) {
 	var err error
-
 	// Ensure a valid value field and resolve the account nonce
 	value := opts.Value
 	if value == nil {
@@ -301,6 +300,7 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		// If the contract surely has code (or code is not needed), estimate the transaction
 		msg := ethereum.CallMsg{From: opts.From, To: contract, GasPrice: opts.GasPrice, GasTipCap: opts.GasTipCap, GasFeeCap: opts.GasFeeCap, Value: value, Data: input}
 		gasLimit, err = c.transactor.EstimateGas(ensureContext(opts.Context), msg)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
 		}
@@ -375,7 +375,7 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 		config.ToBlock = new(big.Int).SetUint64(*opts.End)
 	}
 	/* TODO(karalabe): Replace the rest of the method below with this when supported
-	sub, err := c.filterer.SubscribeFilterLogs(ensureContext(opts.Context), config, logs)
+	sub, err := c.filterer.SubscribeFilterLogs(ensureContext(opts.context), config, logs)
 	*/
 	buff, err := c.filterer.FilterLogs(ensureContext(opts.Context), config)
 	if err != nil {

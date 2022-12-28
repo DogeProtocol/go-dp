@@ -68,6 +68,7 @@ func TestAlethSturebyConverter(t *testing.T) {
 }
 
 // Tests the go-ethereum to Parity chainspec conversion for the Stureby testnet.
+
 func TestParitySturebyConverter(t *testing.T) {
 	blob, err := ioutil.ReadFile("testdata/stureby_geth.json")
 	if err != nil {
@@ -93,3 +94,4 @@ func TestParitySturebyConverter(t *testing.T) {
 		t.Fatalf("chainspec mismatch")
 	}
 }
+

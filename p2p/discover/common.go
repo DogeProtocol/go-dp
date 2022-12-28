@@ -17,7 +17,9 @@
 package discover
 
 import (
-	"crypto/ecdsa"
+
+
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"net"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -27,18 +29,19 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 )
 
-// UDPConn is a network connection on which discovery can operate.
-type UDPConn interface {
+// UdpSession is a network connection on which discovery can operate.
+type UdpSession interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
 	Close() error
 	LocalAddr() net.Addr
+
 }
 
 // Config holds settings for the discovery listener.
 type Config struct {
 	// These settings are required and configure the UDP listener:
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey *oqs.PrivateKey
 
 	// These settings are optional:
 	NetRestrict  *netutil.Netlist   // network whitelist
@@ -63,8 +66,9 @@ func (cfg Config) withDefaults() Config {
 }
 
 // ListenUDP starts listening for discovery packets on the given UDP socket.
-func ListenUDP(c UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv4, error) {
-	return ListenV4(c, ln, cfg)
+func ListenUDP(sessionManager UdpSessionManager, ln *enode.LocalNode, cfg Config) (*UDPv4, error) {
+
+	return ListenV4(sessionManager, ln, cfg)
 }
 
 // ReadPacket is a packet that couldn't be handled. Those packets are sent to the unhandled

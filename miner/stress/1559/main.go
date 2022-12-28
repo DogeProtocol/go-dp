@@ -18,7 +18,8 @@
 package main
 
 import (
-	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -32,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -53,9 +53,9 @@ func main() {
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
-	faucets := make([]*ecdsa.PrivateKey, 128)
+	faucets := make([]*oqs.PrivateKey, 128)
 	for i := 0; i < len(faucets); i++ {
-		faucets[i], _ = crypto.GenerateKey()
+		faucets[i], _ = cryptopq.GenerateKey()
 	}
 	// Pre-generate the ethash mining DAG so we don't race
 	ethash.MakeDataset(1, filepath.Join(os.Getenv("HOME"), ".ethash"))
@@ -139,17 +139,24 @@ func main() {
 	}
 }
 
-func makeTransaction(nonce uint64, privKey *ecdsa.PrivateKey, signer types.Signer, baseFee *big.Int) *types.Transaction {
+func makeTransaction(nonce uint64, privKey *oqs.PrivateKey, signer types.Signer, baseFee *big.Int) *types.Transaction {
 	// Generate legacy transaction
 	if rand.Intn(2) == 0 {
-		tx, err := types.SignTx(types.NewTransaction(nonce, crypto.PubkeyToAddress(privKey.PublicKey), new(big.Int), 21000, big.NewInt(100000000000+rand.Int63n(65536)), nil), signer, privKey)
+		pubKeyAddr, err := cryptopq.PubkeyToAddress(privKey.PublicKey)
+		if err != nil {
+			panic(err)
+		}
+		tx, err := types.SignTx(types.NewTransaction(nonce, pubKeyAddr, new(big.Int), 21000, big.NewInt(100000000000+rand.Int63n(65536)), nil), signer, privKey)
 		if err != nil {
 			panic(err)
 		}
 		return tx
 	}
 	// Generate eip 1559 transaction
-	recipient := crypto.PubkeyToAddress(privKey.PublicKey)
+	recipient, err := cryptopq.PubkeyToAddress(privKey.PublicKey)
+	if err != nil {
+		panic(err)
+	}
 
 	// Feecap and feetip are limited to 32 bytes. Offer a sightly
 	// larger buffer for creating both valid and invalid transactions.
@@ -185,7 +192,7 @@ func makeTransaction(nonce uint64, privKey *ecdsa.PrivateKey, signer types.Signe
 
 // makeGenesis creates a custom Ethash genesis block based on some pre-defined
 // faucet accounts.
-func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
+func makeGenesis(faucets []*oqs.PrivateKey) *core.Genesis {
 	genesis := core.DefaultRopstenGenesisBlock()
 
 	genesis.Config = params.AllEthashProtocolChanges
@@ -200,7 +207,11 @@ func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
-		genesis.Alloc[crypto.PubkeyToAddress(faucet.PublicKey)] = core.GenesisAccount{
+		pubKeyAddr, err := cryptopq.PubkeyToAddress(faucet.PublicKey)
+		if err != nil {
+			panic(err)
+		}
+		genesis.Alloc[pubKeyAddr] = core.GenesisAccount{
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}

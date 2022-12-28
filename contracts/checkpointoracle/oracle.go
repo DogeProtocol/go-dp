@@ -21,6 +21,7 @@ package checkpointoracle
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -85,12 +86,13 @@ func (oracle *CheckpointOracle) RegisterCheckpoint(opts *bind.TransactOpts, inde
 		v []uint8
 	)
 	for i := 0; i < len(sigs); i++ {
-		if len(sigs[i]) != 65 {
+		if len(sigs[i]) > oqs.SignPublicKeyLen {
 			return nil, errors.New("invalid signature")
 		}
 		r = append(r, common.BytesToHash(sigs[i][:32]))
 		s = append(s, common.BytesToHash(sigs[i][32:64]))
-		v = append(v, sigs[i][64])
+		v = append(v, 1 + 27)
+
 	}
 	return oracle.contract.SetCheckpoint(opts, rnum, rhash, common.BytesToHash(hash), index, v, r, s)
 }

@@ -17,9 +17,10 @@
 package types
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -91,9 +92,9 @@ func LatestSignerForChainID(chainID *big.Int) Signer {
 }
 
 // SignTx signs the transaction using the given signer and private key.
-func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
+func SignTx(tx *Transaction, s Signer, prv *oqs.PrivateKey) (*Transaction, error) {
 	h := s.Hash(tx)
-	sig, err := crypto.Sign(h[:], prv)
+	sig, err := cryptopq.Sign(h[:], prv)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +102,10 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 }
 
 // SignNewTx creates a transaction and signs it.
-func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
+func SignNewTx(prv *oqs.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
 	tx := NewTx(txdata)
 	h := s.Hash(tx)
-	sig, err := crypto.Sign(h[:], prv)
+	sig, err := cryptopq.Sign(h[:], prv)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, er
 
 // MustSignNewTx creates a transaction and signs it.
 // This panics if the transaction cannot be signed.
-func MustSignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) *Transaction {
+func MustSignNewTx(prv *oqs.PrivateKey, s Signer, txdata TxData) *Transaction {
 	tx, err := SignNewTx(prv, s, txdata)
 	if err != nil {
 		panic(err)
@@ -138,7 +139,6 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache.from, nil
 		}
 	}
-
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -211,7 +211,8 @@ func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 		return nil, nil, nil, ErrInvalidChainId
 	}
 	R, S, _ = decodeSignature(sig)
-	V = big.NewInt(int64(sig[64]))
+
+	V = big.NewInt(1)
 	return R, S, V, nil
 }
 
@@ -286,7 +287,7 @@ func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *bi
 			return nil, nil, nil, ErrInvalidChainId
 		}
 		R, S, _ = decodeSignature(sig)
-		V = big.NewInt(int64(sig[64]))
+		V = big.NewInt(1)
 	default:
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
@@ -366,6 +367,7 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
+
 	V, R, S := tx.RawSignatureValues()
 	V = new(big.Int).Sub(V, s.chainIdMul)
 	V.Sub(V, big8)
@@ -380,7 +382,8 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 	}
 	R, S, V = decodeSignature(sig)
 	if s.chainId.Sign() != 0 {
-		V = big.NewInt(int64(sig[64] + 35))
+
+		V = big.NewInt(int64(1 + 35))
 		V.Add(V, s.chainIdMul)
 	}
 	return R, S, V, nil
@@ -470,12 +473,15 @@ func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 }
 
 func decodeSignature(sig []byte) (r, s, v *big.Int) {
-	if len(sig) != crypto.SignatureLength {
-		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), crypto.SignatureLength))
+
+	if len(sig) < oqs.SignatureLen {
+		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), oqs.SignatureLen))
 	}
-	r = new(big.Int).SetBytes(sig[:32])
-	s = new(big.Int).SetBytes(sig[32:64])
-	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+
+	r = new(big.Int).SetBytes(sig[:len(sig)-oqs.PublicKeyLen])
+	s = new(big.Int).SetBytes(sig[len(sig)-oqs.PublicKeyLen:])
+	v = new(big.Int).SetBytes([]byte{1 + 27})
+
 	return r, s, v
 }
 
@@ -484,21 +490,23 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 		return common.Address{}, ErrInvalidSig
 	}
 	V := byte(Vb.Uint64() - 27)
-	if !crypto.ValidateSignatureValues(V, R, S, homestead) {
+	if !cryptopq.ValidateSignatureValues(V, R, S, homestead) {
 		return common.Address{}, ErrInvalidSig
 	}
 	// encode the signature in uncompressed format
 	r, s := R.Bytes(), S.Bytes()
-	sig := make([]byte, crypto.SignatureLength)
-	copy(sig[32-len(r):32], r)
-	copy(sig[64-len(s):64], s)
-	sig[64] = V
+	sig := make([]byte, len(r)+len(s))
+
+
+
+	copy(sig[:len(r)], r)
+	copy(sig[len(r):], s)
 	// recover the public key from the signature
-	pub, err := crypto.Ecrecover(sighash[:], sig)
+	pub, err := cryptopq.RecoverPublicKey(sighash[:], sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	if len(pub) == 0 || pub[0] != 4 {
+	if len(pub) != 0 && len(pub) != oqs.PublicKeyLen || pub[0] != oqs.PublicKeyStartVal {
 		return common.Address{}, errors.New("invalid public key")
 	}
 	var addr common.Address

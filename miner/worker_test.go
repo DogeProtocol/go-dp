@@ -17,6 +17,8 @@
 package miner
 
 import (
+	"github.com/ethereum/go-ethereum/consensus/proofofstake"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -49,17 +51,18 @@ const (
 
 var (
 	// Test chain configurations
-	testTxPoolConfig  core.TxPoolConfig
-	ethashChainConfig *params.ChainConfig
-	cliqueChainConfig *params.ChainConfig
+	testTxPoolConfig        core.TxPoolConfig
+	ethashChainConfig       *params.ChainConfig
+	cliqueChainConfig       *params.ChainConfig
+	proofofstakeChainConfig *params.ChainConfig
 
 	// Test accounts
-	testBankKey, _  = crypto.GenerateKey()
-	testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	testBankKey, _  = cryptopq.GenerateKey()
+	testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
 	testBankFunds   = big.NewInt(1000000000000000000)
 
-	testUserKey, _  = crypto.GenerateKey()
-	testUserAddress = crypto.PubkeyToAddress(testUserKey.PublicKey)
+	testUserKey, _  = cryptopq.GenerateKey()
+	testUserAddress = cryptopq.PubkeyToAddressNoError(testUserKey.PublicKey)
 
 	// Test transactions
 	pendingTxs []*types.Transaction
@@ -78,6 +81,12 @@ func init() {
 	ethashChainConfig = params.TestChainConfig
 	cliqueChainConfig = params.TestChainConfig
 	cliqueChainConfig.Clique = &params.CliqueConfig{
+		Period: 10,
+		Epoch:  30000,
+	}
+
+	proofofstakeChainConfig = params.TestChainConfig
+	proofofstakeChainConfig.ProofOfStake = &params.ProofOfStakeConfig{
 		Period: 10,
 		Epoch:  30000,
 	}
@@ -126,7 +135,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
 		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
 		e.Authorize(testBankAddress, func(account accounts.Account, s string, data []byte) ([]byte, error) {
-			return crypto.Sign(crypto.Keccak256(data), testBankKey)
+			return cryptopq.Sign(crypto.Keccak256(data), testBankKey)
 		})
 	case *ethash.Ethash:
 	default:
@@ -270,7 +279,9 @@ func TestEmptyWorkEthash(t *testing.T) {
 func TestEmptyWorkClique(t *testing.T) {
 	testEmptyWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
-
+func TestEmptyWorkProofOfStake(t *testing.T) {
+	testEmptyWork(t, proofofstakeChainConfig, proofofstake.New(proofofstakeChainConfig, rawdb.NewMemoryDatabase(), nil, common.Hash{}))
+}
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
 	defer engine.Close()
 
@@ -375,6 +386,10 @@ func TestRegenerateMiningBlockClique(t *testing.T) {
 	testRegenerateMiningBlock(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
+func TestRegenerateMiningBlockProofOfStake(t *testing.T) {
+	testRegenerateMiningBlock(t, proofofstakeChainConfig, proofofstake.New(proofofstakeChainConfig, rawdb.NewMemoryDatabase(), nil, common.Hash{}))
+}
+
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
 	defer engine.Close()
 
@@ -433,6 +448,10 @@ func TestAdjustIntervalEthash(t *testing.T) {
 
 func TestAdjustIntervalClique(t *testing.T) {
 	testAdjustInterval(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+}
+
+func TestAdjustIntervalProofOfStake(t *testing.T) {
+	testAdjustInterval(t, proofofstakeChainConfig, proofofstake.New(proofofstakeChainConfig, rawdb.NewMemoryDatabase(), nil, common.Hash{}))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

@@ -17,11 +17,12 @@
 package enode
 
 import (
-	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -42,19 +43,19 @@ var ValidSchemesForTesting = enr.SchemeMap{
 type V4ID struct{}
 
 // SignV4 signs a record using the v4 scheme.
-func SignV4(r *enr.Record, privkey *ecdsa.PrivateKey) error {
+func SignV4(r *enr.Record, privkey *oqs.PrivateKey) error {
 	// Copy r to avoid modifying it if signing fails.
 	cpy := *r
 	cpy.Set(enr.ID("v4"))
-	cpy.Set(Secp256k1(privkey.PublicKey))
+	cpy.Set(PqPubKey(privkey.PublicKey))
 
 	h := sha3.NewLegacyKeccak256()
 	rlp.Encode(h, cpy.AppendElements(nil))
-	sig, err := crypto.Sign(h.Sum(nil), privkey)
+	sig, err := cryptopq.Sign(h.Sum(nil), privkey)
 	if err != nil {
 		return err
 	}
-	sig = sig[:len(sig)-1] // remove v
+	////sig = sig[:len(sig)-1] // remove v
 	if err = cpy.SetSig(V4ID{}, sig); err == nil {
 		*r = cpy
 	}
@@ -63,53 +64,53 @@ func SignV4(r *enr.Record, privkey *ecdsa.PrivateKey) error {
 
 func (V4ID) Verify(r *enr.Record, sig []byte) error {
 	var entry s256raw
+
 	if err := r.Load(&entry); err != nil {
 		return err
-	} else if len(entry) != 33 {
+	} else if len(entry) != oqs.PublicKeyLen {
 		return fmt.Errorf("invalid public key")
 	}
-
 	h := sha3.NewLegacyKeccak256()
 	rlp.Encode(h, r.AppendElements(nil))
-	if !crypto.VerifySignature(entry, h.Sum(nil), sig) {
+	if !cryptopq.VerifySignature(entry, h.Sum(nil), sig) {
 		return enr.ErrInvalidSig
 	}
 	return nil
 }
 
 func (V4ID) NodeAddr(r *enr.Record) []byte {
-	var pubkey Secp256k1
+	var pubkey PqPubKey
 	err := r.Load(&pubkey)
 	if err != nil {
 		return nil
 	}
-	buf := make([]byte, 64)
-	math.ReadBits(pubkey.X, buf[:32])
-	math.ReadBits(pubkey.Y, buf[32:])
+	buf := make([]byte, oqs.PublicKeyLen)
+	math.ReadBits(pubkey.N, buf)
 	return crypto.Keccak256(buf)
 }
 
-// Secp256k1 is the "secp256k1" key, which holds a public key.
-type Secp256k1 ecdsa.PublicKey
+// PqPubKey is the "secp256k1" key, which holds a public key.
+type PqPubKey oqs.PublicKey
 
-func (v Secp256k1) ENRKey() string { return "secp256k1" }
+func (v PqPubKey) ENRKey() string { return "secp256k1" }
+
 
 // EncodeRLP implements rlp.Encoder.
-func (v Secp256k1) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, crypto.CompressPubkey((*ecdsa.PublicKey)(&v)))
+func (v PqPubKey) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, cryptopq.CompressPubkey((*oqs.PublicKey)(&v)))
 }
 
 // DecodeRLP implements rlp.Decoder.
-func (v *Secp256k1) DecodeRLP(s *rlp.Stream) error {
+func (v *PqPubKey) DecodeRLP(s *rlp.Stream) error {
 	buf, err := s.Bytes()
 	if err != nil {
 		return err
 	}
-	pk, err := crypto.DecompressPubkey(buf)
+	pk, err := cryptopq.DecompressPubkey(buf)
 	if err != nil {
 		return err
 	}
-	*v = (Secp256k1)(*pk)
+	*v = (PqPubKey)(*pk)
 	return nil
 }
 
@@ -125,12 +126,12 @@ type v4CompatID struct {
 }
 
 func (v4CompatID) Verify(r *enr.Record, sig []byte) error {
-	var pubkey Secp256k1
+	var pubkey PqPubKey
 	return r.Load(&pubkey)
 }
 
-func signV4Compat(r *enr.Record, pubkey *ecdsa.PublicKey) {
-	r.Set((*Secp256k1)(pubkey))
+func signV4Compat(r *enr.Record, pubkey *oqs.PublicKey) {
+	r.Set((*PqPubKey)(pubkey))
 	if err := r.SetSig(v4CompatID{}, []byte{}); err != nil {
 		panic(err)
 	}

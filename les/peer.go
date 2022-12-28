@@ -17,9 +17,9 @@
 package les
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"math/rand"
 	"net"
@@ -1286,7 +1286,7 @@ type clientPeerSet struct {
 	lock   sync.RWMutex
 	closed bool
 
-	privateKey                   *ecdsa.PrivateKey
+	privateKey                   *oqs.PrivateKey
 	lastAnnounce, signedAnnounce announceData
 }
 
@@ -1358,7 +1358,7 @@ func (ps *clientPeerSet) len() int {
 
 // setSignerKey sets the signer key for signed announcements. Should be called before
 // starting the protocol handler.
-func (ps *clientPeerSet) setSignerKey(privateKey *ecdsa.PrivateKey) {
+func (ps *clientPeerSet) setSignerKey(privateKey *oqs.PrivateKey) {
 	ps.privateKey = privateKey
 }
 

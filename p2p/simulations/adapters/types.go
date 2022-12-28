@@ -17,16 +17,16 @@
 package adapters
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"net"
 	"os"
 	"strconv"
 
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -42,7 +42,6 @@ import (
 // * SimNode    - An in-memory node
 // * ExecNode   - A child process node
 // * DockerNode - A Docker container node
-//
 type Node interface {
 	// Addr returns the node's address (e.g. an Enode URL)
 	Addr() []byte
@@ -85,7 +84,7 @@ type NodeConfig struct {
 
 	// PrivateKey is the node's private key which is used by the devp2p
 	// stack to encrypt communications
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey *oqs.PrivateKey
 
 	// Enable peer events for Msgs
 	EnableMsgEvents bool
@@ -161,7 +160,11 @@ func (n *NodeConfig) MarshalJSON() ([]byte, error) {
 		LogVerbosity:    int(n.LogVerbosity),
 	}
 	if n.PrivateKey != nil {
-		confJSON.PrivateKey = hex.EncodeToString(crypto.FromECDSA(n.PrivateKey))
+		priKeyData, err := cryptopq.FromOQS(n.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		confJSON.PrivateKey = hex.EncodeToString(priKeyData)
 	}
 	return json.Marshal(confJSON)
 }
@@ -185,7 +188,7 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		privKey, err := crypto.ToECDSA(key)
+		privKey, err := cryptopq.ToOQS(key)
 		if err != nil {
 			return err
 		}
@@ -211,7 +214,7 @@ func (n *NodeConfig) Node() *enode.Node {
 // RandomNodeConfig returns node configuration with a randomly generated ID and
 // PrivateKey
 func RandomNodeConfig() *NodeConfig {
-	prvkey, err := crypto.GenerateKey()
+	prvkey, err := cryptopq.GenerateKey()
 	if err != nil {
 		panic("unable to generate key")
 	}

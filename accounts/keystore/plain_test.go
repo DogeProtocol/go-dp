@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,7 +29,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore) {
@@ -107,7 +107,9 @@ func TestImportPreSaleKey(t *testing.T) {
 	// file content of a presale key file generated with:
 	// python pyethsaletool.py genwallet
 	// with password "foo"
-	fileContent := "{\"encseed\": \"26d87f5f2bf9835f9a47eefae571bc09f9107bb13d54ff12a4ec095d01f83897494cf34f7bed2ed34126ecba9db7b62de56c9d7cd136520a0427bfb11b8954ba7ac39b90d4650d3448e31185affcd74226a68f1e94b1108e6e0a4a91cdd83eba\", \"ethaddr\": \"d4584b5f6229b7be90727b0fc8c6b91bb427821f\", \"email\": \"gustav.simonsson@gmail.com\", \"btcaddr\": \"1EVknXyFC68kKNLkh6YnKzW41svSRoaAcx\"}"
+	key, _ := cryptopq.GenerateKey()
+	hexkey := hex.EncodeToString(key.D.Bytes())
+	fileContent := "{\"encseed\":" + hexkey + "\",\"ethaddr\": \"d4584b5f6229b7be90727b0fc8c6b91bb427821f\", \"email\": \"gustav.simonsson@gmail.com\", \"btcaddr\": \"1EVknXyFC68kKNLkh6YnKzW41svSRoaAcx\"}"
 	pass := "foo"
 	account, _, err := importPreSaleKey(ks, []byte(fileContent), pass)
 	if err != nil {
@@ -198,7 +200,11 @@ func TestV1_2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privHex := hex.EncodeToString(crypto.FromECDSA(k.PrivateKey))
+	pkey, err := cryptopq.FromOQS(k.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privHex := hex.EncodeToString(pkey)
 	expectedHex := "d1b1178d3529626a1a93e073f65028370d14c7eb0936eb42abef05db6f37ad7d"
 	if privHex != expectedHex {
 		t.Fatal(fmt.Errorf("Unexpected privkey: %v, expected %v", privHex, expectedHex))

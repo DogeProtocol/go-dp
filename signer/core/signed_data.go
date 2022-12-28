@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"mime"
 	"reflect"
@@ -153,9 +154,7 @@ func (api *SignerAPI) sign(req *SignDataRequest, legacyV bool) (hexutil.Bytes, e
 	if err != nil {
 		return nil, err
 	}
-	if legacyV {
-		signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
-	}
+
 	return signature, nil
 }
 
@@ -238,6 +237,7 @@ func (api *SignerAPI) determineSignatureFormat(ctx context.Context, contentType 
 			return nil, useEthereumV, err
 		}
 		// The incoming clique header is already truncated, sent to us with a extradata already shortened
+
 		if len(header.Extra) < 65 {
 			// Need to add it back, to get a suitable length for hashing
 			newExtra := make([]byte, len(header.Extra)+65)
@@ -653,19 +653,13 @@ func (api *SignerAPI) EcRecover(ctx context.Context, data hexutil.Bytes, sig hex
 	// the V value must be be 27 or 28 for legacy reasons.
 	//
 	// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
-	if len(sig) != 65 {
-		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
-	}
-	if sig[64] != 27 && sig[64] != 28 {
-		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
-	}
-	sig[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
+
 	hash := accounts.TextHash(data)
-	rpk, err := crypto.SigToPub(hash, sig)
+	rpk, err := cryptopq.SigToPub(hash, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return crypto.PubkeyToAddress(*rpk), nil
+	return cryptopq.PubkeyToAddress(*rpk)
 }
 
 // UnmarshalValidatorData converts the bytes input to typed data

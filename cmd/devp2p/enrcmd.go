@@ -89,7 +89,7 @@ func dumpRecord(out io.Writer, r *enr.Record) {
 }
 
 func dumpNodeURL(out io.Writer, n *enode.Node) {
-	var key enode.Secp256k1
+	var key enode.PqPubKey
 	if n.Load(&key) != nil {
 		return // no secp256k1 public key
 	}

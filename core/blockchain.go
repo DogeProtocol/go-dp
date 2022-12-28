@@ -339,7 +339,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}
 	}
 	// The first thing the node will do is reconstruct the verification data for
-	// the head block (ethash cache or clique voting snapshot). Might as well do
+	// the head block (ethash cache or clique or proofofstake voting snapshot). Might as well do
 	// it in advance.
 	bc.engine.VerifyHeader(bc, bc.CurrentHeader(), true)
 
@@ -1607,10 +1607,8 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	if len(chain) == 0 {
 		return 0, nil
 	}
-
 	bc.blockProcFeed.Send(true)
 	defer bc.blockProcFeed.Send(false)
-
 	// Remove already known canon-blocks
 	var (
 		block, prev *types.Block
@@ -1634,7 +1632,6 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	n, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
-
 	return n, err
 }
 
@@ -1669,7 +1666,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	}
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
-
 	var (
 		stats     = insertStats{startTime: mclock.Now()}
 		lastCanon *types.Block
@@ -1683,17 +1679,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
-
 	for i, block := range chain {
 		headers[i] = block.Header()
 		seals[i] = verifySeals
 	}
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
-	defer close(abort)
 
+	defer close(abort)
 	// Peek the error for the first block to decide the directing import logic
 	it := newInsertIterator(chain, results, bc.validator)
-
 	block, err := it.next()
 
 	// Left-trim all the known blocks
@@ -1789,7 +1783,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			return it.index, ErrBannedHash
 		}
 		// If the block is known (in the middle of the chain), it's a special case for
-		// Clique blocks where they can share state among each other, so importing an
+		// Clique or ProofOfStake blocks where they can share state among each other, so importing an
 		// older block might complete the state of the subsequent one. In this case,
 		// just skip the block (we already validated it once fully (and crashed), since
 		// its header and body was already in the database).
@@ -1798,12 +1792,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			if bc.chainConfig.Clique == nil {
 				logger = log.Warn
 			}
+			if bc.chainConfig.ProofOfStake == nil {
+				logger = log.Warn
+			}
 			logger("Inserted known block", "number", block.Number(), "hash", block.Hash(),
 				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
 			// Special case. Commit the empty receipt slice if we meet the known
-			// block in the middle. It can only happen in the clique chain. Whenever
+			// block in the middle. It can only happen in the clique or proofofstake chain. Whenever
 			// we insert blocks via `insertSideChain`, we only commit `td`, `header`
 			// and `body` if it's non-existent. Since we don't have receipts without
 			// reexecution, so nothing to commit. But if the sidechain will be adpoted
@@ -1822,7 +1819,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			stats.processed++
 
 			// We can assume that logs are empty here, since the only way for consecutive
-			// Clique blocks to have the same state is if there are no transactions.
+			// Clique or ProofOfStake blocks to have the same state is if there are no transactions.
 			lastCanon = block
 			continue
 		}
@@ -1956,7 +1953,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 	}
 	stats.ignored += it.remaining()
-
 	return it.index, err
 }
 

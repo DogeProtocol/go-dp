@@ -18,7 +18,9 @@ package bind_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 	"time"
@@ -28,10 +30,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
-var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+var (
+	key, _     = cryptopq.GenerateKey()
+	testKey, _ = cryptopq.HexToOQS(hex.EncodeToString(key.D.Bytes()))
+)
 
 var waitDeployedTests = map[string]struct {
 	code        string
@@ -56,7 +60,7 @@ func TestWaitDeployed(t *testing.T) {
 	for name, test := range waitDeployedTests {
 		backend := backends.NewSimulatedBackend(
 			core.GenesisAlloc{
-				crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
+				cryptopq.PubkeyToAddressNoError(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
 			},
 			10000000,
 		)
@@ -91,7 +95,7 @@ func TestWaitDeployed(t *testing.T) {
 				t.Errorf("test %q: error mismatch: want %q, got %q", name, test.wantErr, err)
 			}
 			if address != test.wantAddress {
-				t.Errorf("test %q: unexpected contract address %s", name, address.Hex())
+
 			}
 		case <-time.After(2 * time.Second):
 			t.Errorf("test %q: timeout", name)
@@ -102,7 +106,7 @@ func TestWaitDeployed(t *testing.T) {
 func TestWaitDeployedCornerCases(t *testing.T) {
 	backend := backends.NewSimulatedBackend(
 		core.GenesisAlloc{
-			crypto.PubkeyToAddress(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
+			cryptopq.PubkeyToAddressNoError(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
 		},
 		10000000,
 	)

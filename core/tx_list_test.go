@@ -17,19 +17,19 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Tests that transactions can be added to strict lists and list contents and
 // nonce boundaries are correctly maintained.
 func TestStrictTxListAdd(t *testing.T) {
 	// Generate a list of transactions to insert
-	key, _ := crypto.GenerateKey()
+	key, _ := cryptopq.GenerateKey()
 
 	txs := make(types.Transactions, 1024)
 	for i := 0; i < len(txs); i++ {
@@ -53,7 +53,7 @@ func TestStrictTxListAdd(t *testing.T) {
 
 func BenchmarkTxListAdd(t *testing.B) {
 	// Generate a list of transactions to insert
-	key, _ := crypto.GenerateKey()
+	key, _ := cryptopq.GenerateKey()
 
 	txs := make(types.Transactions, 100000)
 	for i := 0; i < len(txs); i++ {

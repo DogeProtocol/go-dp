@@ -18,13 +18,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/internal/v4test"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
@@ -218,7 +218,11 @@ func discv4Test(ctx *cli.Context) error {
 // startV4 starts an ephemeral discovery V4 node.
 func startV4(ctx *cli.Context) *discover.UDPv4 {
 	ln, config := makeDiscoveryConfig(ctx)
-	socket := listen(ln, ctx.String(listenAddrFlag.Name))
+	socket, err := listen(ln, ctx.String(listenAddrFlag.Name))
+	if err != nil {
+		exit(err)
+	}
+
 	disc, err := discover.ListenV4(socket, ln, config)
 	if err != nil {
 		exit(err)
@@ -230,13 +234,13 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	var cfg discover.Config
 
 	if ctx.IsSet(nodekeyFlag.Name) {
-		key, err := crypto.HexToECDSA(ctx.String(nodekeyFlag.Name))
+		key, err := cryptopq.HexToOQS(ctx.String(nodekeyFlag.Name))
 		if err != nil {
 			exit(fmt.Errorf("-%s: %v", nodekeyFlag.Name, err))
 		}
 		cfg.PrivateKey = key
 	} else {
-		cfg.PrivateKey, _ = crypto.GenerateKey()
+		cfg.PrivateKey, _ = cryptopq.GenerateKey()
 	}
 
 	if commandHasFlag(ctx, bootnodesFlag) {
@@ -256,7 +260,7 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	return ln, cfg
 }
 
-func listen(ln *enode.LocalNode, addr string) *net.UDPConn {
+func listen(ln *enode.LocalNode, addr string) (discover.UdpSessionManager, error) {
 	if addr == "" {
 		addr = "0.0.0.0:0"
 	}
@@ -264,7 +268,6 @@ func listen(ln *enode.LocalNode, addr string) *net.UDPConn {
 	if err != nil {
 		exit(err)
 	}
-	usocket := socket.(*net.UDPConn)
 	uaddr := socket.LocalAddr().(*net.UDPAddr)
 	if uaddr.IP.IsUnspecified() {
 		ln.SetFallbackIP(net.IP{127, 0, 0, 1})
@@ -272,7 +275,9 @@ func listen(ln *enode.LocalNode, addr string) *net.UDPConn {
 		ln.SetFallbackIP(uaddr.IP)
 	}
 	ln.SetFallbackUDP(uaddr.Port)
-	return usocket
+
+	sessionManager, err := discover.CreateDpUdpSessionManager(addr)
+	return sessionManager, err
 }
 
 func parseBootnodes(ctx *cli.Context) ([]*enode.Node, error) {

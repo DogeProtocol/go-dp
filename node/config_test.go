@@ -18,13 +18,13 @@ package node
 
 import (
 	"bytes"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 )
 
@@ -118,7 +118,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 	keyfile := filepath.Join(dir, "unit-test", datadirPrivateKey)
 
 	// Configure a node with a preset key and ensure it's not persisted
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		t.Fatalf("failed to generate one-shot node key: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 	if _, err := os.Stat(keyfile); err != nil {
 		t.Fatalf("node key not persisted to data directory: %v", err)
 	}
-	if _, err = crypto.LoadECDSA(keyfile); err != nil {
+	if _, err = cryptopq.LoadOQS(keyfile); err != nil {
 		t.Fatalf("failed to load freshly persisted node key: %v", err)
 	}
 	blob1, err := ioutil.ReadFile(keyfile)

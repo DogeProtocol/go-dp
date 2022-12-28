@@ -59,6 +59,7 @@ func (w *wizard) makeGenesis() {
 	fmt.Println("Which consensus engine to use? (default = clique)")
 	fmt.Println(" 1. Ethash - proof-of-work")
 	fmt.Println(" 2. Clique - proof-of-authority")
+	fmt.Println(" 3. ProofOfStake - proof-of-stake")
 
 	choice := w.read()
 	switch {
@@ -103,6 +104,44 @@ func (w *wizard) makeGenesis() {
 		genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
 		for i, signer := range signers {
 			copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
+		}
+
+	case choice == "" || choice == "3":
+		// In the case of proofofstake, configure the consensus parameters
+		genesis.Difficulty = big.NewInt(1)
+		genesis.Config.ProofOfStake = &params.ProofOfStakeConfig{
+			Period: 15,
+			Epoch:  30000,
+		}
+		fmt.Println()
+		fmt.Println("How many seconds should blocks take? (default = 15)")
+		genesis.Config.ProofOfStake.Period = uint64(w.readDefaultInt(15))
+
+		// We also need the initial list of signers
+		fmt.Println()
+		fmt.Println("Which accounts are allowed to seal? (mandatory at least one)")
+
+		var validators []common.Address
+		for {
+			if address := w.readAddress(); address != nil {
+				validators = append(validators, *address)
+				continue
+			}
+			if len(validators) > 0 {
+				break
+			}
+		}
+		// Sort the signers and embed into the extra-data section
+		for i := 0; i < len(validators); i++ {
+			for j := i + 1; j < len(validators); j++ {
+				if bytes.Compare(validators[i][:], validators[j][:]) > 0 {
+					validators[i], validators[j] = validators[j], validators[i]
+				}
+			}
+		}
+		genesis.ExtraData = make([]byte, 32+len(validators)*common.AddressLength+65)
+		for i, validator := range validators {
+			copy(genesis.ExtraData[32+i*common.AddressLength:], validator[:])
 		}
 
 	default:

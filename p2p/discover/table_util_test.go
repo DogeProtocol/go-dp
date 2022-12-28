@@ -18,16 +18,16 @@ package discover
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/rand"
 	"net"
 	"sort"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -228,12 +228,12 @@ func sortedByDistanceTo(distbase enode.ID, slice []*node) bool {
 }
 
 // hexEncPrivkey decodes h as a private key.
-func hexEncPrivkey(h string) *ecdsa.PrivateKey {
+func hexEncPrivkey(h string) *oqs.PrivateKey {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)
 	}
-	key, err := crypto.ToECDSA(b)
+	key, err := cryptopq.ToOQS(b)
 	if err != nil {
 		panic(err)
 	}

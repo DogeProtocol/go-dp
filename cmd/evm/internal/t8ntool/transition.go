@@ -17,10 +17,11 @@
 package t8ntool
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -32,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -232,7 +232,7 @@ func Main(ctx *cli.Context) error {
 // txWithKey is a helper-struct, to allow us to use the types.Transaction along with
 // a `secretKey`-field, for input
 type txWithKey struct {
-	key *ecdsa.PrivateKey
+	key *oqs.PrivateKey
 	tx  *types.Transaction
 }
 
@@ -247,10 +247,10 @@ func (t *txWithKey) UnmarshalJSON(input []byte) error {
 	}
 	if key.Key != nil {
 		k := key.Key.Hex()[2:]
-		if ecdsaKey, err := crypto.HexToECDSA(k); err != nil {
+		if oqsKey, err := cryptopq.HexToOQS(k); err != nil {
 			return err
 		} else {
-			t.key = ecdsaKey
+			t.key = oqsKey
 		}
 	}
 	// Now, read the transaction itself
@@ -265,8 +265,9 @@ func (t *txWithKey) UnmarshalJSON(input []byte) error {
 // signUnsignedTransactions converts the input txs to canonical transactions.
 //
 // The transactions can have two forms, either
-//   1. unsigned or
-//   2. signed
+//  1. unsigned or
+//  2. signed
+
 // For (1), r, s, v, need so be zero, and the `secretKey` needs to be set.
 // If so, we sign it here and now, with the given `secretKey`
 // If the condition above is not met, then it's considered a signed transaction.

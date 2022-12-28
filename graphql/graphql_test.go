@@ -17,7 +17,9 @@
 package graphql
 
 import (
+	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -30,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
@@ -188,6 +189,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not read from response body: %v", err)
 		}
+
 		if have := string(bodyBytes); have != tt.want {
 			t.Errorf("testcase %d %s,\nhave:\n%v\nwant:\n%v", i, tt.body, have, tt.want)
 		}
@@ -273,8 +275,14 @@ func createGQLService(t *testing.T, stack *node.Node) {
 
 func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	// create backend
-	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	address := crypto.PubkeyToAddress(key.PublicKey)
+
+	privtestkey, _ := cryptopq.GenerateKey()
+	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
+	key, _ := cryptopq.HexToOQS(hextestkey)
+	address, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		t.Fatalf("PubkeyToAddress")
+	}
 	funds := big.NewInt(1000000000000000)
 	dad := common.HexToAddress("0x0000000000000000000000000000000000000dad")
 

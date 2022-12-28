@@ -19,11 +19,11 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -68,13 +68,20 @@ make sure to use this feature with great caution!`,
 
 		// Output all relevant information we can retrieve.
 		showPrivate := ctx.Bool("private")
+		pubKey, err := cryptopq.FromOQSPub(&key.PrivateKey.PublicKey)
+		if err != nil {
+			utils.Fatalf("FromOQSPub", err)
+		}
 		out := outputInspect{
-			Address: key.Address.Hex(),
-			PublicKey: hex.EncodeToString(
-				crypto.FromECDSAPub(&key.PrivateKey.PublicKey)),
+			Address:   key.Address.Hex(),
+			PublicKey: hex.EncodeToString(pubKey),
 		}
 		if showPrivate {
-			out.PrivateKey = hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))
+			priKey, err := cryptopq.FromOQS(key.PrivateKey)
+			if err != nil {
+				utils.Fatalf("FromOQS", err)
+			}
+			out.PrivateKey = hex.EncodeToString(priKey)
 		}
 
 		if ctx.Bool(jsonFlag.Name) {

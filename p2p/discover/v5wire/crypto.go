@@ -19,14 +19,15 @@ package v5wire
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"errors"
 	"fmt"
+	"math/big"
+
+	"errors"
+
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"hash"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"golang.org/x/crypto/hkdf"
 )
@@ -40,27 +41,16 @@ const (
 // Nonce represents a nonce used for AES/GCM.
 type Nonce [gcmNonceSize]byte
 
-// EncodePubkey encodes a public key.
-func EncodePubkey(key *ecdsa.PublicKey) []byte {
-	switch key.Curve {
-	case crypto.S256():
-		return crypto.CompressPubkey(key)
-	default:
-		panic("unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
-	}
-}
+func EncodePubkey(key *oqs.PublicKey) []byte {
 
+		return cryptopq.CompressPubkey(key)
+
+}
 // DecodePubkey decodes a public key in compressed format.
-func DecodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
-	switch curve {
-	case crypto.S256():
-		if len(e) != 33 {
-			return nil, errors.New("wrong size public key data")
-		}
-		return crypto.DecompressPubkey(e)
-	default:
-		return nil, fmt.Errorf("unsupported curve %s in DecodePubkey", curve.Params().Name)
-	}
+
+func DecodePubkey(e []byte) (*oqs.PublicKey, error) {
+	pub, error := cryptopq.DecompressPubkey(e)
+	return pub, error
 }
 
 // idNonceHash computes the ID signature hash used in the handshake.
@@ -74,18 +64,14 @@ func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte 
 }
 
 // makeIDSignature creates the ID nonce signature.
-func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
+func makeIDSignature(hash hash.Hash, key *oqs.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
 	input := idNonceHash(hash, challenge, ephkey, destID)
-	switch key.Curve {
-	case crypto.S256():
-		idsig, err := crypto.Sign(input, key)
-		if err != nil {
-			return nil, err
-		}
-		return idsig[:len(idsig)-1], nil // remove recovery ID
-	default:
-		return nil, fmt.Errorf("unsupported curve %s", key.Curve.Params().Name)
+
+	idsig, err := cryptopq.Sign(input, key)
+	if err != nil {
+		return nil, err
 	}
+	return idsig, nil
 }
 
 // s256raw is an unparsed secp256k1 public key ENR entry.
@@ -102,7 +88,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 			return errors.New("no secp256k1 public key in record")
 		}
 		input := idNonceHash(hash, challenge, ephkey, destID)
-		if !crypto.VerifySignature(pubkey, input, sig) {
+		if !cryptopq.VerifySignature(pubkey, input, sig) {
 			return errInvalidNonceSig
 		}
 		return nil
@@ -114,7 +100,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 type hashFn func() hash.Hash
 
 // deriveKeys creates the session keys.
-func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
+func deriveKeys(hash hashFn, priv *oqs.PrivateKey, pub *oqs.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
 	const text = "discovery v5 key agreement"
 	var info = make([]byte, 0, len(text)+len(n1)+len(n2))
 	info = append(info, text...)
@@ -127,6 +113,7 @@ func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n
 	}
 	kdf := hkdf.New(hash, eph, challenge, info)
 	sec := session{writeKey: make([]byte, aesKeySize), readKey: make([]byte, aesKeySize)}
+
 	kdf.Read(sec.writeKey)
 	kdf.Read(sec.readKey)
 	for i := range eph {
@@ -136,15 +123,17 @@ func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n
 }
 
 // ecdh creates a shared secret.
-func ecdh(privkey *ecdsa.PrivateKey, pubkey *ecdsa.PublicKey) []byte {
-	secX, secY := pubkey.ScalarMult(pubkey.X, pubkey.Y, privkey.D.Bytes())
+func ecdh(privkey *oqs.PrivateKey, pubkey *oqs.PublicKey) []byte {
+
+	d := privkey.D
+	n := pubkey.N
+	secX := big.NewInt(0).Mul(d, n)
 	if secX == nil {
 		return nil
 	}
-	sec := make([]byte, 33)
-	sec[0] = 0x02 | byte(secY.Bit(0))
-	math.ReadBits(secX, sec[1:])
-	return sec
+
+	return secX.Bytes()
+
 }
 
 // encryptGCM encrypts pt using AES-GCM with the given key and nonce. The ciphertext is

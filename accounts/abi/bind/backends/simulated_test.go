@@ -19,7 +19,10 @@ package backends
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -33,13 +36,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 func TestSimulatedBackend(t *testing.T) {
 	var gasLimit uint64 = 8000029
-	key, _ := crypto.GenerateKey() // nolint: gosec
+	key, _ := cryptopq.GenerateKey() // nolint: gosec
 	auth, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	genAlloc := make(core.GenesisAlloc)
 	genAlloc[auth.From] = core.GenesisAccount{Balance: big.NewInt(9223372036854775807)}
@@ -66,12 +68,10 @@ func TestSimulatedBackend(t *testing.T) {
 	var gas uint64 = 3000000
 	tx := types.NewContractCreation(0, big.NewInt(0), gas, gasPrice, common.FromHex(code))
 	tx, _ = types.SignTx(tx, types.HomesteadSigner{}, key)
-
 	err = sim.SendTransaction(context.Background(), tx)
 	if err != nil {
 		t.Fatal("error sending transaction")
 	}
-
 	txHash = tx.Hash()
 	_, isPending, err = sim.TransactionByHash(context.Background(), txHash)
 	if err != nil {
@@ -91,19 +91,21 @@ func TestSimulatedBackend(t *testing.T) {
 	}
 }
 
-var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+var key, _ = oqs.GenerateKey()
+var hexKey = hex.EncodeToString(key.D.Bytes())
+var testKey, _ = cryptopq.HexToOQS(hexKey)
 
-//  the following is based on this contract:
-//  contract T {
-//  	event received(address sender, uint amount, bytes memo);
-//  	event receivedAddr(address sender);
+//	 the following is based on this contract:
+//	 contract T {
+//	 	event received(address sender, uint amount, bytes memo);
+//	 	event receivedAddr(address sender);
 //
-//  	function receive(bytes calldata memo) external payable returns (string memory res) {
-//  		emit received(msg.sender, msg.value, memo);
-//  		emit receivedAddr(msg.sender);
-//		    return "hello world";
-//  	}
-//  }
+//	 	function receive(bytes calldata memo) external payable returns (string memory res) {
+//	 		emit received(msg.sender, msg.value, memo);
+//	 		emit receivedAddr(msg.sender);
+//			    return "hello world";
+//	 	}
+//	 }
 const abiJSON = `[ { "constant": false, "inputs": [ { "name": "memo", "type": "bytes" } ], "name": "receive", "outputs": [ { "name": "res", "type": "string" } ], "payable": true, "stateMutability": "payable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" }, { "indexed": false, "name": "amount", "type": "uint256" }, { "indexed": false, "name": "memo", "type": "bytes" } ], "name": "received", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" } ], "name": "receivedAddr", "type": "event" } ]`
 const abiBin = `0x608060405234801561001057600080fd5b506102a0806100206000396000f3fe60806040526004361061003b576000357c010000000000000000000000000000000000000000000000000000000090048063a69b6ed014610040575b600080fd5b6100b76004803603602081101561005657600080fd5b810190808035906020019064010000000081111561007357600080fd5b82018360208201111561008557600080fd5b803590602001918460018302840111640100000000831117156100a757600080fd5b9091929391929390505050610132565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100f75780820151818401526020810190506100dc565b50505050905090810190601f1680156101245780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b60607f75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed33348585604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001848152602001806020018281038252848482818152602001925080828437600081840152601f19601f8201169050808301925050509550505050505060405180910390a17f46923992397eac56cf13058aced2a1871933622717e27b24eabc13bf9dd329c833604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a16040805190810160405280600b81526020017f68656c6c6f20776f726c6400000000000000000000000000000000000000000081525090509291505056fea165627a7a72305820ff0c57dad254cfeda48c9cfb47f1353a558bccb4d1bc31da1dae69315772d29e0029`
 const deployedCode = `60806040526004361061003b576000357c010000000000000000000000000000000000000000000000000000000090048063a69b6ed014610040575b600080fd5b6100b76004803603602081101561005657600080fd5b810190808035906020019064010000000081111561007357600080fd5b82018360208201111561008557600080fd5b803590602001918460018302840111640100000000831117156100a757600080fd5b9091929391929390505050610132565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100f75780820151818401526020810190506100dc565b50505050905090810190601f1680156101245780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b60607f75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed33348585604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001848152602001806020018281038252848482818152602001925080828437600081840152601f19601f8201169050808301925050509550505050505060405180910390a17f46923992397eac56cf13058aced2a1871933622717e27b24eabc13bf9dd329c833604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a16040805190810160405280600b81526020017f68656c6c6f20776f726c6400000000000000000000000000000000000000000081525090509291505056fea165627a7a72305820ff0c57dad254cfeda48c9cfb47f1353a558bccb4d1bc31da1dae69315772d29e0029`
@@ -120,7 +122,10 @@ func simTestBackend(testAddr common.Address) *SimulatedBackend {
 }
 
 func TestNewSimulatedBackend(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 	expectedBal := big.NewInt(10000000000000000)
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -158,13 +163,15 @@ func TestAdjustTime(t *testing.T) {
 }
 
 func TestNewAdjustTimeFail(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 	sim := simTestBackend(testAddr)
 
 	// Create tx and send
 	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
 	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
 	tx := types.NewTransaction(0, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
 	signedTx, err := types.SignTx(tx, types.HomesteadSigner{}, testKey)
 	if err != nil {
@@ -176,7 +183,6 @@ func TestNewAdjustTimeFail(t *testing.T) {
 		t.Error("Expected adjust time to error on non-empty block")
 	}
 	sim.Commit()
-
 	prevTime := sim.pendingBlock.Time()
 	if err := sim.AdjustTime(time.Minute); err != nil {
 		t.Error(err)
@@ -200,7 +206,11 @@ func TestNewAdjustTimeFail(t *testing.T) {
 }
 
 func TestBalanceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	expectedBal := big.NewInt(10000000000000000)
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -273,7 +283,10 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestNonceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -326,7 +339,10 @@ func TestNonceAt(t *testing.T) {
 }
 
 func TestSendTransaction(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -360,7 +376,10 @@ func TestSendTransaction(t *testing.T) {
 }
 
 func TestTransactionByHash(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := NewSimulatedBackend(
 		core.GenesisAlloc{
@@ -426,8 +445,12 @@ func TestEstimateGas(t *testing.T) {
 	const contractAbi = "[{\"inputs\":[],\"name\":\"Assert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OOG\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PureRevert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Revert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Valid\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 	const contractBin = "0x60806040523480156100115760006000fd5b50610017565b61016e806100266000396000f3fe60806040523480156100115760006000fd5b506004361061005c5760003560e01c806350f6fe3414610062578063aa8b1d301461006c578063b9b046f914610076578063d8b9839114610080578063e09fface1461008a5761005c565b60006000fd5b61006a610094565b005b6100746100ad565b005b61007e6100b5565b005b6100886100c2565b005b610092610135565b005b6000600090505b5b808060010191505061009b565b505b565b60006000fd5b565b600015156100bf57fe5b5b565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600d8152602001807f72657665727420726561736f6e0000000000000000000000000000000000000081526020015060200191505060405180910390fd5b565b5b56fea2646970667358221220345bbcbb1a5ecf22b53a78eaebf95f8ee0eceff6d10d4b9643495084d2ec934a64736f6c63430006040033"
 
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptopq.GenerateKey()
+	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 
 	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether)}}, 10000000)
@@ -532,8 +555,11 @@ func TestEstimateGas(t *testing.T) {
 }
 
 func TestEstimateGasWithPrice(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptopq.GenerateKey()
+	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Ether*2 + 2e17)}}, 10000000)
 	defer sim.Close()
@@ -599,7 +625,10 @@ func TestEstimateGasWithPrice(t *testing.T) {
 }
 
 func TestHeaderByHash(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -620,7 +649,10 @@ func TestHeaderByHash(t *testing.T) {
 }
 
 func TestHeaderByNumber(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -667,7 +699,10 @@ func TestHeaderByNumber(t *testing.T) {
 }
 
 func TestTransactionCount(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -719,7 +754,10 @@ func TestTransactionCount(t *testing.T) {
 }
 
 func TestTransactionInBlock(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -784,7 +822,10 @@ func TestTransactionInBlock(t *testing.T) {
 }
 
 func TestPendingNonceAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -849,7 +890,10 @@ func TestPendingNonceAt(t *testing.T) {
 }
 
 func TestTransactionReceipt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -899,7 +943,11 @@ func TestSuggestGasPrice(t *testing.T) {
 }
 
 func TestPendingCodeAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
@@ -935,7 +983,11 @@ func TestPendingCodeAt(t *testing.T) {
 }
 
 func TestCodeAt(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
@@ -972,9 +1024,14 @@ func TestCodeAt(t *testing.T) {
 }
 
 // When receive("X") is called with sender 0x00... and value 1, it produces this tx receipt:
-//   receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
+//
+//	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestPendingAndCallContract(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
@@ -1058,7 +1115,11 @@ contract Reverter {
     }
 }*/
 func TestCallContractRevert(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
@@ -1153,7 +1214,11 @@ func TestCallContractRevert(t *testing.T) {
 //     Since Commit() was called 2n+1 times in total,
 //     having a chain length of just n+1 means that a reorg occurred.
 func TestFork(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	// 1.
@@ -1183,10 +1248,11 @@ func TestFork(t *testing.T) {
 Example contract to test event emission:
 
 pragma solidity >=0.7.0 <0.9.0;
-contract Callable {
-    event Called();
-    function Call() public { emit Called(); }
-}
+
+	contract Callable {
+	    event Called();
+	    function Call() public { emit Called(); }
+	}
 */
 const callableAbi = "[{\"anonymous\":false,\"inputs\":[],\"name\":\"Called\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"Call\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
@@ -1204,9 +1270,14 @@ const callableBin = "6080604052348015600f57600080fd5b5060998061001e6000396000f3f
 //  7. Mine two blocks to trigger a reorg.
 //  8. Check that the event was removed.
 //  9. Re-send the transaction and mine a block.
+//
 // 10. Check that the event was reborn.
 func TestForkLogsReborn(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	// 1.
@@ -1279,7 +1350,11 @@ func TestForkLogsReborn(t *testing.T) {
 //  5. Mine a block, Re-send the transaction and mine another one.
 //  6. Check that the TX is now included in block 2.
 func TestForkResendTx(t *testing.T) {
-	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr, err := cryptopq.PubkeyToAddress(testKey.PublicKey)
+	if err != nil {
+		t.Errorf("PubkeyToAddress")
+	}
+
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	// 1.

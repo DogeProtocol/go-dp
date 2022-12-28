@@ -17,9 +17,8 @@
 package discover
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"net"
 	"time"
@@ -37,26 +36,22 @@ type node struct {
 	livenessChecks uint      // how often liveness was checked
 }
 
-type encPubkey [64]byte
+type encPubkey [oqs.PublicKeyLen]byte
 
-func encodePubkey(key *ecdsa.PublicKey) encPubkey {
+func encodePubkey(key *oqs.PublicKey) encPubkey {
 	var e encPubkey
-	math.ReadBits(key.X, e[:len(e)/2])
-	math.ReadBits(key.Y, e[len(e)/2:])
+	math.ReadBits(key.N, e[:])
 	return e
 }
 
-func decodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
+
+func decodePubkey(e []byte) (*oqs.PublicKey, error) {
 	if len(e) != len(encPubkey{}) {
 		return nil, errors.New("wrong size public key data")
 	}
-	p := &ecdsa.PublicKey{Curve: curve, X: new(big.Int), Y: new(big.Int)}
-	half := len(e) / 2
-	p.X.SetBytes(e[:half])
-	p.Y.SetBytes(e[half:])
-	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, errors.New("invalid curve point")
-	}
+	p := &oqs.PublicKey{N: new(big.Int)}
+	p.N.SetBytes(e[:])
+
 	return p, nil
 }
 

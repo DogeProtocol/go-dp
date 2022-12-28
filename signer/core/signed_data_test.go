@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io/ioutil"
 	"path"
 	"strings"
@@ -216,8 +217,8 @@ func TestSignData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if signature == nil || len(signature) != 65 {
-		t.Errorf("Expected 65 byte signature (got %d bytes)", len(signature))
+	if signature == nil || len(signature) > oqs.SignPublicKeyLen {
+		t.Errorf("Expected %d byte signature (got %d bytes)", oqs.SignPublicKeyLen, len(signature))
 	}
 	// data/typed
 	control.approveCh <- "Y"
@@ -226,8 +227,8 @@ func TestSignData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if signature == nil || len(signature) != 65 {
-		t.Errorf("Expected 65 byte signature (got %d bytes)", len(signature))
+	if signature == nil || len(signature) > oqs.SignPublicKeyLen {
+		t.Errorf("Expected %d byte signature (got %d bytes)", oqs.SignPublicKeyLen, len(signature))
 	}
 }
 

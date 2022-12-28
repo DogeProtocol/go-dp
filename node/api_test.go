@@ -335,7 +335,6 @@ func checkRPC(url string) bool {
 		return false
 	}
 	defer c.Close()
-
 	_, err = c.SupportedModules()
 	return err == nil
 }

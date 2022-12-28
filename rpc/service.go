@@ -164,7 +164,7 @@ func newCallback(receiver, fn reflect.Value) *callback {
 // makeArgTypes composes the argTypes list.
 func (c *callback) makeArgTypes() {
 	fntype := c.fn.Type()
-	// Skip receiver and context.Context parameter (if present).
+	// Skip receiver and context.context parameter (if present).
 	firstArg := 0
 	if c.rcvr.IsValid() {
 		firstArg++
@@ -183,6 +183,8 @@ func (c *callback) makeArgTypes() {
 // call invokes the callback.
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value) (res interface{}, errRes error) {
 	// Create the argument slice.
+
+
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
 		fullargs = append(fullargs, c.rcvr)
@@ -192,12 +194,20 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	}
 	fullargs = append(fullargs, args...)
 
+
+
 	// Catch panic while running the callback.
 	defer func() {
 		if err := recover(); err != nil {
 			const size = 64 << 10
+
+
+
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
+
+
+
 			log.Error("RPC method " + method + " crashed: " + fmt.Sprintf("%v\n%s", err, buf))
 			errRes = errors.New("method handler crashed")
 		}
@@ -215,7 +225,7 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	return results[0].Interface(), nil
 }
 
-// Is t context.Context or *context.Context?
+// Is t context.context or *context.context?
 func isContextType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -239,7 +249,7 @@ func isSubscriptionType(t reflect.Type) bool {
 	return t == subscriptionType
 }
 
-// isPubSub tests whether the given method has as as first argument a context.Context and
+// isPubSub tests whether the given method has as as first argument a context.context and
 // returns the pair (Subscription, error).
 func isPubSub(methodType reflect.Type) bool {
 	// numIn(0) is the receiver type

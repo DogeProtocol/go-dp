@@ -42,8 +42,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 )
-
-const SizeLimit = 300 // maximum encoded size of a node record in bytes
+const SizeLimit = 3000 // maximum encoded size of a node record in bytes (oqssignpubliclen)
 
 var (
 	ErrInvalidSig     = errors.New("invalid signature on node record")

@@ -18,10 +18,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"net"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/internal/ethtest"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/internal/utesting"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
@@ -57,12 +57,13 @@ var (
 
 func rlpxPing(ctx *cli.Context) error {
 	n := getNodeArg(ctx)
-	fd, err := net.Dial("tcp", fmt.Sprintf("%v:%d", n.IP(), n.TCP()))
+	connDetails := fmt.Sprintf("%v:%d", n.IP(), n.TCP())
+	fd, err := net.Dial("tcp", connDetails)
 	if err != nil {
 		return err
 	}
-	conn := rlpx.NewConn(fd, n.Pubkey())
-	ourKey, _ := crypto.GenerateKey()
+	conn := rlpx.NewConn(fd, n.Pubkey(), connDetails)
+	ourKey, _ := cryptopq.GenerateKey()
 	_, err = conn.Handshake(ourKey)
 	if err != nil {
 		return err

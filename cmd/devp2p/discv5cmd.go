@@ -136,11 +136,5 @@ func discv5Listen(ctx *cli.Context) error {
 
 // startV5 starts an ephemeral discovery v5 node.
 func startV5(ctx *cli.Context) *discover.UDPv5 {
-	ln, config := makeDiscoveryConfig(ctx)
-	socket := listen(ln, ctx.String(listenAddrFlag.Name))
-	disc, err := discover.ListenV5(socket, ln, config)
-	if err != nil {
-		exit(err)
-	}
-	return disc
+	panic("not implemented yet")
 }

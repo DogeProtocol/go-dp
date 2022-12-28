@@ -20,13 +20,12 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	pcsc "github.com/gballet/go-libpcsclite"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/text/unicode/norm"
@@ -63,20 +62,21 @@ type SecureChannelSession struct {
 // NewSecureChannelSession creates a new secure channel for the given card and public key.
 func NewSecureChannelSession(card *pcsc.Card, keyData []byte) (*SecureChannelSession, error) {
 	// Generate an ECDSA keypair for ourselves
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
-	cardPublic, err := crypto.UnmarshalPubkey(keyData)
+	cardPublic, err := cryptopq.UnmarshalPubkey(keyData)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal public key from card: %v", err)
 	}
-	secret, _ := key.Curve.ScalarMult(cardPublic.X, cardPublic.Y, key.D.Bytes())
+
 	return &SecureChannelSession{
 		card:      card,
-		secret:    secret.Bytes(),
-		publicKey: elliptic.Marshal(crypto.S256(), key.PublicKey.X, key.PublicKey.Y),
+		secret:    key.D.Bytes(),
+		publicKey: cardPublic.N.Bytes(),
 	}, nil
+
 }
 
 // Pair establishes a new pairing with the smartcard.

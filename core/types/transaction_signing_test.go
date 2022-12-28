@@ -17,17 +17,20 @@
 package types
 
 import (
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func TestEIP155Signing(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptopq.GenerateKey()
+	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	signer := NewEIP155Signer(big.NewInt(18))
 	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
@@ -45,8 +48,11 @@ func TestEIP155Signing(t *testing.T) {
 }
 
 func TestEIP155ChainId(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptopq.GenerateKey()
+	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	signer := NewEIP155Signer(big.NewInt(18))
 	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)

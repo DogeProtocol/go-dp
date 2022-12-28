@@ -17,6 +17,9 @@
 package clique
 
 import (
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 
@@ -25,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -37,10 +39,14 @@ import (
 // empty one **also completes** the empty one, ending up in a known-block error.
 func TestReimportMirroredState(t *testing.T) {
 	// Initialize a Clique chain with a single signer
+	privtestkey, _ := cryptopq.GenerateKey()
+	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
+
 	var (
 		db     = rawdb.NewMemoryDatabase()
-		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = crypto.PubkeyToAddress(key.PublicKey)
+		key, _ = cryptopq.HexToOQS(hextestkey)
+
+		addr   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		engine = New(params.AllCliqueProtocolChanges.Clique, db)
 		signer = new(types.HomesteadSigner)
 	)
@@ -81,8 +87,10 @@ func TestReimportMirroredState(t *testing.T) {
 		header.Extra = make([]byte, extraVanity+extraSeal)
 		header.Difficulty = diffInTurn
 
-		sig, _ := crypto.Sign(SealHash(header).Bytes(), key)
+		sig, _ := cryptopq.Sign(SealHash(header).Bytes(), key)
+
 		copy(header.Extra[len(header.Extra)-extraSeal:], sig)
+
 		blocks[i] = block.WithSeal(header)
 	}
 	// Insert the first two blocks and make sure the chain is valid
@@ -117,7 +125,7 @@ func TestSealHash(t *testing.T) {
 	have := SealHash(&types.Header{
 		Difficulty: new(big.Int),
 		Number:     new(big.Int),
-		Extra:      make([]byte, 32+65),
+		Extra:      make([]byte, 32+crypto.SignatureLength),
 		BaseFee:    new(big.Int),
 	})
 	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f")

@@ -17,8 +17,10 @@
 package core
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -595,9 +597,12 @@ func testInsertNonceError(t *testing.T, full bool) {
 func TestFastVsFullChains(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -713,9 +718,12 @@ func TestFastVsFullChains(t *testing.T) {
 func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -831,12 +839,19 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 // Tests that chain reorganisations handle transaction removals and reinsertions.
 func TestChainTxReorgs(t *testing.T) {
 	var (
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-		key3, _ = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
-		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
+		privtestkey1, _ = cryptopq.GenerateKey()
+		hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
+		privtestkey2, _ = cryptopq.GenerateKey()
+		hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
+		privtestkey3, _ = cryptopq.GenerateKey()
+		hextestkey3     = hex.EncodeToString(privtestkey3.D.Bytes())
+
+		key1, _ = cryptopq.HexToOQS(hextestkey1)
+		key2, _ = cryptopq.HexToOQS(hextestkey2)
+		key3, _ = cryptopq.HexToOQS(hextestkey3)
+		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		addr2   = cryptopq.PubkeyToAddressNoError(key2.PublicKey)
+		addr3   = cryptopq.PubkeyToAddressNoError(key3.PublicKey)
 		db      = rawdb.NewMemoryDatabase()
 		gspec   = &Genesis{
 			Config:   params.TestChainConfig,
@@ -946,8 +961,11 @@ func TestChainTxReorgs(t *testing.T) {
 
 func TestLogReorgs(t *testing.T) {
 	var (
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
+		key1, _ = cryptopq.HexToOQS(hextestkey)
+		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
 		db      = rawdb.NewMemoryDatabase()
 		// this code generates a log
 		code    = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
@@ -1002,8 +1020,11 @@ var logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd
 // when the chain reorganizes.
 func TestLogRebirth(t *testing.T) {
 	var (
-		key1, _       = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1         = crypto.PubkeyToAddress(key1.PublicKey)
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
+		key1, _       = cryptopq.HexToOQS(hextestkey)
+		addr1         = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
 		db            = rawdb.NewMemoryDatabase()
 		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
 		genesis       = gspec.MustCommit(db)
@@ -1066,13 +1087,15 @@ func TestLogRebirth(t *testing.T) {
 // when a side chain containing log events overtakes the canonical chain.
 func TestSideLogRebirth(t *testing.T) {
 	var (
-		key1, _       = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1         = crypto.PubkeyToAddress(key1.PublicKey)
-		db            = rawdb.NewMemoryDatabase()
-		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
-		genesis       = gspec.MustCommit(db)
-		signer        = types.LatestSigner(gspec.Config)
-		blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		key1, _        = cryptopq.HexToOQS(hextestkey)
+		addr1          = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		db             = rawdb.NewMemoryDatabase()
+		gspec          = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
+		genesis        = gspec.MustCommit(db)
+		signer         = types.LatestSigner(gspec.Config)
+		blockchain, _  = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
 	)
 
 	defer blockchain.Stop()
@@ -1136,10 +1159,12 @@ func checkLogEvents(t *testing.T, logsCh <-chan []*types.Log, rmLogsCh <-chan Re
 
 func TestReorgSideEvent(t *testing.T) {
 	var (
-		db      = rawdb.NewMemoryDatabase()
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		gspec   = &Genesis{
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		db             = rawdb.NewMemoryDatabase()
+		key1, _        = cryptopq.HexToOQS(hextestkey)
+		addr1          = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		gspec          = &Genesis{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}},
 		}
@@ -1267,12 +1292,14 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 func TestEIP155Transition(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		db         = rawdb.NewMemoryDatabase()
-		key, _     = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address    = crypto.PubkeyToAddress(key.PublicKey)
-		funds      = big.NewInt(1000000000)
-		deleteAddr = common.Address{1}
-		gspec      = &Genesis{
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		db             = rawdb.NewMemoryDatabase()
+		key, _         = cryptopq.HexToOQS(hextestkey)
+		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		funds          = big.NewInt(1000000000)
+		deleteAddr     = common.Address{1}
+		gspec          = &Genesis{
 			Config: &params.ChainConfig{ChainID: big.NewInt(1), EIP150Block: big.NewInt(0), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)},
 			Alloc:  GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
@@ -1370,12 +1397,14 @@ func TestEIP155Transition(t *testing.T) {
 func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		db      = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
-		funds   = big.NewInt(1000000000)
-		theAddr = common.Address{1}
-		gspec   = &Genesis{
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		db             = rawdb.NewMemoryDatabase()
+		key, _         = cryptopq.HexToOQS(hextestkey)
+		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		funds          = big.NewInt(1000000000)
+		theAddr        = common.Address{1}
+		gspec          = &Genesis{
 			Config: &params.ChainConfig{
 				ChainID:        big.NewInt(1),
 				HomesteadBlock: new(big.Int),
@@ -1584,9 +1613,12 @@ func TestLargeReorgTrieGC(t *testing.T) {
 func TestBlockchainRecovery(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
@@ -1642,9 +1674,12 @@ func TestBlockchainRecovery(t *testing.T) {
 func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
@@ -1701,8 +1736,8 @@ func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 // overtake the 'canon' chain until after it's passed canon by about 200 blocks.
 //
 // Details at:
-//  - https://github.com/ethereum/go-ethereum/issues/18977
-//  - https://github.com/ethereum/go-ethereum/pull/18988
+//   - https://github.com/ethereum/go-ethereum/issues/18977
+//   - https://github.com/ethereum/go-ethereum/pull/18988
 func TestLowDiffLongChain(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := ethash.NewFaker()
@@ -1821,7 +1856,8 @@ func testSideImport(t *testing.T, numCanonBlocksInSidechain, blocksBetweenCommon
 // That is: the sidechain for import contains some blocks already present in canon chain.
 // So the blocks are
 // [ Cn, Cn+1, Cc, Sn+3 ... Sm]
-//   ^    ^    ^  pruned
+
+//	^    ^    ^  pruned
 func TestPrunedImportSide(t *testing.T) {
 	//glogger := log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(false)))
 	//glogger.Verbosity(3)
@@ -2081,9 +2117,12 @@ func TestReorgToShorterRemovesCanonMappingHeaderChain(t *testing.T) {
 func TestTransactionIndices(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(100000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -2212,13 +2251,15 @@ func TestTransactionIndices(t *testing.T) {
 func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
-		funds   = big.NewInt(100000000000000000)
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
-		genesis = gspec.MustCommit(gendb)
-		signer  = types.LatestSigner(gspec.Config)
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		gendb          = rawdb.NewMemoryDatabase()
+		key, _         = cryptopq.HexToOQS(hextestkey)
+		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		funds          = big.NewInt(100000000000000000)
+		gspec          = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		genesis        = gspec.MustCommit(gendb)
+		signer         = types.LatestSigner(gspec.Config)
 	)
 	height := uint64(128)
 	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), func(i int, block *BlockGen) {
@@ -2298,9 +2339,11 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
+		privtestkey, _  = cryptopq.GenerateKey()
+		hextestkey      = hex.EncodeToString(privtestkey.D.Bytes())
 		signer          = types.HomesteadSigner{}
-		testBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+		testBankKey, _  = cryptopq.HexToOQS(hextestkey)
+		testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
 		bankFunds       = big.NewInt(100000000000000000)
 		gspec           = Genesis{
 			Config: params.TestChainConfig,
@@ -2409,9 +2452,9 @@ func BenchmarkBlockChain_1x1000Executions(b *testing.B) {
 // This internally leads to a sidechain import, since the blocks trigger an
 // ErrPrunedAncestor error.
 // This may e.g. happen if
-//   1. Downloader rollbacks a batch of inserted blocks and exits
-//   2. Downloader starts to sync again
-//   3. The blocks fetched are all known and canonical blocks
+//  1. Downloader rollbacks a batch of inserted blocks and exits
+//  2. Downloader starts to sync again
+//  3. The blocks fetched are all known and canonical blocks
 func TestSideImportPrunedBlocks(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := ethash.NewFaker()
@@ -2460,6 +2503,9 @@ func TestSideImportPrunedBlocks(t *testing.T) {
 // first, but the journal wiped the entire state object on create-revert.
 func TestDeleteCreateRevert(t *testing.T) {
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		bb = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		// Generate a canonical chain to act as the main dataset
@@ -2467,8 +2513,8 @@ func TestDeleteCreateRevert(t *testing.T) {
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(100000000000000000)
 		gspec   = &Genesis{
 			Config: params.TestChainConfig,
@@ -2534,12 +2580,15 @@ func TestDeleteCreateRevert(t *testing.T) {
 // and then the new slots exist
 func TestDeleteRecreateSlots(t *testing.T) {
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address   = crypto.PubkeyToAddress(key.PublicKey)
+		key, _    = cryptopq.HexToOQS(hextestkey)
+		address   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds     = big.NewInt(1000000000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2661,12 +2710,14 @@ func TestDeleteRecreateSlots(t *testing.T) {
 // Expected outcome is that _all_ slots are cleared from A
 func TestDeleteRecreateAccount(t *testing.T) {
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 
 		aa        = common.HexToAddress("0x7217d81b76bdd8707601e959454e3d776aee5f43")
@@ -2737,12 +2788,14 @@ func TestDeleteRecreateAccount(t *testing.T) {
 // and then the new slots exist
 func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address   = crypto.PubkeyToAddress(key.PublicKey)
+		key, _    = cryptopq.HexToOQS(hextestkey)
+		address   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds     = big.NewInt(1000000000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2923,28 +2976,29 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 
 // TestInitThenFailCreateContract tests a pretty notorious case that happened
 // on mainnet over blocks 7338108, 7338110 and 7338115.
-// - Block 7338108: address e771789f5cccac282f23bb7add5690e1f6ca467c is initiated
-//   with 0.001 ether (thus created but no code)
-// - Block 7338110: a CREATE2 is attempted. The CREATE2 would deploy code on
-//   the same address e771789f5cccac282f23bb7add5690e1f6ca467c. However, the
-//   deployment fails due to OOG during initcode execution
-// - Block 7338115: another tx checks the balance of
-//   e771789f5cccac282f23bb7add5690e1f6ca467c, and the snapshotter returned it as
-//   zero.
+//   - Block 7338108: address e771789f5cccac282f23bb7add5690e1f6ca467c is initiated
+//     with 0.001 ether (thus created but no code)
+//   - Block 7338110: a CREATE2 is attempted. The CREATE2 would deploy code on
+//     the same address e771789f5cccac282f23bb7add5690e1f6ca467c. However, the
+//     deployment fails due to OOG during initcode execution
+//   - Block 7338115: another tx checks the balance of
+//     e771789f5cccac282f23bb7add5690e1f6ca467c, and the snapshotter returned it as
+//     zero.
 //
 // The problem being that the snapshotter maintains a destructset, and adds items
 // to the destructset in case something is created "onto" an existing item.
 // We need to either roll back the snapDestructs, or not place it into snapDestructs
 // in the first place.
-//
 func TestInitThenFailCreateContract(t *testing.T) {
 	var (
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		bb      = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 	)
@@ -3051,15 +3105,17 @@ func TestInitThenFailCreateContract(t *testing.T) {
 // correctly.
 func TestEIP2718Transition(t *testing.T) {
 	var (
-		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
+		privtestkey, _ = cryptopq.GenerateKey()
+		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		aa             = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		address = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config: params.TestChainConfig,
@@ -3125,15 +3181,20 @@ func TestEIP2718Transition(t *testing.T) {
 
 // TestEIP1559Transition tests the following:
 //
-// 1. A transaction whose gasFeeCap is greater than the baseFee is valid.
-// 2. Gas accounting for access lists on EIP-1559 transactions is correct.
-// 3. Only the transaction's tip will be received by the coinbase.
-// 4. The transaction sender pays for both the tip and baseFee.
-// 5. The coinbase receives only the partially realized tip when
-//    gasFeeCap - gasTipCap < baseFee.
-// 6. Legacy transaction behave as expected (e.g. gasPrice = gasFeeCap = gasTipCap).
+//  1. A transaction whose gasFeeCap is greater than the baseFee is valid.
+//  2. Gas accounting for access lists on EIP-1559 transactions is correct.
+//  3. Only the transaction's tip will be received by the coinbase.
+//  4. The transaction sender pays for both the tip and baseFee.
+//  5. The coinbase receives only the partially realized tip when
+//     gasFeeCap - gasTipCap < baseFee.
+//  6. Legacy transaction behave as expected (e.g. gasPrice = gasFeeCap = gasTipCap).
 func TestEIP1559Transition(t *testing.T) {
 	var (
+		privtestkey1, _ = cryptopq.GenerateKey()
+		hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
+		privtestkey2, _ = cryptopq.GenerateKey()
+		hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
+
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 
 		// Generate a canonical chain to act as the main dataset
@@ -3141,10 +3202,10 @@ func TestEIP1559Transition(t *testing.T) {
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
+		key1, _ = cryptopq.HexToOQS(hextestkey1)
+		key2, _ = cryptopq.HexToOQS(hextestkey2)
+		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		addr2   = cryptopq.PubkeyToAddressNoError(key2.PublicKey)
 		funds   = new(big.Int).Mul(common.Big1, big.NewInt(params.Ether))
 		gspec   = &Genesis{
 			Config: params.AllEthashProtocolChanges,

@@ -18,7 +18,8 @@ package clique
 
 import (
 	"bytes"
-	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"sort"
 	"testing"
@@ -28,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -36,12 +36,12 @@ import (
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
 type testerAccountPool struct {
-	accounts map[string]*ecdsa.PrivateKey
+	accounts map[string]*oqs.PrivateKey
 }
 
 func newTesterAccountPool() *testerAccountPool {
 	return &testerAccountPool{
-		accounts: make(map[string]*ecdsa.PrivateKey),
+		accounts: make(map[string]*oqs.PrivateKey),
 	}
 }
 
@@ -67,10 +67,10 @@ func (ap *testerAccountPool) address(account string) common.Address {
 	}
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = crypto.GenerateKey()
+		ap.accounts[account], _ = cryptopq.GenerateKey()
 	}
 	// Resolve and return the Ethereum address
-	return crypto.PubkeyToAddress(ap.accounts[account].PublicKey)
+	return cryptopq.PubkeyToAddressNoError(ap.accounts[account].PublicKey)
 }
 
 // sign calculates a Clique digital signature for the given block and embeds it
@@ -78,10 +78,10 @@ func (ap *testerAccountPool) address(account string) common.Address {
 func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 	// Ensure we have a persistent key for the signer
 	if ap.accounts[signer] == nil {
-		ap.accounts[signer], _ = crypto.GenerateKey()
+		ap.accounts[signer], _ = cryptopq.GenerateKey()
 	}
 	// Sign the header and embed the signature in extra data
-	sig, _ := crypto.Sign(SealHash(header).Bytes(), ap.accounts[signer])
+	sig, _ := cryptopq.Sign(SealHash(header).Bytes(), ap.accounts[signer])
 	copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 }
 
@@ -435,6 +435,7 @@ func TestClique(t *testing.T) {
 				header.Extra = make([]byte, extraVanity+len(auths)*common.AddressLength+extraSeal)
 				accounts.checkpoint(header, auths)
 			}
+
 			header.Difficulty = diffInTurn // Ignored, we just need a valid number
 
 			// Generate the signature, embed it into the header and the block
@@ -474,7 +475,6 @@ func TestClique(t *testing.T) {
 		}
 		// No failure was produced or requested, generate the final voting snapshot
 		head := blocks[len(blocks)-1]
-
 		snap, err := engine.snapshot(chain, head.NumberU64(), head.Hash(), nil)
 		if err != nil {
 			t.Errorf("test %d: failed to retrieve voting snapshot: %v", i, err)

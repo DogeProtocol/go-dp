@@ -40,8 +40,8 @@ const (
 	dialHistoryExpiration = inboundThrottleTime + 5*time.Second
 
 	// Config for the "Looking for peers" message.
-	dialStatsLogInterval = 10 * time.Second // printed at most this often
-	dialStatsPeerLimit   = 3                // but not if more than this many dialed peers
+	dialStatsLogInterval = 2 * time.Second // printed at most this often
+	dialStatsPeerLimit   = 3               // but not if more than this many dialed peers
 
 	// Endpoint resolution is throttled with bounded backoff.
 	initialResolveDelay = 60 * time.Second
@@ -229,32 +229,42 @@ func (d *dialScheduler) loop(it enode.Iterator) {
 
 loop:
 	for {
+
 		// Launch new dials if slots are available.
 		slots := d.freeDialSlots()
+
 		slots -= d.startStaticDials(slots)
+
 		if slots > 0 {
 			nodesCh = d.nodesIn
 		} else {
 			nodesCh = nil
 		}
+
 		d.rearmHistoryTimer(historyExp)
 		d.logStats()
 
+
 		select {
 		case node := <-nodesCh:
+
 			if err := d.checkDial(node); err != nil {
 				d.log.Trace("Discarding dial candidate", "id", node.ID(), "ip", node.IP(), "reason", err)
 			} else {
 				d.startDial(newDialTask(node, dynDialedConn))
 			}
 
+
 		case task := <-d.doneCh:
+
 			id := task.dest.ID()
 			delete(d.dialing, id)
 			d.updateStaticPool(id)
 			d.doneSinceLastLog++
 
+
 		case c := <-d.addPeerCh:
+
 			if c.is(dynDialedConn) || c.is(staticDialedConn) {
 				d.dialPeers++
 			}
@@ -265,16 +275,20 @@ loop:
 			if task != nil && task.staticPoolIndex >= 0 {
 				d.removeFromStaticPool(task.staticPoolIndex)
 			}
+
 			// TODO: cancel dials to connected peers
 
 		case c := <-d.remPeerCh:
+
 			if c.is(dynDialedConn) || c.is(staticDialedConn) {
 				d.dialPeers--
 			}
 			delete(d.peers, c.node.ID())
 			d.updateStaticPool(c.node.ID())
 
+
 		case node := <-d.addStaticCh:
+
 			id := node.ID()
 			_, exists := d.static[id]
 			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "added", !exists)
@@ -287,10 +301,12 @@ loop:
 				d.addToStaticPool(task)
 			}
 
+
 		case node := <-d.remStaticCh:
+
 			id := node.ID()
 			task := d.static[id]
-			d.log.Trace("Removing static node", "id", id, "ok", task != nil)
+			d.log.Trace("dialloop Removing static node", "id", id, "ok", task != nil)
 			if task != nil {
 				delete(d.static, id)
 				if task.staticPoolIndex >= 0 {
@@ -298,20 +314,31 @@ loop:
 				}
 			}
 
+
 		case <-historyExp:
+
 			d.expireHistory()
 
+
 		case <-d.ctx.Done():
+
 			it.Close()
+
 			break loop
 		}
 	}
 
+
 	d.stopHistoryTimer(historyExp)
+
 	for range d.dialing {
+
 		<-d.doneCh
+
 	}
+
 	d.wg.Done()
+
 }
 
 // readNodes runs in its own goroutine and delivers nodes from
@@ -319,12 +346,16 @@ loop:
 func (d *dialScheduler) readNodes(it enode.Iterator) {
 	defer d.wg.Done()
 
+
 	for it.Next() {
+
 		select {
 		case d.nodesIn <- it.Node():
 		case <-d.ctx.Done():
 		}
 	}
+
+
 }
 
 // logStats prints dialer statistics to the log. The message is suppressed when enough
@@ -335,6 +366,7 @@ func (d *dialScheduler) logStats() {
 	if d.lastStatsLog.Add(dialStatsLogInterval) > now {
 		return
 	}
+
 	if d.dialPeers < dialStatsPeerLimit && d.dialPeers < d.maxDialPeers {
 		d.log.Info("Looking for peers", "peercount", len(d.peers), "tried", d.doneSinceLastLog, "static", len(d.static))
 	}

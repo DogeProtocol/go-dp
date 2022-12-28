@@ -18,6 +18,7 @@ package ethtest
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"net"
 	"reflect"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/internal/utesting"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -62,13 +62,14 @@ func (s *Suite) Is_66(t *utesting.T) {
 // returning the created Conn if successful.
 func (s *Suite) dial() (*Conn, error) {
 	// dial
+	connDetails := fmt.Sprintf("%v:%d", s.Dest.IP(), s.Dest.TCP())
 	fd, err := net.Dial("tcp", fmt.Sprintf("%v:%d", s.Dest.IP(), s.Dest.TCP()))
 	if err != nil {
 		return nil, err
 	}
-	conn := Conn{Conn: rlpx.NewConn(fd, s.Dest.Pubkey())}
+	conn := Conn{Conn: rlpx.NewConn(fd, s.Dest.Pubkey(), connDetails)}
 	// do encHandshake
-	conn.ourKey, _ = crypto.GenerateKey()
+	conn.ourKey, _ = cryptopq.GenerateKey()
 	_, err = conn.Handshake(conn.ourKey)
 	if err != nil {
 		conn.Close()
@@ -113,7 +114,11 @@ func (c *Conn) handshake() error {
 	defer c.SetDeadline(time.Time{})
 	c.SetDeadline(time.Now().Add(10 * time.Second))
 	// write hello to client
-	pub0 := crypto.FromECDSAPub(&c.ourKey.PublicKey)[1:]
+	pubKey, err := cryptopq.FromOQSPub(&c.ourKey.PublicKey)
+	if err != nil {
+		return err
+	}
+	pub0 := pubKey[1:]
 	ourHandshake := &Hello{
 		Version: 5,
 		Caps:    c.caps,
@@ -528,7 +533,11 @@ func (s *Suite) maliciousHandshakes(t *utesting.T, isEth66 bool) error {
 	}
 	defer conn.Close()
 	// write hello to client
-	pub0 := crypto.FromECDSAPub(&conn.ourKey.PublicKey)[1:]
+	pubKey, err := cryptopq.FromOQSPub(&conn.ourKey.PublicKey)
+	if err != nil {
+		return err
+	}
+	pub0 := pubKey[1:]
 	handshakes := []*Hello{
 		{
 			Version: 5,

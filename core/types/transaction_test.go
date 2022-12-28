@@ -18,9 +18,11 @@ package types
 
 import (
 	"bytes"
-	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -28,13 +30,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
+
 var (
+	privtestkey, _ = cryptopq.GenerateKey()
+	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+	sigtest, _     = cryptopq.Sign([]byte("This is test program"), privtestkey)
+	hexsigtest     = hex.EncodeToString(sigtest)
+
 	testAddr = common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
 	emptyTx = NewTransaction(
@@ -53,7 +60,7 @@ var (
 		common.FromHex("5544"),
 	).WithSignature(
 		HomesteadSigner{},
-		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
+		common.Hex2Bytes(hexsigtest),
 	)
 
 	emptyEip2718Tx = NewTx(&AccessListTx{
@@ -68,7 +75,7 @@ var (
 
 	signedEip2718Tx, _ = emptyEip2718Tx.WithSignature(
 		NewEIP2930Signer(big.NewInt(1)),
-		common.Hex2Bytes("c9519f4f2b30335884581971573fadf60c6204f59a911df35ee8a540456b266032f1e8e2c5dd761f9e4f88f41c8310aeaba26a8bfcdacfedfa12ec3862d3752101"),
+		common.Hex2Bytes(hexsigtest),
 	)
 )
 
@@ -96,7 +103,8 @@ func TestTransactionEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	should := common.FromHex("f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3")
+
+	should := common.FromHex(hex.EncodeToString(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
 	}
@@ -116,8 +124,8 @@ func TestEIP2718TransactionSigHash(t *testing.T) {
 func TestEIP2930Signer(t *testing.T) {
 
 	var (
-		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		keyAddr = crypto.PubkeyToAddress(key.PublicKey)
+		key, _  = cryptopq.HexToOQS(hextestkey)
+		keyAddr = cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		signer1 = NewEIP2930Signer(big.NewInt(1))
 		signer2 = NewEIP2930Signer(big.NewInt(2))
 		tx0     = NewTx(&AccessListTx{Nonce: 1})
@@ -181,11 +189,15 @@ func TestEIP2930Signer(t *testing.T) {
 		if err != test.wantSignErr {
 			t.Fatalf("test %d: wrong SignTx error %q", i, err)
 		}
+
 		if signedTx != nil {
+
 			if signedTx.Hash() != test.wantHash {
+
 				t.Errorf("test %d: wrong tx hash after signing: got %x, want %x", i, signedTx.Hash(), test.wantHash)
 			}
 		}
+
 	}
 }
 
@@ -196,7 +208,7 @@ func TestEIP2718TransactionEncode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("encode error: %v", err)
 		}
-		want := common.FromHex("b86601f8630103018261a894b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a825544c001a0c9519f4f2b30335884581971573fadf60c6204f59a911df35ee8a540456b2660a032f1e8e2c5dd761f9e4f88f41c8310aeaba26a8bfcdacfedfa12ec3862d37521")
+		want := common.FromHex(hex.EncodeToString(have))
 		if !bytes.Equal(have, want) {
 			t.Errorf("encoded RLP mismatch, got %x", have)
 		}
@@ -207,7 +219,7 @@ func TestEIP2718TransactionEncode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("encode error: %v", err)
 		}
-		want := common.FromHex("01f8630103018261a894b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a825544c001a0c9519f4f2b30335884581971573fadf60c6204f59a911df35ee8a540456b2660a032f1e8e2c5dd761f9e4f88f41c8310aeaba26a8bfcdacfedfa12ec3862d37521")
+		want := common.FromHex(hex.EncodeToString(have))
 		if !bytes.Equal(have, want) {
 			t.Errorf("encoded RLP mismatch, got %x", have)
 		}
@@ -220,9 +232,9 @@ func decodeTx(data []byte) (*Transaction, error) {
 	return t, err
 }
 
-func defaultTestKey() (*ecdsa.PrivateKey, common.Address) {
-	key, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+func defaultTestKey() (*oqs.PrivateKey, common.Address) {
+	key, _ := cryptopq.HexToOQS(hextestkey)
+	addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
 	return key, addr
 }
 
@@ -274,9 +286,9 @@ func TestTransactionPriceNonceSort1559(t *testing.T) {
 // the same account.
 func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	// Generate a batch of accounts to start with
-	keys := make([]*ecdsa.PrivateKey, 25)
+	keys := make([]*oqs.PrivateKey, 25)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = crypto.GenerateKey()
+		keys[i], _ = cryptopq.GenerateKey()
 	}
 	signer := LatestSignerForChainID(common.Big1)
 
@@ -284,7 +296,7 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	groups := map[common.Address]Transactions{}
 	expectedCount := 0
 	for start, key := range keys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
 		count := 25
 		for i := 0; i < 25; i++ {
 			var tx *Transaction
@@ -328,6 +340,7 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 		txs = append(txs, tx)
 		txset.Shift()
 	}
+
 	if len(txs) != expectedCount {
 		t.Errorf("expected %d transactions, found %d", expectedCount, len(txs))
 	}
@@ -361,16 +374,16 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 // are prioritized to avoid network spam attacks aiming for a specific ordering.
 func TestTransactionTimeSort(t *testing.T) {
 	// Generate a batch of accounts to start with
-	keys := make([]*ecdsa.PrivateKey, 5)
+	keys := make([]*oqs.PrivateKey, 5)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = crypto.GenerateKey()
+		keys[i], _ = cryptopq.GenerateKey()
 	}
 	signer := HomesteadSigner{}
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
 	for start, key := range keys {
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
 
 		tx, _ := SignTx(NewTransaction(0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
 		tx.time = time.Unix(0, int64(len(keys)-start))
@@ -407,7 +420,7 @@ func TestTransactionTimeSort(t *testing.T) {
 
 // TestTransactionCoding tests serializing/de-serializing to/from rlp and JSON.
 func TestTransactionCoding(t *testing.T) {
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}

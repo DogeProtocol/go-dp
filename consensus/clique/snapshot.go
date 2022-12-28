@@ -207,6 +207,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// Remove any votes on checkpoint blocks
 		number := header.Number.Uint64()
 		if number%s.config.Epoch == 0 {
+
 			snap.Votes = nil
 			snap.Tally = make(map[common.Address]Tally)
 		}
@@ -228,7 +229,6 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 		}
 		snap.Recents[number] = signer
-
 		// Header authorized, discard any previous votes from the signer
 		for i, vote := range snap.Votes {
 			if vote.Signer == signer && vote.Address == header.Coinbase {
@@ -302,7 +302,6 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
-
 	return snap, nil
 }
 

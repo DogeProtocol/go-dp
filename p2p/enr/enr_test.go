@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/rand"
 	"testing"
 	"time"
@@ -148,11 +149,9 @@ func TestSortedGetAndSet(t *testing.T) {
 // TestDirty tests record signature removal on setting of new key/value pair in record.
 func TestDirty(t *testing.T) {
 	var r Record
-
 	if _, err := rlp.EncodeToBytes(r); err != errEncodeUnsigned {
 		t.Errorf("expected errEncodeUnsigned, got %#v", err)
 	}
-
 	require.NoError(t, signTest([]byte{5}, &r))
 	if len(r.signature) == 0 {
 		t.Error("record is not signed")
@@ -293,7 +292,7 @@ func signTest(id []byte, r *Record) error {
 }
 
 func makeTestSig(id []byte, seq uint64) []byte {
-	sig := make([]byte, 8, len(id)+8)
+	sig := make([]byte, oqs.SignPublicKeyLen, len(id)+oqs.SignPublicKeyLen)
 	binary.BigEndian.PutUint64(sig[:8], seq)
 	sig = append(sig, id...)
 	return sig

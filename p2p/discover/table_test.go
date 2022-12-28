@@ -17,8 +17,10 @@
 package discover
 
 import (
-	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/rand"
 
 	"net"
@@ -27,7 +29,6 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
@@ -57,7 +58,9 @@ func testPingReplace(t *testing.T, newNodeIsResponding, lastInBucketIsResponding
 	<-tab.initDone
 
 	// Fill up the sender's bucket.
-	pingKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+	key1, _  := cryptopq.GenerateKey()
+	hexkey := hex.EncodeToString(key1.D.Bytes())
+	pingKey, _ := cryptopq.HexToOQS(hexkey)
 	pingSender := wrapNode(enode.NewV4(&pingKey.PublicKey, net.IP{127, 0, 0, 1}, 99, 99))
 	last := fillBucket(tab, pingSender)
 
@@ -419,8 +422,8 @@ func quickcfg() *quick.Config {
 	}
 }
 
-func newkey() *ecdsa.PrivateKey {
-	key, err := crypto.GenerateKey()
+func newkey() *oqs.PrivateKey {
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}

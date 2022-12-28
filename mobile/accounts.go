@@ -21,12 +21,12 @@ package geth
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -109,7 +109,7 @@ func (ks *KeyStore) DeleteAccount(account *Account, passphrase string) error {
 	return ks.keystore.Delete(account.account, passphrase)
 }
 
-// SignHash calculates a ECDSA signature for the given hash. The produced signature
+// SignHash calculates a signature for the given hash. The produced signature
 // is in the [R || S || V] format where V is 0 or 1.
 func (ks *KeyStore) SignHash(address *Address, hash []byte) (signature []byte, _ error) {
 	return ks.keystore.SignHash(accounts.Account{Address: address.address}, common.CopyBytes(hash))
@@ -197,13 +197,13 @@ func (ks *KeyStore) ImportKey(keyJSON []byte, passphrase, newPassphrase string) 
 	return &Account{acc}, nil
 }
 
-// ImportECDSAKey stores the given encrypted JSON key into the key directory.
-func (ks *KeyStore) ImportECDSAKey(key []byte, passphrase string) (account *Account, _ error) {
-	privkey, err := crypto.ToECDSA(common.CopyBytes(key))
+// ImportAssymetricKey stores the given encrypted JSON key into the key directory.
+func (ks *KeyStore) ImportAssymetricKey(key []byte, passphrase string) (account *Account, _ error) {
+	privkey, err := cryptopq.ToOQS(common.CopyBytes(key))
 	if err != nil {
 		return nil, err
 	}
-	acc, err := ks.keystore.ImportECDSA(privkey, passphrase)
+	acc, err := ks.keystore.ImportKey(privkey, passphrase)
 	if err != nil {
 		return nil, err
 	}

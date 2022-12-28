@@ -19,6 +19,8 @@ package gethclient
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 
@@ -28,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -38,9 +39,12 @@ import (
 )
 
 var (
-	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr    = crypto.PubkeyToAddress(testKey.PublicKey)
-	testBalance = big.NewInt(2e15)
+
+	privtestkey, _ = cryptopq.GenerateKey()
+	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+	testKey, _     = cryptopq.HexToOQS(hextestkey)
+	testAddr       = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	testBalance    = big.NewInt(2e15)
 )
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
@@ -260,7 +264,7 @@ func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 	// Create transaction
 	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
+	signature, err := cryptopq.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {
 		t.Fatal(err)
 	}

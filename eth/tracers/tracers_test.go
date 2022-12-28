@@ -17,9 +17,9 @@
 package tracers
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/tests"
@@ -124,12 +123,12 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
 		new(big.Int), 5000000, big.NewInt(1), []byte{})
 
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	privateKeyOQS, err := cryptopq.GenerateKey()
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}
 	signer := types.NewEIP155Signer(big.NewInt(1))
-	tx, err := types.SignTx(unsignedTx, signer, privateKeyECDSA)
+	tx, err := types.SignTx(unsignedTx, signer, privateKeyOQS)
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}
@@ -253,7 +252,6 @@ func TestCallTracer(t *testing.T) {
 				t.Fatalf("failed to create call tracer: %v", err)
 			}
 			evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
-
 			msg, err := tx.AsMessage(signer, nil)
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
@@ -302,8 +300,13 @@ func jsonEqual(x, y interface{}) bool {
 }
 
 func BenchmarkTransactionTrace(b *testing.B) {
-	key, _ := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	from := crypto.PubkeyToAddress(key.PublicKey)
+	privtestkey, _ := cryptopq.GenerateKey()
+	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
+	key, _ := cryptopq.HexToOQS(hextestkey)
+	from, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		b.Fatal(err)
+	}
 	gas := uint64(1000000) // 1M gas
 	to := common.HexToAddress("0x00000000000000000000000000000000deadbeef")
 	signer := types.LatestSignerForChainID(big.NewInt(1337))

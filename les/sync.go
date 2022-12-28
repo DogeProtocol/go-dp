@@ -77,7 +77,8 @@ func (h *clientHandler) validateCheckpoint(peer *serverPeer) error {
 		signatures [][]byte
 	)
 	for _, event := range events {
-		signatures = append(signatures, append(event.R[:], append(event.S[:], event.V)...))
+
+		signatures = append(signatures, append(event.R[:], event.S[:]...))
 	}
 	valid, signers := h.backend.oracle.VerifySigners(index, hash, signatures)
 	if !valid {
@@ -181,7 +182,7 @@ func (h *clientHandler) synchronise(peer *serverPeer) {
 		// For the ethash consensus engine, the start header is the block header
 		// of the checkpoint.
 		//
-		// For the clique consensus engine, the start header is the block header
+		// For the clique or proofofstake consensus engine, the start header is the block header
 		// of the latest epoch covered by checkpoint.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()

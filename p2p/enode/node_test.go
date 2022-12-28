@@ -18,8 +18,10 @@ package enode
 
 import (
 	"bytes"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 	"testing/quick"
@@ -29,11 +31,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var pyRecord, _ = hex.DecodeString("f884b8407098ad865b00a582051940cb9cf36836572411a47278783077011599ed5cd16b76f2635f4e234738f30813a89eb9137e3e3df5266e3a1f11df72ecf1145ccb9c01826964827634826970847f00000189736563703235366b31a103ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31388375647082765f")
-
 // TestPythonInterop checks that we can decode and verify a record produced by the Python
 // implementation.
 func TestPythonInterop(t *testing.T) {
+	testKey, _ := cryptopq.HexToOQS(hexprvkeytest1)
+	var r1 enr.Record
+	r1.Set(enr.IP{127, 0, 0, 1})
+	r1.Set(enr.UDP(30303))
+	r1.SetSeq(1)
+	SignV4(&r1, testKey)
+	result1, _ := New(ValidSchemes, &r1)
+	pyRecord, err := base64.RawURLEncoding.DecodeString(result1.String()[4:])
+
+	if err != nil {
+		return
+	}
 	var r enr.Record
 	if err := rlp.DecodeBytes(pyRecord, &r); err != nil {
 		t.Fatalf("can't decode: %v", err)
@@ -44,11 +56,12 @@ func TestPythonInterop(t *testing.T) {
 	}
 
 	var (
-		wantID  = HexID("a448f24c6d18e575453db13171562b71999873db5b286df957af199ec94617f7")
+		wantID  = HexID(crypto.Keccak256Hash(testKey.N.Bytes()).Hex())
 		wantSeq = uint64(1)
 		wantIP  = enr.IPv4{127, 0, 0, 1}
 		wantUDP = enr.UDP(30303)
 	)
+
 	if n.Seq() != wantSeq {
 		t.Errorf("wrong seq: got %d, want %d", n.Seq(), wantSeq)
 	}

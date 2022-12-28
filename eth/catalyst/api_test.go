@@ -17,6 +17,8 @@
 package catalyst
 
 import (
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 
@@ -24,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/node"
@@ -33,10 +34,13 @@ import (
 
 var (
 	// testKey is a private key to use for funding a tester account.
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+
+	privtestkey, _ = cryptopq.GenerateKey()
+	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+	testKey, _     = cryptopq.HexToOQS(hextestkey)
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
 
 	testBalance = big.NewInt(2e15)
 )
@@ -117,11 +121,13 @@ func TestEth2AssembleBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error signing transaction, err=%v", err)
 	}
+
 	ethservice.TxPool().AddLocal(tx)
 	blockParams := assembleBlockParams{
 		ParentHash: blocks[8].ParentHash(),
 		Timestamp:  blocks[8].Time(),
 	}
+
 	execData, err := api.AssembleBlock(blockParams)
 
 	if err != nil {

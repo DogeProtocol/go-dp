@@ -17,6 +17,8 @@
 package core
 
 import (
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 
@@ -27,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"golang.org/x/crypto/sha3"
@@ -54,8 +55,11 @@ func TestStateProcessorErrors(t *testing.T) {
 			LondonBlock:         big.NewInt(0),
 			Ethash:              new(params.EthashConfig),
 		}
+		privtestkey, _  = cryptopq.GenerateKey()
+		hextestkey = hex.EncodeToString(privtestkey.D.Bytes())
+
 		signer     = types.LatestSigner(config)
-		testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		testKey, _ = cryptopq.HexToOQS(hextestkey)
 	)
 	var makeTx = func(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *types.Transaction {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data), signer, testKey)

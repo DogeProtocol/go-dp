@@ -40,12 +40,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/simulations"
@@ -281,7 +281,7 @@ func createNode(ctx *cli.Context) error {
 	config := adapters.RandomNodeConfig()
 	config.Name = ctx.String("name")
 	if key := ctx.String("key"); key != "" {
-		privKey, err := crypto.HexToECDSA(key)
+		privKey, err := cryptopq.HexToOQS(key)
 		if err != nil {
 			return err
 		}

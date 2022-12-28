@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -219,7 +219,7 @@ func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected boo
 		// must already be equal to the recovery id.
 		plainV = byte(v.Uint64())
 	}
-	if !crypto.ValidateSignatureValues(plainV, r, s, false) {
+	if !cryptopq.ValidateSignatureValues(plainV, r, s, false) {
 		return ErrInvalidSig
 	}
 

@@ -19,7 +19,9 @@ package light
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"testing"
 	"time"
@@ -40,14 +42,21 @@ import (
 )
 
 var (
-	testBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
+	privtestkey1, _ = cryptopq.GenerateKey()
+	privtestkey2, _ = cryptopq.GenerateKey()
+	privtestkey3, _ = cryptopq.GenerateKey()
+	hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
+	hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
+	hextestkey3     = hex.EncodeToString(privtestkey3.D.Bytes())
+
+	testBankKey, _  = cryptopq.HexToOQS(hextestkey1)
+	testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
 	testBankFunds   = big.NewInt(1_000_000_000_000_000_000)
 
-	acc1Key, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-	acc2Key, _ = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr   = crypto.PubkeyToAddress(acc1Key.PublicKey)
-	acc2Addr   = crypto.PubkeyToAddress(acc2Key.PublicKey)
+	acc1Key, _ = cryptopq.HexToOQS(hextestkey2)
+	acc2Key, _ = cryptopq.HexToOQS(hextestkey3)
+	acc1Addr   = cryptopq.PubkeyToAddressNoError(acc1Key.PublicKey)
+	acc2Addr   = cryptopq.PubkeyToAddressNoError(acc2Key.PublicKey)
 
 	testContractCode = common.Hex2Bytes("606060405260cc8060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360cd2685146041578063c16431b914606b57603f565b005b6055600480803590602001909190505060a9565b6040518082815260200191505060405180910390f35b60886004808035906020019091908035906020019091905050608a565b005b80600060005083606481101560025790900160005b50819055505b5050565b6000600060005082606481101560025790900160005b5054905060c7565b91905056")
 	testContractAddr common.Address

@@ -18,10 +18,11 @@ package dnsdisc
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/base32"
 	"encoding/base64"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io"
 	"sort"
 	"strings"
@@ -40,9 +41,9 @@ type Tree struct {
 }
 
 // Sign signs the tree with the given private key and sets the sequence number.
-func (t *Tree) Sign(key *ecdsa.PrivateKey, domain string) (url string, err error) {
+func (t *Tree) Sign(key *oqs.PrivateKey, domain string) (url string, err error) {
 	root := *t.root
-	sig, err := crypto.Sign(root.sigHash(), key)
+	sig, err := cryptopq.Sign(root.sigHash(), key)
 	if err != nil {
 		return "", err
 	}
@@ -54,9 +55,10 @@ func (t *Tree) Sign(key *ecdsa.PrivateKey, domain string) (url string, err error
 
 // SetSignature verifies the given signature and assigns it as the tree's current
 // signature if valid.
-func (t *Tree) SetSignature(pubkey *ecdsa.PublicKey, signature string) error {
+func (t *Tree) SetSignature(pubkey *oqs.PublicKey, signature string) error {
 	sig, err := b64format.DecodeString(signature)
-	if err != nil || len(sig) != crypto.SignatureLength {
+
+	if err != nil || len(sig) > oqs.SignPublicKeyLen {
 		return errInvalidSig
 	}
 	root := *t.root
@@ -117,21 +119,21 @@ func (t *Tree) Nodes() []*enode.Node {
 We want to keep the UDP size below 512 bytes. The UDP size is roughly:
 UDP length = 8 + UDP payload length ( 229 )
 UPD Payload length:
- - dns.id 2
- - dns.flags 2
- - dns.count.queries 2
- - dns.count.answers 2
- - dns.count.auth_rr 2
- - dns.count.add_rr 2
- - queries (query-size + 6)
- - answers :
- 	- dns.resp.name 2
- 	- dns.resp.type 2
- 	- dns.resp.class 2
- 	- dns.resp.ttl 4
- 	- dns.resp.len 2
- 	- dns.txt.length 1
- 	- dns.txt resp_data_size
+  - dns.id 2
+  - dns.flags 2
+  - dns.count.queries 2
+  - dns.count.answers 2
+  - dns.count.auth_rr 2
+  - dns.count.add_rr 2
+  - queries (query-size + 6)
+  - answers :
+  - dns.resp.name 2
+  - dns.resp.type 2
+  - dns.resp.class 2
+  - dns.resp.ttl 4
+  - dns.resp.len 2
+  - dns.txt.length 1
+  - dns.txt resp_data_size
 
 So the total size is roughly a fixed overhead of `39`, and the size of the
 query (domain name) and response.
@@ -242,7 +244,7 @@ type (
 	linkEntry struct {
 		str    string
 		domain string
-		pubkey *ecdsa.PublicKey
+		pubkey *oqs.PublicKey
 	}
 )
 
@@ -276,10 +278,14 @@ func (e *rootEntry) sigHash() []byte {
 	return h.Sum(nil)
 }
 
-func (e *rootEntry) verifySignature(pubkey *ecdsa.PublicKey) bool {
-	sig := e.sig[:crypto.RecoveryIDOffset] // remove recovery id
-	enckey := crypto.FromECDSAPub(pubkey)
-	return crypto.VerifySignature(enckey, e.sigHash(), sig)
+func (e *rootEntry) verifySignature(pubkey *oqs.PublicKey) bool {
+
+	sig := e.sig[:] // remove recovery id
+	enckey, err := cryptopq.FromOQSPub(pubkey)
+	if err != nil {
+		return false
+	}
+	return cryptopq.VerifySignature(enckey, e.sigHash(), sig)
 }
 
 func (e *branchEntry) String() string {
@@ -294,8 +300,8 @@ func (e *linkEntry) String() string {
 	return linkPrefix + e.str
 }
 
-func newLinkEntry(domain string, pubkey *ecdsa.PublicKey) *linkEntry {
-	key := b32format.EncodeToString(crypto.CompressPubkey(pubkey))
+func newLinkEntry(domain string, pubkey *oqs.PublicKey) *linkEntry {
+	key := b32format.EncodeToString(cryptopq.CompressPubkey(pubkey))
 	str := key + "@" + domain
 	return &linkEntry{str, domain, pubkey}
 }
@@ -353,7 +359,7 @@ func parseLink(e string) (*linkEntry, error) {
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
-	key, err := crypto.DecompressPubkey(keybytes)
+	key, err := cryptopq.DecompressPubkey(keybytes)
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
@@ -414,7 +420,7 @@ func truncateHash(hash string) string {
 // URL encoding
 
 // ParseURL parses an enrtree:// URL and returns its components.
-func ParseURL(url string) (domain string, pubkey *ecdsa.PublicKey, err error) {
+func ParseURL(url string) (domain string, pubkey *oqs.PublicKey, err error) {
 	le, err := parseLink(url)
 	if err != nil {
 		return "", nil, err

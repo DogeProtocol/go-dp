@@ -26,6 +26,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"regexp"
 	"sort"
@@ -917,13 +918,17 @@ func (s *Session) initialize(seed []byte) error {
 	mac.Write(seed)
 	seed = mac.Sum(nil)
 
-	key, err := crypto.ToECDSA(seed[:32])
+	key, err := cryptopq.ToOQS(seed[:32])
 	if err != nil {
 		return err
 	}
 
 	id := initializeData{}
-	id.PublicKey = crypto.FromECDSAPub(&key.PublicKey)
+	pubKeyData, err := cryptopq.FromOQSPub(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	id.PublicKey = pubKeyData
 	id.PrivateKey = seed[:32]
 	id.ChainCode = seed[32:]
 	data, err := asn1.Marshal(id)
@@ -979,18 +984,23 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 		return accounts.Account{}, err
 	}
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
-	sig := make([]byte, 65)
-	copy(sig[32-len(rbytes):32], rbytes)
-	copy(sig[64-len(sbytes):64], sbytes)
+	//OQS signature
+	sig := make([]byte, len(rbytes)+len(sbytes))
+	copy(sig[:len(rbytes)], rbytes)
+	copy(sig[len(rbytes):], sbytes)
 
 	if err := confirmPublicKey(sig, sigdata.PublicKey); err != nil {
 		return accounts.Account{}, err
 	}
-	pub, err := crypto.UnmarshalPubkey(sigdata.PublicKey)
+	pub, err := cryptopq.UnmarshalPubkey(sigdata.PublicKey)
 	if err != nil {
 		return accounts.Account{}, err
 	}
-	return s.Wallet.makeAccount(crypto.PubkeyToAddress(*pub), path), nil
+	pubKeyAddrress, err := cryptopq.PubkeyToAddress(*pub)
+	if err != nil {
+		return accounts.Account{}, err
+	}
+	return s.Wallet.makeAccount(pubKeyAddrress, path), nil
 }
 
 // keyExport contains information on an exported keypair.
@@ -1044,9 +1054,11 @@ func (s *Session) sign(path accounts.DerivationPath, hash []byte) ([]byte, error
 	}
 	// Serialize the signature
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
-	sig := make([]byte, 65)
-	copy(sig[32-len(rbytes):32], rbytes)
-	copy(sig[64-len(sbytes):64], sbytes)
+
+	//OQS signature
+	sig := make([]byte, len(rbytes)+len(sbytes))
+	copy(sig[:len(rbytes)], rbytes)
+	copy(sig[len(rbytes):], sbytes)
 
 	// Recover the V value.
 	sig, err = makeRecoverableSignature(hash, sig, sigdata.PublicKey)
@@ -1069,8 +1081,7 @@ func confirmPublicKey(sig, pubkey []byte) error {
 func makeRecoverableSignature(hash, sig, expectedPubkey []byte) ([]byte, error) {
 	var libraryError error
 	for v := 0; v < 2; v++ {
-		sig[64] = byte(v)
-		if pubkey, err := crypto.Ecrecover(hash, sig); err == nil {
+		if pubkey, err := cryptopq.RecoverPublicKey(hash, sig); err == nil {
 			if bytes.Equal(pubkey, expectedPubkey) {
 				return sig, nil
 			}

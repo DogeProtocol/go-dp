@@ -18,14 +18,14 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"flag"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"net"
 	"os"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -46,7 +46,7 @@ func main() {
 		verbosity   = flag.Int("verbosity", int(log.LvlInfo), "log verbosity (0-5)")
 		vmodule     = flag.String("vmodule", "", "log verbosity pattern")
 
-		nodeKey *ecdsa.PrivateKey
+		nodeKey *oqs.PrivateKey
 		err     error
 	)
 	flag.Parse()
@@ -62,11 +62,11 @@ func main() {
 	}
 	switch {
 	case *genKey != "":
-		nodeKey, err = crypto.GenerateKey()
+		nodeKey, err = cryptopq.GenerateKey()
 		if err != nil {
 			utils.Fatalf("could not generate key: %v", err)
 		}
-		if err = crypto.SaveECDSA(*genKey, nodeKey); err != nil {
+		if err = cryptopq.SaveOQS(*genKey, nodeKey); err != nil {
 			utils.Fatalf("%v", err)
 		}
 		if !*writeAddr {
@@ -77,17 +77,20 @@ func main() {
 	case *nodeKeyFile != "" && *nodeKeyHex != "":
 		utils.Fatalf("Options -nodekey and -nodekeyhex are mutually exclusive")
 	case *nodeKeyFile != "":
-		if nodeKey, err = crypto.LoadECDSA(*nodeKeyFile); err != nil {
+		if nodeKey, err = cryptopq.LoadOQS(*nodeKeyFile); err != nil {
 			utils.Fatalf("-nodekey: %v", err)
 		}
 	case *nodeKeyHex != "":
-		if nodeKey, err = crypto.HexToECDSA(*nodeKeyHex); err != nil {
+		if nodeKey, err = cryptopq.HexToOQS(*nodeKeyHex); err != nil {
 			utils.Fatalf("-nodekeyhex: %v", err)
 		}
 	}
 
 	if *writeAddr {
-		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+		_, err := cryptopq.FromOQSPub(&nodeKey.PublicKey)
+		if err != nil {
+			panic(err)
+		}
 		os.Exit(0)
 	}
 
@@ -99,16 +102,12 @@ func main() {
 		}
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
+	sessionManager, err := discover.CreateDpUdpSessionManager(*listenAddr)
 	if err != nil {
-		utils.Fatalf("-ResolveUDPAddr: %v", err)
-	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		utils.Fatalf("-ListenUDP: %v", err)
+		panic(err)
 	}
 
-	realaddr := conn.LocalAddr().(*net.UDPAddr)
+	realaddr := sessionManager.LocalAddr().(*net.UDPAddr)
 	if natm != nil {
 		if !realaddr.IP.IsLoopback() {
 			go nat.Map(natm, nil, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
@@ -127,11 +126,11 @@ func main() {
 		NetRestrict: restrictList,
 	}
 	if *runv5 {
-		if _, err := discover.ListenV5(conn, ln, cfg); err != nil {
+		if _, err := discover.ListenV5(nil, ln, cfg); err != nil {
 			utils.Fatalf("%v", err)
 		}
 	} else {
-		if _, err := discover.ListenUDP(conn, ln, cfg); err != nil {
+		if _, err := discover.ListenUDP(sessionManager, ln, cfg); err != nil {
 			utils.Fatalf("%v", err)
 		}
 	}
@@ -139,7 +138,7 @@ func main() {
 	select {}
 }
 
-func printNotice(nodeKey *ecdsa.PublicKey, addr net.UDPAddr) {
+func printNotice(nodeKey *oqs.PublicKey, addr net.UDPAddr) {
 	if addr.IP.IsUnspecified() {
 		addr.IP = net.IP{127, 0, 0, 1}
 	}

@@ -18,8 +18,9 @@ package p2p
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"fmt"
+
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io"
 	"net"
 	"sync"
@@ -35,7 +36,7 @@ import (
 const (
 	// total timeout for encryption handshake and protocol
 	// handshake in both directions.
-	handshakeTimeout = 5 * time.Second
+	handshakeTimeout = 60 * time.Second
 
 	// This is the timeout for sending the disconnect reason.
 	// This is shorter than the usual timeout because we don't want
@@ -51,8 +52,8 @@ type rlpxTransport struct {
 	conn     *rlpx.Conn
 }
 
-func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
-	return &rlpxTransport{conn: rlpx.NewConn(conn, dialDest)}
+func newRLPX(conn net.Conn, dialDest *oqs.PublicKey, context string) transport {
+	return &rlpxTransport{conn: rlpx.NewConn(conn, dialDest, context)}
 }
 
 func (t *rlpxTransport) ReadMsg() (Msg, error) {
@@ -126,8 +127,10 @@ func (t *rlpxTransport) close(err error) {
 	t.conn.Close()
 }
 
-func (t *rlpxTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
+func (t *rlpxTransport) doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error) {
+
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
+
 	return t.conn.Handshake(prv)
 }
 
@@ -136,8 +139,10 @@ func (t *rlpxTransport) doProtoHandshake(our *protoHandshake) (their *protoHands
 	// returning the handshake read error. If the remote side
 	// disconnects us early with a valid reason, we should return it
 	// as the error so it can be tracked elsewhere.
+
 	werr := make(chan error, 1)
 	go func() { werr <- Send(t, handshakeMsg, our) }()
+
 	if their, err = readProtocolHandshake(t); err != nil {
 		<-werr // make sure the write terminates too
 		return nil, err
@@ -146,12 +151,14 @@ func (t *rlpxTransport) doProtoHandshake(our *protoHandshake) (their *protoHands
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 	// If the protocol version supports Snappy encoding, upgrade immediately
-	t.conn.SetSnappy(their.Version >= snappyProtocolVersion)
+
+	t.conn.SetSnappy(false)
 
 	return their, nil
 }
 
 func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
+
 	msg, err := rw.ReadMsg()
 	if err != nil {
 		return nil, err
@@ -175,7 +182,8 @@ func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 	if err := msg.Decode(&hs); err != nil {
 		return nil, err
 	}
-	if len(hs.ID) != 64 || !bitutil.TestBytes(hs.ID) {
+
+	if len(hs.ID) != oqs.PublicKeyLen || !bitutil.TestBytes(hs.ID) {
 		return nil, DiscInvalidIdentity
 	}
 	return &hs, nil

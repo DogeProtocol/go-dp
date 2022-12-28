@@ -88,11 +88,16 @@ func (it *sliceIter) Next() bool {
 }
 
 func (it *sliceIter) Node() *Node {
+
 	it.mu.Lock()
 	defer it.mu.Unlock()
+
+
 	if len(it.nodes) == 0 {
+
 		return nil
 	}
+
 	return it.nodes[it.index]
 }
 
@@ -201,6 +206,8 @@ func (m *FairMix) Close() {
 
 // Next returns a node from a random source.
 func (m *FairMix) Next() bool {
+
+
 	m.cur = nil
 
 	var timeout <-chan time.Time
@@ -209,21 +216,28 @@ func (m *FairMix) Next() bool {
 		timeout = timer.C
 		defer timer.Stop()
 	}
+
 	for {
+
 		source := m.pickSource()
 		if source == nil {
+
 			return m.nextFromAny()
 		}
 		select {
 		case n, ok := <-source.next:
+
 			if ok {
+
 				m.cur = n
 				source.timeout = m.timeout
 				return true
 			}
+
 			// This source has ended.
 			m.deleteSource(source)
 		case <-timeout:
+
 			source.timeout /= 2
 			return m.nextFromAny()
 		}
@@ -232,16 +246,20 @@ func (m *FairMix) Next() bool {
 
 // Node returns the current node.
 func (m *FairMix) Node() *Node {
+
 	return m.cur
 }
 
 // nextFromAny is used when there are no sources or when the 'fair' choice
 // doesn't turn up a node quickly enough.
 func (m *FairMix) nextFromAny() bool {
+
 	n, ok := <-m.fromAny
 	if ok {
+
 		m.cur = n
 	}
+
 	return ok
 }
 
@@ -276,13 +294,19 @@ func (m *FairMix) deleteSource(s *mixSource) {
 func (m *FairMix) runSource(closed chan struct{}, s *mixSource) {
 	defer m.wg.Done()
 	defer close(s.next)
+
 	for s.it.Next() {
+
 		n := s.it.Node()
+
 		select {
 		case s.next <- n:
 		case m.fromAny <- n:
 		case <-closed:
+
 			return
 		}
 	}
+
+
 }

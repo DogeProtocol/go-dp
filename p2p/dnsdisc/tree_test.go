@@ -98,6 +98,10 @@ func TestParseEntry(t *testing.T) {
 			err:   entryError{"link", errNoPubkey},
 		},
 		{
+			input: "enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@nodes.example.org",
+			err:   entryError{"link", errBadPubkey},
+		},
+		{
 			input: "enrtree://AP62DT7WOTEQZGQZOU474PP3KMEGVTTE7A7NPRXKX3DUD57@nodes.example.org",
 			err:   entryError{"link", errBadPubkey},
 		},

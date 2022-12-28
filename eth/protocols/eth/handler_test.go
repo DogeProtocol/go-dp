@@ -17,6 +17,8 @@
 package eth
 
 import (
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math"
 	"math/big"
 	"math/rand"
@@ -39,10 +41,13 @@ import (
 
 var (
 	// testKey is a private key to use for funding a tester account.
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+
+	privtestkey, _ = cryptopq.GenerateKey()
+	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+	testKey, _     = cryptopq.HexToOQS(hextestkey)
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
 )
 
 // testBackend is a mock implementation of the live Ethereum message handler. Its
@@ -397,10 +402,23 @@ func testGetNodeData(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Define three accounts to simulate transactions with
-	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
-	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
+
+	key1, _ := cryptopq.GenerateKey()
+	hexkey1 := hex.EncodeToString(key1.D.Bytes())
+
+	key2, _ := cryptopq.GenerateKey()
+	hexkey2 := hex.EncodeToString(key2.D.Bytes())
+
+	acc1Key, _ := cryptopq.HexToOQS(hexkey1)
+	acc2Key, _ := cryptopq.HexToOQS(hexkey2)
+	acc1Addr, err := cryptopq.PubkeyToAddress(acc1Key.PublicKey)
+	if err != nil {
+		t.Fatalf("PubkeyToAddress")
+	}
+	acc2Addr, err := cryptopq.PubkeyToAddress(acc2Key.PublicKey)
+	if err != nil {
+		t.Fatalf("PubkeyToAddress")
+	}
 
 	signer := types.HomesteadSigner{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)
@@ -513,10 +531,24 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	// Define three accounts to simulate transactions with
-	acc1Key, _ := crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
-	acc2Key, _ := crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
-	acc1Addr := crypto.PubkeyToAddress(acc1Key.PublicKey)
-	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
+
+	key1, _ := cryptopq.GenerateKey()
+	hexkey1 := hex.EncodeToString(key1.D.Bytes())
+
+	key2, _ := cryptopq.GenerateKey()
+	hexkey2 := hex.EncodeToString(key2.D.Bytes())
+
+	acc1Key, _ := cryptopq.HexToOQS(hexkey1)
+	acc2Key, _ := cryptopq.HexToOQS(hexkey2)
+	acc1Addr, err := cryptopq.PubkeyToAddress(acc1Key.PublicKey)
+	if err != nil {
+		t.Fatalf("PubkeyToAddress")
+	}
+
+	acc2Addr, err := cryptopq.PubkeyToAddress(acc2Key.PublicKey)
+	if err != nil {
+		t.Fatalf("PubkeyToAddress")
+	}
 
 	signer := types.HomesteadSigner{}
 	// Create a chain generator with some simple transactions (blatantly stolen from @fjl/chain_markets_test)

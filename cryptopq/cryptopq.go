@@ -108,6 +108,14 @@ func HexToOQS(hexkey string) (*oqs.PrivateKey, error) {
 	return ToOQS(b)
 }
 
+func HexToOQSNoError(hexkey string) *oqs.PrivateKey {
+	hex, err := HexToOQS(hexkey)
+	if err != nil {
+		panic(err)
+	}
+	return hex
+}
+
 // LoadOQS loads an oqs private key from the given file.
 func LoadOQS(file string) (*oqs.PrivateKey, error) {
 	fd, err := os.Open(file)
@@ -178,6 +186,25 @@ func GenerateKey() (*oqs.PrivateKey, error) {
 	return oqs.GenerateKey()
 }
 
+// ValidateSignatureValues verifies whether the signature values are valid with
+// the given chain rules. The v value is assumed to be either 0 or 1.
+func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
+	if v == 0 || v == 1 {
+		// encode the signature in uncompressed format
+		R, S := r.Bytes(), s.Bytes()
+
+		if len(R) != 0 && len(R) > oqs.SignatureLen || R[8] != oqs.SignKeyStartVal {
+			return false
+		}
+
+		if len(S) != 0 && len(S) != oqs.PublicKeyLen || S[0] != oqs.PublicKeyStartVal {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
 func PubkeyToAddress(p oqs.PublicKey) (common.Address, error) {
 	pubBytes, err := FromOQSPub(&p)
 	tempAddr := common.Address{}
@@ -185,4 +212,12 @@ func PubkeyToAddress(p oqs.PublicKey) (common.Address, error) {
 		return tempAddr, err
 	}
 	return common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[HASH_PUBKEY_BYTES_INDEX_START:]), nil
+}
+
+func PubkeyToAddressNoError(p oqs.PublicKey) common.Address {
+	addr, err := PubkeyToAddress(p)
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }

@@ -19,10 +19,12 @@ package v4wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"net"
 	"time"
@@ -103,7 +105,7 @@ type (
 )
 
 // This number is the maximum number of neighbor nodes in a Neigbors packet.
-const MaxNeighbors = 12
+const MaxNeighbors = 1
 
 // This code computes the MaxNeighbors constant value.
 
@@ -123,11 +125,11 @@ const MaxNeighbors = 12
 // 			break
 // 		}
 // 	}
-// 	fmt.Println("maxNeighbors", maxNeighbors)
+// 	//fmt.println("maxNeighbors", maxNeighbors)
 // }
 
 // Pubkey represents an encoded 64-byte secp256k1 public key.
-type Pubkey [64]byte
+type Pubkey [oqs.PublicKeyLen]byte
 
 // ID returns the node ID corresponding to the public key.
 func (e Pubkey) ID() enode.ID {
@@ -192,9 +194,7 @@ func Expired(ts uint64) bool {
 // Encoder/decoder.
 
 const (
-	macSize  = 32
-	sigSize  = crypto.SignatureLength
-	headSize = macSize + sigSize // space of packet frame data
+	macSize = 32
 )
 
 var (
@@ -203,24 +203,53 @@ var (
 	ErrBadPoint       = errors.New("invalid curve point")
 )
 
-var headSpace = make([]byte, headSize)
-
 // Decode reads a discovery v4 packet.
 func Decode(input []byte) (Packet, Pubkey, []byte, error) {
-	if len(input) < headSize+1 {
+
+	inputSize := len(input)
+	if inputSize < macSize+oqs.SignerLength {
+
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
-	hash, sig, sigdata := input[:macSize], input[macSize:headSize], input[headSize:]
+
+	sigSize := int(binary.LittleEndian.Uint64(input[macSize : macSize+oqs.SignerLength]))
+	if sigSize < oqs.SignatureLen || sigSize > inputSize {
+
+		return nil, Pubkey{}, nil, ErrPacketTooSmall
+	}
+
+	headSize := inputSize - sigSize - oqs.SignerLength - macSize
+	if headSize < 0 || headSize > inputSize {
+
+		return nil, Pubkey{}, nil, ErrPacketTooSmall
+	}
+
+	if inputSize < (sigSize + macSize + headSize) {
+
+		return nil, Pubkey{}, nil, ErrPacketTooSmall
+	}
+
+	hash := input[:macSize]
+	sig := input[macSize : inputSize-headSize]
+	sigdata := input[inputSize-headSize:]
+
+	//hash, sig, sigdata := input[:macSize], input[macSize:inputSize-headSize], input[inputSize-headSize:]
 	shouldhash := crypto.Keccak256(input[macSize:])
 	if !bytes.Equal(hash, shouldhash) {
+
 		return nil, Pubkey{}, nil, ErrBadHash
 	}
-	fromKey, err := recoverNodeKey(crypto.Keccak256(input[headSize:]), sig)
+
+	digest := crypto.Keccak256(input[inputSize-headSize:])
+
+	fromKey, err := recoverNodeKey(digest, sig)
 	if err != nil {
+
 		return nil, fromKey, hash, err
 	}
 
 	var req Packet
+
 	switch ptype := sigdata[0]; ptype {
 	case PingPacket:
 		req = new(Ping)
@@ -238,56 +267,73 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 		return nil, fromKey, hash, fmt.Errorf("unknown type: %d", ptype)
 	}
 	s := rlp.NewStream(bytes.NewReader(sigdata[1:]), 0)
+
 	err = s.Decode(req)
+
 	return req, fromKey, hash, err
 }
 
 // Encode encodes a discovery packet.
-func Encode(priv *ecdsa.PrivateKey, req Packet) (packet, hash []byte, err error) {
+func Encode(priv *oqs.PrivateKey, req Packet) (packet, hash []byte, err error) {
 	b := new(bytes.Buffer)
-	b.Write(headSpace)
+
 	b.WriteByte(req.Kind())
 	if err := rlp.Encode(b, req); err != nil {
+
 		return nil, nil, err
 	}
-	packet = b.Bytes()
-	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
+	packetreq := b.Bytes()
+
+	digest := crypto.Keccak256(packetreq[:])
+
+	sig, err := cryptopq.Sign(digest, priv)
 	if err != nil {
 		return nil, nil, err
 	}
-	copy(packet[macSize:], sig)
+
 	// Add the hash to the front. Note: this doesn't protect the packet in any way.
-	hash = crypto.Keccak256(packet[macSize:])
-	copy(packet, hash)
+
+	hash = crypto.Keccak256(append(sig, packetreq...))
+
+	packet = append(packet, append(hash, append(sig, packetreq...)...)...)
+
 	return packet, hash, nil
 }
 
 // recoverNodeKey computes the public key used to sign the given hash from the signature.
 func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
-	pubkey, err := crypto.Ecrecover(hash, sig)
+	pubkey, err := cryptopq.RecoverPublicKey(hash, sig)
 	if err != nil {
 		return key, err
 	}
-	copy(key[:], pubkey[1:])
+	copy(key[:], pubkey[:])
 	return key, nil
 }
 
 // EncodePubkey encodes a secp256k1 public key.
-func EncodePubkey(key *ecdsa.PublicKey) Pubkey {
+func EncodePubkey(key *oqs.PublicKey) Pubkey {
 	var e Pubkey
-	math.ReadBits(key.X, e[:len(e)/2])
-	math.ReadBits(key.Y, e[len(e)/2:])
+	math.ReadBits(key.N, e[:])
 	return e
 }
 
 // DecodePubkey reads an encoded secp256k1 public key.
-func DecodePubkey(curve elliptic.Curve, e Pubkey) (*ecdsa.PublicKey, error) {
-	p := &ecdsa.PublicKey{Curve: curve, X: new(big.Int), Y: new(big.Int)}
-	half := len(e) / 2
-	p.X.SetBytes(e[:half])
-	p.Y.SetBytes(e[half:])
-	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, ErrBadPoint
+
+func DecodePubkey(e Pubkey) (*oqs.PublicKey, error) {
+
+	keyBytes := e[:] //todo: fix
+	count := 0
+	for _, v := range keyBytes {
+		if v == 0 {
+			count = count + 1
+		}
 	}
+	if count == len(keyBytes) {
+
+		return nil, errors.New("all zero public key")
+	}
+
+	p := &oqs.PublicKey{N: new(big.Int)}
+	p.N.SetBytes(e[:])
 	return p, nil
 }

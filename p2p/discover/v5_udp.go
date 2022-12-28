@@ -19,10 +19,10 @@ package discover
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	crand "crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io"
 	"math"
 	"net"
@@ -62,10 +62,10 @@ type codecV5 interface {
 // UDPv5 is the implementation of protocol version 5.
 type UDPv5 struct {
 	// static fields
-	conn         UDPConn
+	conn         UdpSession
 	tab          *Table
 	netrestrict  *netutil.Netlist
-	priv         *ecdsa.PrivateKey
+	priv         *oqs.PrivateKey
 	localNode    *enode.LocalNode
 	db           *enode.DB
 	log          log.Logger
@@ -122,8 +122,9 @@ type callTimeout struct {
 }
 
 // ListenV5 listens on the given connection.
-func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
-	t, err := newUDPv5(conn, ln, cfg)
+func ListenV5(sessionManager *UdpSessionManager, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+	panic("ListenV5 not implemented")
+	t, err := newUDPv5(nil, ln, cfg) //todo
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +136,8 @@ func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 }
 
 // newUDPv5 creates a UDPv5 transport, but doesn't start any goroutines.
-func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+func newUDPv5(conn UdpSession, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+	panic("ListenV5 not implemented")
 	closeCtx, cancelCloseCtx := context.WithCancel(context.Background())
 	cfg = cfg.withDefaults()
 	t := &UDPv5{

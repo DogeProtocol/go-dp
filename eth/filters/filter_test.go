@@ -18,6 +18,8 @@ package filters
 
 import (
 	"context"
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -28,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -51,8 +52,11 @@ func BenchmarkFilters(b *testing.B) {
 	var (
 		db, _   = rawdb.NewLevelDBDatabase(dir, 0, 0, "", false)
 		backend = &testBackend{db: db}
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
+
+		key2, _ = cryptopq.GenerateKey()
+		hexkey  = hex.EncodeToString(key2.D.Bytes())
+		key1, _ = cryptopq.HexToOQS(hexkey)
+		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
 		addr2   = common.BytesToAddress([]byte("jeff"))
 		addr3   = common.BytesToAddress([]byte("ethereum"))
 		addr4   = common.BytesToAddress([]byte("random addresses please"))
@@ -105,8 +109,11 @@ func TestFilters(t *testing.T) {
 	var (
 		db, _   = rawdb.NewLevelDBDatabase(dir, 0, 0, "", false)
 		backend = &testBackend{db: db}
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr    = crypto.PubkeyToAddress(key1.PublicKey)
+
+		key2, _ = cryptopq.GenerateKey()
+		hexkey  = hex.EncodeToString(key2.D.Bytes())
+		key1, _ = cryptopq.HexToOQS(hexkey)
+		addr    = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
 
 		hash1 = common.BytesToHash([]byte("topic1"))
 		hash2 = common.BytesToHash([]byte("topic2"))

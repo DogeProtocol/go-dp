@@ -254,6 +254,7 @@ func init() {
 }
 
 func main() {
+	log.Info("Starting Geth")
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -442,8 +443,17 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 		utils.Fatalf("Account unlock with HTTP access is forbidden!")
 	}
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	passwords := utils.MakePasswordList(ctx)
-	for i, account := range unlocks {
-		unlockAccount(ks, account, i, passwords)
+
+	passphrase := os.Getenv("GETH_ACC_PWD")
+	if len(passphrase) == 0 {
+		passwords := utils.MakePasswordList(ctx)
+		for i, account := range unlocks {
+			unlockAccount(ks, account, i, passwords)
+		}
+	} else {
+		fmt.Println("Password passed from environment variable GETH_ACC_PWD")
+		for i, account := range unlocks {
+			unlockAccount(ks, account, i, []string{passphrase})
+		}
 	}
 }

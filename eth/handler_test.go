@@ -17,6 +17,8 @@
 package eth
 
 import (
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"sort"
 	"sync"
@@ -27,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
@@ -36,10 +37,13 @@ import (
 
 var (
 	// testKey is a private key to use for funding a tester account.
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+
+	privtestkey, _ = cryptopq.GenerateKey()
+	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+	testKey, _     = cryptopq.HexToOQS(hextestkey)
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
+	testAddr = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
 )
 
 // testTxPool is a mock transaction pool that blindly accepts all transactions.

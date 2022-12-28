@@ -18,16 +18,15 @@ package dnsdisc
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
-	"math/rand"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/internal/testlog"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -54,9 +53,9 @@ func TestClientSyncTree(t *testing.T) {
 		wantLinks = []string{"enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"}
 		wantSeq   = uint(1)
 	)
-
 	c := NewClient(Config{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
 	stree, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
+
 	if err != nil {
 		t.Fatal("sync error:", err)
 	}
@@ -91,6 +90,7 @@ func TestClientSyncTreeBadNode(t *testing.T) {
 	}
 	c := NewClient(Config{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
 	_, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
+
 	wantErr := nameError{name: "INDMVBZEEQ4ESVYAKGIYU74EAA.n", err: entryError{typ: "enr", err: errInvalidENR}}
 	if err != wantErr {
 		t.Fatalf("expected sync error %q, got %q", wantErr, err)
@@ -101,6 +101,7 @@ func TestClientSyncTreeBadNode(t *testing.T) {
 func TestIterator(t *testing.T) {
 	nodes := testNodes(nodesSeed1, 30)
 	tree, url := makeTestTree("n", nodes, nil)
+
 	r := mapResolver(tree.ToTXT("n"))
 	c := NewClient(Config{
 		Resolver:  r,
@@ -392,20 +393,23 @@ func makeTestTree(domain string, nodes []*enode.Node, links []string) (*Tree, st
 }
 
 // testKeys creates deterministic private keys for testing.
-func testKeys(seed int64, n int) []*ecdsa.PrivateKey {
-	rand := rand.New(rand.NewSource(seed))
-	keys := make([]*ecdsa.PrivateKey, n)
+func testKeys(seed int64, n int) []*oqs.PrivateKey {
+
+	keys := make([]*oqs.PrivateKey, n)
+
 	for i := 0; i < n; i++ {
-		key, err := ecdsa.GenerateKey(crypto.S256(), rand)
+
+		key, err := cryptopq.GenerateKey()
 		if err != nil {
 			panic("can't generate key: " + err.Error())
 		}
+
 		keys[i] = key
 	}
 	return keys
 }
 
-func testKey(seed int64) *ecdsa.PrivateKey {
+func testKey(seed int64) *oqs.PrivateKey {
 	return testKeys(seed, 1)[0]
 }
 

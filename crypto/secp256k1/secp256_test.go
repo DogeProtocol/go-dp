@@ -10,6 +10,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+
 	"io"
 	"testing"
 )
@@ -77,7 +78,9 @@ func TestSignatureValidity(t *testing.T) {
 	if len(sig) != 65 {
 		t.Errorf("sig length mismatch: want: 65 have: %d", len(sig))
 	}
-	recid := int(sig[64])
+
+	recid := int(sig[len(sig)-1])
+
 	if recid > 4 || recid < 0 {
 		t.Errorf("sig recid mismatch: want: within 0 to 4 have: %d", int(sig[64]))
 	}

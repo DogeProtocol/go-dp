@@ -17,7 +17,7 @@
 package les
 
 import (
-	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -60,7 +60,7 @@ type LesServer struct {
 	peers       *clientPeerSet
 	serverset   *serverSet
 	vfluxServer *vfs.Server
-	privateKey  *ecdsa.PrivateKey
+	privateKey  *oqs.PrivateKey
 
 	// Flow control and capacity management
 	fcManager    *flowcontrol.ClientManager

@@ -33,6 +33,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io"
 	"io/ioutil"
 	"os"
@@ -227,14 +228,19 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := crypto.ToECDSAUnsafe(keyBytes)
+	key := cryptopq.ToOQSUnsafe(keyBytes)
 	id, err := uuid.FromBytes(keyId)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKeyAddress, err := cryptopq.PubkeyToAddress(key.PublicKey)
 	if err != nil {
 		return nil, err
 	}
 	return &Key{
 		Id:         id,
-		Address:    crypto.PubkeyToAddress(key.PublicKey),
+		Address:    pubKeyAddress,
 		PrivateKey: key,
 	}, nil
 }

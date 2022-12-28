@@ -18,10 +18,10 @@ package v5wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io/ioutil"
 	"net"
 	"os"
@@ -33,20 +33,19 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
 // To regenerate discv5 test vectors, run
 //
-//     go test -run TestVectors -write-test-vectors
-//
+//	go test -run TestVectors -write-test-vectors
 var writeTestVectorsFlag = flag.Bool("write-test-vectors", false, "Overwrite discv5 test vectors in testdata/")
 
 var (
-	testKeyA, _   = crypto.HexToECDSA("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
-	testKeyB, _   = crypto.HexToECDSA("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
-	testEphKey, _ = crypto.HexToECDSA("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
+	testKeyA, _   = cryptopq.HexToOQS("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
+	testKeyB, _   = cryptopq.HexToOQS("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
+	testEphKey, _ = cryptopq.HexToOQS("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
 	testIDnonce   = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 )
 
@@ -371,7 +370,7 @@ func TestTestVectorsV5(t *testing.T) {
 			net.nodeA.c.sc.maskingIVGen = func(buf []byte) error {
 				return nil // all zero
 			}
-			net.nodeA.c.sc.ephemeralKeyGen = func() (*ecdsa.PrivateKey, error) {
+			net.nodeA.c.sc.ephemeralKeyGen = func() (*oqs.PrivateKey, error) {
 				return testEphKey, nil
 			}
 
@@ -419,7 +418,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 			fmt.Fprint(o, "\nhandshake inputs:\n\n")
 			printWhoareyou(challenge)
 			fmt.Fprintf(o, "ephemeral-key = %#x\n", testEphKey.D.Bytes())
-			fmt.Fprintf(o, "ephemeral-pubkey = %#x\n", crypto.CompressPubkey(&testEphKey.PublicKey))
+			fmt.Fprintf(o, "ephemeral-pubkey = %#x\n", cryptopq.CompressPubkey(&testEphKey.PublicKey))
 		}
 	default:
 		panic(fmt.Errorf("unhandled packet type %T", p))
@@ -508,7 +507,7 @@ func (t *handshakeTest) close() {
 	t.nodeB.ln.Database().Close()
 }
 
-func (n *handshakeTestNode) init(key *ecdsa.PrivateKey, ip net.IP, clock mclock.Clock) {
+func (n *handshakeTestNode) init(key *oqs.PrivateKey, ip net.IP, clock mclock.Clock) {
 	db, _ := enode.OpenDB("")
 	n.ln = enode.NewLocalNode(db, key)
 	n.ln.SetStaticIP(ip)

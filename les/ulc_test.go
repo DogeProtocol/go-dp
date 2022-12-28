@@ -19,11 +19,11 @@ package les
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"net"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
@@ -132,7 +132,7 @@ func newTestServerPeer(t *testing.T, blocks int, protocol int) (*testServer, *en
 		nopruning: true,
 	}
 	s, _, teardown := newClientServerEnv(t, netconfig)
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		t.Fatal("generate key err:", err)
 	}

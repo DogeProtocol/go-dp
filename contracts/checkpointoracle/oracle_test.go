@@ -18,9 +18,10 @@ package checkpointoracle
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/binary"
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"math/big"
 	"reflect"
 	"sort"
@@ -121,7 +122,7 @@ func validateEvents(target int, sink interface{}) (bool, []reflect.Value) {
 	return chose == 1, recv
 }
 
-func signCheckpoint(addr common.Address, privateKey *ecdsa.PrivateKey, index uint64, hash common.Hash) []byte {
+func signCheckpoint(addr common.Address, privateKey *oqs.PrivateKey, index uint64, hash common.Hash) []byte {
 	// EIP 191 style signatures
 	//
 	// Arguments when calculating hash to validate
@@ -135,8 +136,8 @@ func signCheckpoint(addr common.Address, privateKey *ecdsa.PrivateKey, index uin
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, index)
 	data := append([]byte{0x19, 0x00}, append(addr.Bytes(), append(buf, hash.Bytes()...)...)...)
-	sig, _ := crypto.Sign(crypto.Keccak256(data), privateKey)
-	sig[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
+	sig, _ := cryptopq.Sign(crypto.Keccak256(data), privateKey)
+
 	return sig
 }
 
@@ -145,7 +146,7 @@ func assertSignature(addr common.Address, index uint64, hash [32]byte, r, s [32]
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, index)
 	data := append([]byte{0x19, 0x00}, append(addr.Bytes(), append(buf, hash[:]...)...)...)
-	pubkey, err := crypto.Ecrecover(crypto.Keccak256(data), append(r[:], append(s[:], v-27)...))
+	pubkey, err := cryptopq.RecoverPublicKey(crypto.Keccak256(data), append(r[:], s[:]...))
 	if err != nil {
 		return false
 	}
@@ -155,7 +156,7 @@ func assertSignature(addr common.Address, index uint64, hash [32]byte, r, s [32]
 }
 
 type Account struct {
-	key  *ecdsa.PrivateKey
+	key  *oqs.PrivateKey
 	addr common.Address
 }
 type Accounts []Account
@@ -168,8 +169,11 @@ func TestCheckpointRegister(t *testing.T) {
 	// Initialize test accounts
 	var accounts Accounts
 	for i := 0; i < 3; i++ {
-		key, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(key.PublicKey)
+		key, _ := cryptopq.GenerateKey()
+		addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+		if err != nil {
+			t.Fatalf("PubkeyToAddress")
+		}
 		accounts = append(accounts, Account{key: key, addr: addr})
 	}
 	sort.Sort(accounts)
@@ -200,7 +204,7 @@ func TestCheckpointRegister(t *testing.T) {
 		return parentNumber, parentHash
 	}
 	// collectSig generates specified number signatures.
-	collectSig := func(index uint64, hash common.Hash, n int, unauthorized *ecdsa.PrivateKey) (v []uint8, r [][32]byte, s [][32]byte) {
+	collectSig := func(index uint64, hash common.Hash, n int, unauthorized *oqs.PrivateKey) (v []uint8, r [][32]byte, s [][32]byte) {
 		for i := 0; i < n; i++ {
 			sig := signCheckpoint(contractAddr, accounts[i].key, index, hash)
 			if unauthorized != nil {
@@ -261,7 +265,7 @@ func TestCheckpointRegister(t *testing.T) {
 	// Test unauthorized signature checking
 	validateOperation(t, c, contractBackend, func() {
 		number, hash := getRecent()
-		u, _ := crypto.GenerateKey()
+		u, _ := cryptopq.GenerateKey()
 		v, r, s := collectSig(0, checkpoint0.Hash(), 2, u)
 		c.SetCheckpoint(transactOpts, number, hash, checkpoint0.Hash(), 0, v, r, s)
 	}, func(events <-chan *contract.CheckpointOracleNewCheckpointVote) error {

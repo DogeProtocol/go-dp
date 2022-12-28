@@ -17,15 +17,14 @@
 package ethtest
 
 import (
-	"os"
-	"testing"
-	"time"
-
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/internal/utesting"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
+	"os"
+	"testing"
+	"time"
 )
 
 var (
@@ -48,6 +47,7 @@ func TestEthSuite(t *testing.T) {
 	for _, test := range suite.AllEthTests() {
 		t.Run(test.Name, func(t *testing.T) {
 			result := utesting.RunTAP([]utesting.Test{{Name: test.Name, Fn: test.Fn}}, os.Stdout)
+
 			if result[0].Failed {
 				t.Fatal()
 			}
@@ -101,7 +101,6 @@ func setupGeth(stack *node.Node) error {
 	if err != nil {
 		return err
 	}
-
 	_, err = backend.BlockChain().InsertChain(chain.blocks[1:])
 	return err
 }

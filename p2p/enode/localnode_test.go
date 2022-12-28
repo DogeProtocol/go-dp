@@ -17,18 +17,19 @@
 package enode
 
 import (
+
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/rand"
 	"net"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/stretchr/testify/assert"
 )
 
 func newLocalNodeForTesting() (*LocalNode, *DB) {
 	db, _ := OpenDB("")
-	key, _ := crypto.GenerateKey()
+	key, _ := cryptopq.GenerateKey()
 	return NewLocalNode(db, key), db
 }
 
@@ -37,6 +38,7 @@ func TestLocalNode(t *testing.T) {
 	defer db.Close()
 
 	if ln.Node().ID() != ln.ID() {
+
 		t.Fatal("inconsistent ID")
 	}
 
@@ -71,7 +73,7 @@ func TestLocalNodeSeqPersist(t *testing.T) {
 
 	// Create a new instance with a different node key on the same database.
 	// This should reset the sequence number.
-	key, _ := crypto.GenerateKey()
+	key, _ := cryptopq.GenerateKey()
 	ln3 := NewLocalNode(db, key)
 	if s := ln3.Node().Seq(); s != 1 {
 		t.Fatalf("wrong seq %d on instance with changed key, want 1", s)

@@ -18,6 +18,8 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"hash"
 	"math/big"
 	"reflect"
@@ -25,10 +27,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"golang.org/x/crypto/sha3"
+)
+
+
+
+var (
+	privtestkey1, _  = cryptopq.GenerateKey()
+	hextestkey1 = hex.EncodeToString(privtestkey.D.Bytes())
+	sigtest1, _ = cryptopq.Sign([]byte("This is test program"),privtestkey)
+	hexsigtest1 = hex.EncodeToString(sigtest)
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -56,7 +66,7 @@ func TestBlockEncoding(t *testing.T) {
 	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
 
 	tx1 := NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(10), 50000, big.NewInt(10), nil)
-	tx1, _ = tx1.WithSignature(HomesteadSigner{}, common.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100"))
+	tx1, _ = tx1.WithSignature(HomesteadSigner{}, common.Hex2Bytes(hexsigtest1))
 	check("len(Transactions)", len(block.Transactions()), 1)
 	check("Transactions[0].Hash", block.Transactions()[0].Hash(), tx1.Hash())
 	ourBlockEnc, err := rlp.EncodeToBytes(&block)
@@ -94,7 +104,7 @@ func TestEIP1559BlockEncoding(t *testing.T) {
 	check("BaseFee", block.BaseFee(), new(big.Int).SetUint64(params.InitialBaseFee))
 
 	tx1 := NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(10), 50000, big.NewInt(10), nil)
-	tx1, _ = tx1.WithSignature(HomesteadSigner{}, common.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100"))
+	tx1, _ = tx1.WithSignature(HomesteadSigner{}, common.Hex2Bytes(hexsigtest1))
 
 	addr := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	accesses := AccessList{AccessTuple{
@@ -115,7 +125,7 @@ func TestEIP1559BlockEncoding(t *testing.T) {
 		Data:       []byte{},
 	}
 	tx2 := NewTx(txdata)
-	tx2, err := tx2.WithSignature(LatestSignerForChainID(big.NewInt(1)), common.Hex2Bytes("fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a800"))
+	tx2, err := tx2.WithSignature(LatestSignerForChainID(big.NewInt(1)), common.Hex2Bytes(hexsigtest1))
 	if err != nil {
 		t.Fatal("invalid signature error: ", err)
 	}
@@ -243,7 +253,7 @@ func (h *testHasher) Hash() common.Hash {
 
 func makeBenchBlock() *Block {
 	var (
-		key, _   = crypto.GenerateKey()
+		key, _   = cryptopq.GenerateKey()
 		txs      = make([]*Transaction, 70)
 		receipts = make([]*Receipt, len(txs))
 		signer   = LatestSigner(params.TestChainConfig)

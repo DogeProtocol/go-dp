@@ -17,12 +17,13 @@
 package v4test
 
 import (
-	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
@@ -31,7 +32,7 @@ const waitTime = 300 * time.Millisecond
 
 type testenv struct {
 	l1, l2     net.PacketConn
-	key        *ecdsa.PrivateKey
+	key        *oqs.PrivateKey
 	remote     *enode.Node
 	remoteAddr *net.UDPAddr
 }
@@ -45,7 +46,7 @@ func newTestEnv(remote string, listen1, listen2 string) *testenv {
 	if err != nil {
 		panic(err)
 	}
-	key, err := crypto.GenerateKey()
+	key, err := cryptopq.GenerateKey()
 	if err != nil {
 		panic(err)
 	}

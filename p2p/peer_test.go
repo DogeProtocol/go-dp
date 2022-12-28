@@ -141,7 +141,7 @@ func TestPeerProtoReadMsg(t *testing.T) {
 		if err != errProtocolReturned {
 			t.Errorf("peer returned error: %v", err)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Errorf("receive timeout")
 	}
 }
@@ -193,7 +193,7 @@ func TestPeerDisconnect(t *testing.T) {
 		if reason != DiscQuitting {
 			t.Errorf("run returned wrong reason: got %v, want %v", reason, DiscQuitting)
 		}
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Millisecond):
 		t.Error("peer did not return")
 	}
 }
@@ -239,7 +239,7 @@ func TestPeerDisconnectRace(t *testing.T) {
 
 		select {
 		case <-disc:
-		case <-time.After(2 * time.Second):
+		case <-time.After(5 * time.Second):
 			// Peer.run should return quickly. If it doesn't the Peer
 			// goroutines are probably deadlocked. Call panic in order to
 			// show the stacks.

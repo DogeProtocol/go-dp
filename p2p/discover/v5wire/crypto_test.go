@@ -18,27 +18,17 @@ package v5wire
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
-
-func TestVector_ECDH(t *testing.T) {
-	var (
-		staticKey = hexPrivkey("0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
-		publicKey = hexPubkey(crypto.S256(), "0x039961e4c2356d61bedb83052c115d311acb3a96f5777296dcf297351130266231")
-		want      = hexutil.MustDecode("0x033b11a2a1f214567e1537ce5e509ffd9b21373247f2a3ff6841f4976f53165e7e")
-	)
-	result := ecdh(staticKey, publicKey)
-	check(t, "shared-secret", result, want)
-}
 
 func TestVector_KDF(t *testing.T) {
 	var (
@@ -107,16 +97,16 @@ func check(t *testing.T, what string, x, y []byte) {
 	}
 }
 
-func hexPrivkey(input string) *ecdsa.PrivateKey {
-	key, err := crypto.HexToECDSA(strings.TrimPrefix(input, "0x"))
+func hexPrivkey(input string) *oqs.PrivateKey {
+	key, err := cryptopq.HexToOQS(strings.TrimPrefix(input, "0x"))
 	if err != nil {
 		panic(err)
 	}
 	return key
 }
 
-func hexPubkey(curve elliptic.Curve, input string) *ecdsa.PublicKey {
-	key, err := DecodePubkey(curve, hexutil.MustDecode(input))
+func hexPubkey(curve elliptic.Curve, input string) *oqs.PublicKey {
+	key, err := DecodePubkey(hexutil.MustDecode(input))
 	if err != nil {
 		panic(err)
 	}

@@ -20,85 +20,88 @@ import (
 	"io"
 )
 
-// readBuffer implements buffering for network reads. This type is similar to bufio.Reader,
+// ReadBuffer implements buffering for network reads. This type is similar to bufio.Reader,
 // with two crucial differences: the buffer slice is exposed, and the buffer keeps all
 // read data available until reset.
 //
 // How to use this type:
 //
-// Keep a readBuffer b alongside the underlying network connection. When reading a packet
+// Keep a ReadBuffer b alongside the underlying network connection. When reading a packet
 // from the connection, first call b.reset(). This empties b.data. Now perform reads
 // through b.read() until the end of the packet is reached. The complete packet data is
 // now available in b.data.
-type readBuffer struct {
-	data []byte
+type ReadBuffer struct {
+	Data []byte
 	end  int
 }
 
-// reset removes all processed data which was read since the last call to reset.
-// After reset, len(b.data) is zero.
-func (b *readBuffer) reset() {
-	unprocessed := b.end - len(b.data)
-	copy(b.data[:unprocessed], b.data[len(b.data):b.end])
+// Reset removes all processed data which was read since the last call to Reset.
+// After Reset, len(b.data) is zero.
+func (b *ReadBuffer) Reset() {
+	unprocessed := b.end - len(b.Data)
+	copy(b.Data[:unprocessed], b.Data[len(b.Data):b.end])
 	b.end = unprocessed
-	b.data = b.data[:0]
+	b.Data = b.Data[:0]
 }
 
-// read reads at least n bytes from r, returning the bytes.
-// The returned slice is valid until the next call to reset.
-func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
-	offset := len(b.data)
-	have := b.end - len(b.data)
+// Read reads at least n bytes from r, returning the bytes.
+// The returned slice is valid until the next call to Reset.
+func (b *ReadBuffer) Read(r io.Reader, n int) ([]byte, error) {
+
+
+	offset := len(b.Data)
+	have := b.end - len(b.Data)
 
 	// If n bytes are available in the buffer, there is no need to read from r at all.
 	if have >= n {
-		b.data = b.data[:offset+n]
-		return b.data[offset : offset+n], nil
+		b.Data = b.Data[:offset+n]
+		return b.Data[offset : offset+n], nil
 	}
 
 	// Make buffer space available.
 	need := n - have
-	b.grow(need)
+	b.Grow(need)
+
 
 	// Read.
-	rn, err := io.ReadAtLeast(r, b.data[b.end:cap(b.data)], need)
+	rn, err := io.ReadAtLeast(r, b.Data[b.end:cap(b.Data)], need)
 	if err != nil {
 		return nil, err
 	}
 	b.end += rn
-	b.data = b.data[:offset+n]
-	return b.data[offset : offset+n], nil
+	b.Data = b.Data[:offset+n]
+	return b.Data[offset : offset+n], nil
 }
 
-// grow ensures the buffer has at least n bytes of unused space.
-func (b *readBuffer) grow(n int) {
-	if cap(b.data)-b.end >= n {
+// Grow ensures the buffer has at least n bytes of unused space.
+func (b *ReadBuffer) Grow(n int) {
+	if cap(b.Data)-b.end >= n {
 		return
 	}
-	need := n - (cap(b.data) - b.end)
-	offset := len(b.data)
-	b.data = append(b.data[:cap(b.data)], make([]byte, need)...)
-	b.data = b.data[:offset]
+	need := n - (cap(b.Data) - b.end)
+	offset := len(b.Data)
+	b.Data = append(b.Data[:cap(b.Data)], make([]byte, need)...)
+	b.Data = b.Data[:offset]
 }
 
-// writeBuffer implements buffering for network writes. This is essentially
+// WriteBuffer implements buffering for network writes. This is essentially
 // a convenience wrapper around a byte slice.
-type writeBuffer struct {
-	data []byte
+type WriteBuffer struct {
+	Data []byte
 }
 
-func (b *writeBuffer) reset() {
-	b.data = b.data[:0]
+func (b *WriteBuffer) Reset() {
+	b.Data = b.Data[:0]
 }
 
-func (b *writeBuffer) appendZero(n int) []byte {
-	offset := len(b.data)
-	b.data = append(b.data, make([]byte, n)...)
-	return b.data[offset : offset+n]
+func (b *WriteBuffer) AppendZero(n int) []byte {
+	offset := len(b.Data)
+	b.Data = append(b.Data, make([]byte, n)...)
+	return b.Data[offset : offset+n]
 }
 
-func (b *writeBuffer) Write(data []byte) (int, error) {
-	b.data = append(b.data, data...)
+func (b *WriteBuffer) Write(data []byte) (int, error) {
+	b.Data = append(b.Data, data...)
 	return len(data), nil
 }
 

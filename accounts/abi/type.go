@@ -275,11 +275,9 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 	if err := typeCheck(t, v); err != nil {
 		return nil, err
 	}
-
 	switch t.T {
 	case SliceTy, ArrayTy:
 		var ret []byte
-
 		if t.requiresLengthPrefix() {
 			// append length
 			ret = append(ret, packNum(reflect.ValueOf(v.Len()))...)
@@ -294,6 +292,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 		var tail []byte
 		for i := 0; i < v.Len(); i++ {
 			val, err := t.Elem.pack(v.Index(i))
+
 			if err != nil {
 				return nil, err
 			}

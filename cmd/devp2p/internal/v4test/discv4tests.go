@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/internal/utesting"
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 )
@@ -292,7 +292,7 @@ func UnsolicitedNeighbors(t *utesting.T) {
 	bond(t, te)
 
 	// Send unsolicited NEIGHBORS response.
-	fakeKey, _ := crypto.GenerateKey()
+	fakeKey, _ := cryptopq.GenerateKey()
 	encFakeKey := v4wire.EncodePubkey(&fakeKey.PublicKey)
 	neighbors := v4wire.Neighbors{
 		Expiration: futureExpiration(),

@@ -18,23 +18,23 @@ package p2p
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"reflect"
 	"sync"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
 )
 
 func TestProtocolHandshake(t *testing.T) {
 	var (
-		prv0, _ = crypto.GenerateKey()
-		pub0    = crypto.FromECDSAPub(&prv0.PublicKey)[1:]
+		prv0, _ = cryptopq.GenerateKey()
+		pub0, _ = cryptopq.FromOQSPub(&prv0.PublicKey) ////[1:]
 		hs0     = &protoHandshake{Version: 3, ID: pub0, Caps: []Cap{{"a", 0}, {"b", 2}}}
 
-		prv1, _ = crypto.GenerateKey()
-		pub1    = crypto.FromECDSAPub(&prv1.PublicKey)[1:]
+		prv1, _ = cryptopq.GenerateKey()
+		pub1, _ = cryptopq.FromOQSPub(&prv1.PublicKey) ////[1:]
 		hs1     = &protoHandshake{Version: 3, ID: pub1, Caps: []Cap{{"c", 1}, {"d", 3}}}
 
 		wg sync.WaitGroup
@@ -49,7 +49,7 @@ func TestProtocolHandshake(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd0.Close()
-		frame := newRLPX(fd0, &prv1.PublicKey)
+		frame := newRLPX(fd0, &prv1.PublicKey, "test")
 		rpubkey, err := frame.doEncHandshake(prv0)
 		if err != nil {
 			t.Errorf("dial side enc handshake failed: %v", err)
@@ -75,7 +75,7 @@ func TestProtocolHandshake(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		defer fd1.Close()
-		rlpx := newRLPX(fd1, nil)
+		rlpx := newRLPX(fd1, nil, "test")
 		rpubkey, err := rlpx.doEncHandshake(prv1)
 		if err != nil {
 			t.Errorf("listen side enc handshake failed: %v", err)

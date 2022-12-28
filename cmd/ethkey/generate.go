@@ -17,15 +17,15 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -69,17 +69,17 @@ If you want to encrypt an existing private key, it can be specified by setting
 			utils.Fatalf("Error checking if keyfile exists: %v", err)
 		}
 
-		var privateKey *ecdsa.PrivateKey
+		var privateKey *oqs.PrivateKey
 		var err error
 		if file := ctx.String("privatekey"); file != "" {
 			// Load private key from file.
-			privateKey, err = crypto.LoadECDSA(file)
+			privateKey, err = cryptopq.LoadOQS(file)
 			if err != nil {
 				utils.Fatalf("Can't load private key: %v", err)
 			}
 		} else {
 			// If not loaded, generate random.
-			privateKey, err = crypto.GenerateKey()
+			privateKey, err = cryptopq.GenerateKey()
 			if err != nil {
 				utils.Fatalf("Failed to generate random private key: %v", err)
 			}
@@ -90,9 +90,14 @@ If you want to encrypt an existing private key, it can be specified by setting
 		if err != nil {
 			utils.Fatalf("Failed to generate random uuid: %v", err)
 		}
+		pubKeyAddr, err := cryptopq.PubkeyToAddress(privateKey.PublicKey)
+		if err != nil {
+			utils.Fatalf("PubkeyToAddress: %v", err)
+		}
+
 		key := &keystore.Key{
 			Id:         UUID,
-			Address:    crypto.PubkeyToAddress(privateKey.PublicKey),
+			Address:    pubKeyAddr,
 			PrivateKey: privateKey,
 		}
 

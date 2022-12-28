@@ -19,6 +19,7 @@ package les
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -28,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/les/flowcontrol"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -169,8 +169,11 @@ type benchmarkTxSend struct {
 }
 
 func (b *benchmarkTxSend) init(h *serverHandler, count int) error {
-	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptopq.GenerateKey()
+	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	if err != nil {
+		return err
+	}
 	signer := types.LatestSigner(h.server.chainConfig)
 	b.txs = make(types.Transactions, count)
 

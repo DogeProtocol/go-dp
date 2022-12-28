@@ -18,6 +18,8 @@
 package ethconfig
 
 import (
+	"github.com/ethereum/go-ethereum/consensus/proofofstake"
+	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"math/big"
 	"os"
 	"os/user"
@@ -204,10 +206,15 @@ type Config struct {
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
-func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
+func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database,
+	ethApi *ethapi.PublicBlockChainAPI, genesisHash common.Hash) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
+	}
+
+	if chainConfig.ProofOfStake != nil {
+		return proofofstake.New(chainConfig, db, ethApi, genesisHash)
 	}
 	// Otherwise assume proof-of-work
 	switch config.PowMode {

@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
 	"io"
 	"io/ioutil"
 	"net"
@@ -28,7 +29,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	testNodeKey, _ = crypto.GenerateKey()
+	testNodeKey, _ = cryptopq.GenerateKey()
 )
 
 func testNodeConfig() *Config {

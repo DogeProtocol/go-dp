@@ -19,10 +19,11 @@ package p2p
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"net"
 	"sort"
 	"sync"
@@ -47,7 +48,7 @@ const (
 	// This is the fairness knob for the discovery mixer. When looking for peers, we'll
 	// wait this long for a single source of candidates before moving on and trying other
 	// sources.
-	discmixTimeout = 5 * time.Second
+	discmixTimeout = 15 * time.Second
 
 	// Connectivity defaults.
 	defaultMaxPendingPeers = 50
@@ -58,10 +59,10 @@ const (
 
 	// Maximum time allowed for reading a complete message.
 	// This is effectively the amount of time a connection can be idle.
-	frameReadTimeout = 30 * time.Second
+	frameReadTimeout = 60 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 20 * time.Second
+	frameWriteTimeout = 60 * time.Second
 )
 
 var errServerStopped = errors.New("server stopped")
@@ -69,7 +70,7 @@ var errServerStopped = errors.New("server stopped")
 // Config holds Server options.
 type Config struct {
 	// This field must be set to a valid secp256k1 private key.
-	PrivateKey *ecdsa.PrivateKey `toml:"-"`
+	PrivateKey *oqs.PrivateKey `toml:"-"`
 
 	// MaxPeers is the maximum number of peers that can be
 	// connected. It must be greater than zero.
@@ -165,7 +166,7 @@ type Server struct {
 
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
-	newTransport func(net.Conn, *ecdsa.PublicKey) transport
+	newTransport func(net.Conn, *oqs.PublicKey, string) transport
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
 
@@ -230,7 +231,7 @@ type conn struct {
 
 type transport interface {
 	// The two handshakes.
-	doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error)
+	doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error)
 	doProtoHandshake(our *protoHandshake) (*protoHandshake, error)
 	// The MsgReadWriter can only be used after the encryption
 	// handshake has completed. The code uses conn.id to track this
@@ -408,11 +409,11 @@ func (srv *Server) Stop() {
 // sharedUDPConn implements a shared connection. Write sends messages to the underlying connection while read returns
 // messages that were found unprocessable and sent to the unhandled channel by the primary listener.
 type sharedUDPConn struct {
-	*net.UDPConn
+	*discover.DpUdpSessionManager
 	unhandled chan discover.ReadPacket
 }
 
-// ReadFromUDP implements discover.UDPConn
+// ReadFromUDP implements discover.UdpSession
 func (s *sharedUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
 	packet, ok := <-s.unhandled
 	if !ok {
@@ -426,7 +427,7 @@ func (s *sharedUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err err
 	return l, packet.Addr, nil
 }
 
-// Close implements discover.UDPConn
+// Close implements discover.UdpSession
 func (s *sharedUDPConn) Close() error {
 	return nil
 }
@@ -490,8 +491,15 @@ func (srv *Server) Start() (err error) {
 
 func (srv *Server) setupLocalNode() error {
 	// Create the devp2p handshake.
-	pubkey := crypto.FromECDSAPub(&srv.PrivateKey.PublicKey)
-	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[1:]}
+
+	pubkey, err := cryptopq.FromOQSPub(&srv.PrivateKey.PublicKey)
+	if err != nil {
+		return err
+	}
+
+
+	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[:]}
+
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())
 	}
@@ -539,6 +547,7 @@ func (srv *Server) setupDiscovery() error {
 	added := make(map[string]bool)
 	for _, proto := range srv.Protocols {
 		if proto.DialCandidates != nil && !added[proto.Name] {
+
 			srv.discmix.AddSource(proto.DialCandidates)
 			added[proto.Name] = true
 		}
@@ -549,15 +558,14 @@ func (srv *Server) setupDiscovery() error {
 		return nil
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
+
+
+	sessionManager, err := discover.CreateDpUdpSessionManager(srv.ListenAddr)
 	if err != nil {
 		return err
 	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return err
-	}
-	realaddr := conn.LocalAddr().(*net.UDPAddr)
+
+	realaddr := sessionManager.LocalAddr().(*net.UDPAddr)
 	srv.log.Debug("UDP listener up", "addr", realaddr)
 	if srv.NAT != nil {
 		if !realaddr.IP.IsLoopback() {
@@ -576,7 +584,8 @@ func (srv *Server) setupDiscovery() error {
 	if !srv.NoDiscovery {
 		if srv.DiscoveryV5 {
 			unhandled = make(chan discover.ReadPacket, 100)
-			sconn = &sharedUDPConn{conn, unhandled}
+
+			sconn = &sharedUDPConn{sessionManager, unhandled}
 		}
 		cfg := discover.Config{
 			PrivateKey:  srv.PrivateKey,
@@ -585,8 +594,10 @@ func (srv *Server) setupDiscovery() error {
 			Unhandled:   unhandled,
 			Log:         srv.log,
 		}
-		ntab, err := discover.ListenV4(conn, srv.localnode, cfg)
+
+		ntab, err := discover.ListenV4(sessionManager, srv.localnode, cfg)
 		if err != nil {
+
 			return err
 		}
 		srv.ntab = ntab
@@ -603,9 +614,10 @@ func (srv *Server) setupDiscovery() error {
 		}
 		var err error
 		if sconn != nil {
-			srv.DiscV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
+
+			srv.DiscV5, err = discover.ListenV5(nil, srv.localnode, cfg) //todo
 		} else {
-			srv.DiscV5, err = discover.ListenV5(conn, srv.localnode, cfg)
+			srv.DiscV5, err = discover.ListenV5(nil, srv.localnode, cfg)
 		}
 		if err != nil {
 			return err
@@ -817,7 +829,9 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 
 func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	// Drop connections with no matching protocols.
+
 	if len(srv.Protocols) > 0 && countMatchingProtocols(srv.Protocols, c.caps) == 0 {
+
 		return DiscUselessPeer
 	}
 	// Repeat the post-handshake checks because the
@@ -828,6 +842,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
+
 	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
 
 	// The slots channel limits accepts of new connections.
@@ -859,7 +874,9 @@ func (srv *Server) listenLoop() {
 			lastLog time.Time
 		)
 		for {
+
 			fd, err = srv.listener.Accept()
+
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
 					srv.log.Debug("Temporary read error", "err", err)
@@ -877,6 +894,7 @@ func (srv *Server) listenLoop() {
 
 		remoteIP := netutil.AddrIP(fd.RemoteAddr())
 		if err := srv.checkInboundConn(remoteIP); err != nil {
+
 			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
 			fd.Close()
 			slots <- struct{}{}
@@ -919,21 +937,30 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 // as a peer. It returns when the connection has been added as a peer
 // or the handshakes have failed.
 func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
+
 	c := &conn{fd: fd, flags: flags, cont: make(chan error)}
 	if dialDest == nil {
-		c.transport = srv.newTransport(fd, nil)
+
+		c.transport = srv.newTransport(fd, nil, fd.RemoteAddr().String())
 	} else {
-		c.transport = srv.newTransport(fd, dialDest.Pubkey())
+
+		c.transport = srv.newTransport(fd, dialDest.Pubkey(), fd.RemoteAddr().String())
 	}
+
 
 	err := srv.setupConn(c, flags, dialDest)
 	if err != nil {
+
 		c.close(err)
 	}
+
+
 	return err
 }
 
 func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) error {
+
+
 	// Prevent leftover pending conns from entering the handshake.
 	srv.lock.Lock()
 	running := srv.running
@@ -943,10 +970,12 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	}
 
 	// If dialing, figure out the remote public key.
-	var dialPubkey *ecdsa.PublicKey
+	var dialPubkey *oqs.PublicKey
 	if dialDest != nil {
-		dialPubkey = new(ecdsa.PublicKey)
-		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
+
+		dialPubkey = new(oqs.PublicKey)
+		if err := dialDest.Load((*enode.PqPubKey)(dialPubkey)); err != nil {
+
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
 			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 			return err
@@ -954,12 +983,15 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	}
 
 	// Run the RLPx handshake.
+
 	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
 	if err != nil {
+
 		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
 	if dialDest != nil {
+
 		c.node = dialDest
 	} else {
 		c.node = nodeFromConn(remotePubkey, c.fd)
@@ -967,37 +999,48 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
+
 		clog.Trace("Rejected peer", "err", err)
 		return err
 	}
 
 	// Run the capability negotiation handshake.
+
 	phs, err := c.doProtoHandshake(srv.ourHandshake)
 	if err != nil {
+
 		clog.Trace("Failed p2p handshake", "err", err)
 		return err
 	}
+
+
+
 	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
+
 		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID))
 		return DiscUnexpectedIdentity
 	}
+
 	c.caps, c.name = phs.Caps, phs.Name
 	err = srv.checkpoint(c, srv.checkpointAddPeer)
 	if err != nil {
+
 		clog.Trace("Rejected peer", "err", err)
 		return err
 	}
 
+
 	return nil
 }
 
-func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {
+func nodeFromConn(pubkey *oqs.PublicKey, conn net.Conn) *enode.Node {
 	var ip net.IP
 	var port int
 	if tcp, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		ip = tcp.IP
 		port = tcp.Port
 	}
+
 	return enode.NewV4(pubkey, ip, port, port)
 }
 
