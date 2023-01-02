@@ -15,3 +15,7 @@ What are the use-cases?
 
 Do you have ideas regarding the implementation of this feature?
 Are you willing to implement this feature?
+
+# What is the priority?
+
+(On a scale of 1 to 5, with 1 being highest priority)
