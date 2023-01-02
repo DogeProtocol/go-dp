@@ -1,10 +1,16 @@
-### Is this for a new testing feature or test?
+---
+name: Add a new test or test system
+about: About a test or test system that needs to be addressed
+title: ''
+labels: 'type:test'
+assignees: ''
+---
 
-### If this is a test feature (such as a pipeline), what is it?
+#### Description
 
-### If this is for a new test, specify files/methods/functions or features that need to be tested?
 
-### Why is this test required?
+#### Impact if not addressed
 
-### What is the priority?
-(On a scale of 1 to 5, with 1 being highest priority)
+
+#### Priority
+On a scale of 1 to 5 (1 being most important)
