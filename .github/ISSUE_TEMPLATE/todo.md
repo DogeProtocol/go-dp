@@ -1,6 +1,6 @@
 ---
 name: Add a TODO
-about: A TODO needs to be addressed
+about: About a TODO that needs to be addressed
 title: ''
 labels: 'type:todo'
 assignees: ''
