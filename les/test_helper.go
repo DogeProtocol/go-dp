@@ -24,7 +24,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"sync/atomic"
 	"testing"
@@ -54,14 +54,14 @@ import (
 )
 
 var (
-	bankKey, _ = cryptopq.GenerateKey()
-	bankAddr   = cryptopq.PubkeyToAddressNoError(bankKey.PublicKey)
+	bankKey, _ = cryptobase.SigAlg.GenerateKey()
+	bankAddr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&bankKey.PublicKey)
 	bankFunds  = big.NewInt(1_000_000_000_000_000_000)
 
-	userKey1, _ = cryptopq.GenerateKey()
-	userKey2, _ = cryptopq.GenerateKey()
-	userAddr1   = cryptopq.PubkeyToAddressNoError(userKey1.PublicKey)
-	userAddr2   = cryptopq.PubkeyToAddressNoError(userKey2.PublicKey)
+	userKey1, _ = cryptobase.SigAlg.GenerateKey()
+	userKey2, _ = cryptobase.SigAlg.GenerateKey()
+	userAddr1   = cryptobase.SigAlg.PublicKeyToAddressNoError(&userKey1.PublicKey)
+	userAddr2   = cryptobase.SigAlg.PublicKeyToAddressNoError(&userKey2.PublicKey)
 
 	testContractAddr         common.Address
 	testContractCode         = common.Hex2Bytes("606060405260cc8060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360cd2685146041578063c16431b914606b57603f565b005b6055600480803590602001909190505060a9565b6040518082815260200191505060405180910390f35b60886004808035906020019091908035906020019091905050608a565b005b80600060005083606481101560025790900160005b50819055505b5050565b6000600060005082606481101560025790900160005b5054905060c7565b91905056")
@@ -72,8 +72,8 @@ var (
 
 	// Checkpoint oracle relative fields
 	oracleAddr   common.Address
-	signerKey, _ = cryptopq.GenerateKey()
-	signerAddr   = cryptopq.PubkeyToAddressNoError(signerKey.PublicKey)
+	signerKey, _ = cryptobase.SigAlg.GenerateKey()
+	signerAddr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&signerKey.PublicKey)
 )
 
 var (

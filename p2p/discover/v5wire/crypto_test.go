@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"crypto/sha256"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,16 +31,20 @@ import (
 )
 
 func TestVector_KDF(t *testing.T) {
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var (
-		ephKey = hexPrivkey("0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
+		ephKey = hexPrivkey(t, "0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
 		cdata  = hexutil.MustDecode("0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000")
-		net    = newHandshakeTest()
 	)
 	defer net.close()
 
 	destKey := &testKeyB.PublicKey
 	s := deriveKeys(sha256.New, ephKey, destKey, net.nodeA.id(), net.nodeB.id(), cdata)
-	t.Logf("ephemeral-key = %#x", ephKey.D)
+	t.Logf("ephemeral-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(ephKey))
 	t.Logf("dest-pubkey = %#x", EncodePubkey(destKey))
 	t.Logf("node-id-a = %#x", net.nodeA.id().Bytes())
 	t.Logf("node-id-b = %#x", net.nodeB.id().Bytes())
@@ -51,7 +55,7 @@ func TestVector_KDF(t *testing.T) {
 
 func TestVector_IDSignature(t *testing.T) {
 	var (
-		key    = hexPrivkey("0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
+		key    = hexPrivkey(t, "0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
 		destID = enode.HexID("0xbbbb9d047f0488c0b5a93c1c3f2d8bafc7c8ff337024a55434a0d0555de64db9")
 		ephkey = hexutil.MustDecode("0x039961e4c2356d61bedb83052c115d311acb3a96f5777296dcf297351130266231")
 		cdata  = hexutil.MustDecode("0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000")
@@ -61,7 +65,7 @@ func TestVector_IDSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("static-key = %#x", key.D)
+	t.Logf("static-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(key))
 	t.Logf("challenge-data = %#x", cdata)
 	t.Logf("ephemeral-pubkey = %#x", ephkey)
 	t.Logf("node-id-B = %#x", destID.Bytes())
@@ -72,6 +76,9 @@ func TestVector_IDSignature(t *testing.T) {
 func TestDeriveKeys(t *testing.T) {
 	t.Parallel()
 
+	if testKeyA == nil || testKeyB == nil {
+		t.Fatal("keys are nil")
+	}
 	var (
 		n1    = enode.ID{1}
 		n2    = enode.ID{2}
@@ -97,15 +104,15 @@ func check(t *testing.T, what string, x, y []byte) {
 	}
 }
 
-func hexPrivkey(input string) *oqs.PrivateKey {
-	key, err := cryptopq.HexToOQS(strings.TrimPrefix(input, "0x"))
+func hexPrivkey(t *testing.T, input string) *signaturealgorithm.PrivateKey {
+	key, err := cryptobase.SigAlg.HexToPrivateKey(strings.TrimPrefix(input, "0x"))
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	return key
 }
 
-func hexPubkey(curve elliptic.Curve, input string) *oqs.PublicKey {
+func hexPubkey(curve elliptic.Curve, input string) *signaturealgorithm.PublicKey {
 	key, err := DecodePubkey(hexutil.MustDecode(input))
 	if err != nil {
 		panic(err)

@@ -19,10 +19,9 @@ package ethclient
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"reflect"
 	"testing"
@@ -183,11 +182,10 @@ func TestToFilterArg(t *testing.T) {
 }
 
 var (
-
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
-	testAddr       = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	testAddr       = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 	testBalance    = big.NewInt(2e15)
 )
 
@@ -574,7 +572,7 @@ func sendTransaction(ec *Client) error {
 	// Create transaction
 	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(params.InitialBaseFee), nil)
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := cryptopq.Sign(signer.Hash(tx).Bytes(), testKey)
+	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {
 		return err
 	}

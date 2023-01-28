@@ -19,12 +19,10 @@ package proofofstake
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/trie"
 	"io"
@@ -57,7 +55,7 @@ const (
 
 	wiggleTime = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
 
-	shiftBlockNumber = 0 // proofofstake contract switches
+	shiftBlockNumber = 100 // proofofstake contract switches
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
 )
@@ -68,8 +66,8 @@ var (
 
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 
-	extraVanity = 32                     // Fixed number of extra-data prefix bytes reserved for validator vanity
-	extraSeal   = crypto.SignatureLength // Fixed number of extra-data suffix bytes reserved for validator seal
+	extraVanity = 32                                               // Fixed number of extra-data prefix bytes reserved for validator vanity
+	extraSeal   = cryptobase.SigAlg.SignatureWithPublicKeyLength() // Fixed number of extra-data suffix bytes reserved for validator seal
 
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new validator
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
@@ -179,11 +177,14 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	}
 
 	//Dynamic size fixed
-	sigSize := int(binary.LittleEndian.Uint64(header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+oqs.SignerLength]))
-	signature := header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+sigSize+oqs.SignerLength]
+	//sigSize := int(binary.LittleEndian.Uint64(header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+common.LengthByteSize]))
+	//signature := header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+sigSize+common.LengthByteSize]
 	///fmt.Println("ecrecover ...signature[:100]", signature[:100])
+
+	signature := header.Extra[len(header.Extra)-extraSeal:]
+
 	// Recover the public key and the Ethereum address
-	pubkey, err := cryptopq.RecoverPublicKey(SealHash(header).Bytes(), signature)
+	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -987,7 +988,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 		header.GasLimit,
 		header.GasUsed,
 		header.Time,
-		header.Extra[:len(header.Extra)-crypto.SignatureLength], // Yes, this will panic if extra is too short
+		header.Extra[:len(header.Extra)-cryptobase.SigAlg.SignatureWithPublicKeyLength()], // Yes, this will panic if extra is too short
 		header.MixDigest,
 		header.Nonce,
 	}

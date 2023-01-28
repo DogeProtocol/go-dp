@@ -19,7 +19,7 @@ package les
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -169,8 +169,8 @@ type benchmarkTxSend struct {
 }
 
 func (b *benchmarkTxSend) init(h *serverHandler, count int) error {
-	key, _ := cryptopq.GenerateKey()
-	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptobase.SigAlg.GenerateKey()
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		return err
 	}

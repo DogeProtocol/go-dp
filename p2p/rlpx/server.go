@@ -6,30 +6,33 @@ import (
 	"crypto/rand"
 	"errors"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/keyestablishmentalgorithm"
+	"github.com/ethereum/go-ethereum/crypto/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/rlp"
 	"io"
 	"sync"
 )
 
 type serverHelloMessage struct {
-	CipherText            [kemCipherTextLength]byte
+	CipherText            []byte //kemCipherTextLength
 	ServerHelloRandomData [shaLen]byte
 	Version               uint
 	Rest                  []rlp.RawValue `rlp:"tail"`
 }
 
 type serverVerifyMessage struct {
-	Signature    [oqs.SignPublicKeyLen]byte
+	Signature    []byte //SignPublicKeyLen
 	SignatureLen uint
 	Rest         []rlp.RawValue `rlp:"tail"`
 }
 
 type Server struct {
-	ephemeralKemPrivateKey  *oqs.PrivateKey
+	ephemeralKemPrivateKey  *keyestablishmentalgorithm.PrivateKey
 	kem                     *oqs.KeyEncapsulation
-	serverSigningPrivateKey *oqs.PrivateKey
-	clientSigningPublicKey  *oqs.PublicKey
+	serverSigningPrivateKey *signaturealgorithm.PrivateKey
+	clientSigningPublicKey  *signaturealgorithm.PublicKey
 
 	rbuf ReadBuffer
 	wbuf WriteBuffer
@@ -39,8 +42,8 @@ type Server struct {
 	serverVerifyMessage *serverVerifyMessage
 	clientVerifyMessage *clientVerifyMessage
 
-	kemCipherText   [kemCipherTextLength]byte
-	kemSharedSecret [kemSecretLength]byte
+	kemCipherText   []byte //kemCipherTextLength
+	kemSharedSecret []byte //kemSecretLength
 
 	serverSeqNumHandshake uint
 	clientSeqNumHandshake uint
@@ -64,7 +67,7 @@ type Server struct {
 	context string
 }
 
-func NewServer(conn io.ReadWriter, serverSigningPrivateKey *oqs.PrivateKey, context string) *Server {
+func NewServer(conn io.ReadWriter, serverSigningPrivateKey *signaturealgorithm.PrivateKey, context string) *Server {
 	server := Server{
 		conn:                    conn,
 		serverSigningPrivateKey: serverSigningPrivateKey,
@@ -77,7 +80,6 @@ func NewServer(conn io.ReadWriter, serverSigningPrivateKey *oqs.PrivateKey, cont
 
 	server.serverSeqNumApplication = 1
 	server.clientSeqNumApplication = 1
-
 	server.serializer.SetContext("server " + context)
 
 	return &server
@@ -87,7 +89,7 @@ func (s *Server) SetClient(client *Client) {
 	s.client = client
 }
 
-func (s *Server) SetServerSigningPrivateKey(serverSigningPrivateKey *oqs.PrivateKey) {
+func (s *Server) SetServerSigningPrivateKey(serverSigningPrivateKey *signaturealgorithm.PrivateKey) {
 	s.serverSigningPrivateKey = serverSigningPrivateKey
 }
 
@@ -103,7 +105,7 @@ func (s *Server) PerformHandshake() error {
 	//Initialize KEM
 	kem := oqs.KeyEncapsulation{}
 
-	err := kem.Init(KemName, nil)
+	err := kem.Init(oqs.KemName, nil)
 	if err != nil {
 		return err
 	}
@@ -157,13 +159,14 @@ func (s *Server) PerformHandshake() error {
 	s.secret = *secret
 
 	//Sign the transcript hash
-	signature, err := oqs.SignWithKey(transcriptHash, s.serverSigningPrivateKey)
+	signature, err := cryptobase.SigAlg.Sign(transcriptHash, s.serverSigningPrivateKey)
 	if err != nil {
 		return err
 	}
 
 	//Serialize the server verify message
 	serverVerifyMessage := new(serverVerifyMessage)
+	serverVerifyMessage.Signature = make([]byte, cryptobase.SigAlg.SignatureWithPublicKeyLength())
 	copy(serverVerifyMessage.Signature[:], signature)
 	serverVerifyMessage.SignatureLen = uint(len(signature))
 	s.serverVerifyMessage = serverVerifyMessage
@@ -218,6 +221,8 @@ func (s *Server) makeServerHello() error {
 		return err
 	}
 	copy(serverHelloMessage.ServerHelloRandomData[:], randomData)
+
+	serverHelloMessage.CipherText = make([]byte, s.kem.AlgDetails.LengthCiphertext)
 	copy(serverHelloMessage.CipherText[:], s.kemCipherText[:])
 	s.serverHelloMessage = serverHelloMessage
 
@@ -230,7 +235,11 @@ func (s *Server) handleClientHello() error {
 	if err != nil {
 		return err
 	}
+
+	s.kemCipherText = make([]byte, s.kem.AlgDetails.LengthCiphertext)
 	copy(s.kemCipherText[:], ciphertext[:])
+
+	s.kemSharedSecret = make([]byte, s.kem.AlgDetails.LengthSharedSecret)
 	copy(s.kemSharedSecret[:], sharedSecret[:])
 
 	return nil
@@ -257,17 +266,17 @@ func (s *Server) handleClientVerify() error {
 	transcriptHash := crypto.Keccak256(s.transcript)
 
 	//Recover the public key from the signature
-	clientPubKeyDataRemote, err := oqs.RecoverPubkey(transcriptHash, clientVerifyMessage.Signature[:clientVerifyMessage.SignatureLen])
+	clientPubKeyDataRemote, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(transcriptHash, clientVerifyMessage.Signature[:clientVerifyMessage.SignatureLen])
 	if err != nil {
 
 		return err
 	}
 
-	if !oqs.VerifySignature(clientPubKeyDataRemote, transcriptHash, clientVerifyMessage.Signature[:clientVerifyMessage.SignatureLen]) {
+	if !cryptobase.SigAlg.Verify(clientPubKeyDataRemote, transcriptHash, clientVerifyMessage.Signature[:clientVerifyMessage.SignatureLen]) {
 		return errors.New("client's signature verification failed")
 	}
 
-	s.clientSigningPublicKey, err = oqs.ConvertBytesToPublic(clientPubKeyDataRemote)
+	s.clientSigningPublicKey, err = cryptobase.SigAlg.DeserializePublicKey(clientPubKeyDataRemote)
 	if err != nil {
 		return err
 	}

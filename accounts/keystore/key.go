@@ -20,8 +20,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"io/ioutil"
 	"os"
@@ -44,7 +44,7 @@ type Key struct {
 	Address common.Address
 	// we only store privkey as pubkey/address can be derived from it
 	// privkey in this struct is always in plaintext
-	PrivateKey *oqs.PrivateKey
+	PrivateKey *signaturealgorithm.PrivateKey
 }
 
 type keyStore interface {
@@ -91,7 +91,7 @@ type cipherparamsJSON struct {
 }
 
 func (k *Key) MarshalJSON() (j []byte, err error) {
-	priKeyData, err := cryptopq.FromOQS(k.PrivateKey)
+	priKeyData, err := cryptobase.SigAlg.SerializePrivateKey(k.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	privkey, err := cryptopq.HexToOQS(keyJSON.PrivateKey)
+	privkey, err := cryptobase.SigAlg.HexToPrivateKey(keyJSON.PrivateKey)
 	if err != nil {
 		return err
 	}
@@ -134,13 +134,13 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	return nil
 }
 
-func newKeyFromOQS(privateKey *oqs.PrivateKey) *Key {
+func newKeyFromOQS(privateKey *signaturealgorithm.PrivateKey) *Key {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		panic(fmt.Sprintf("Could not create random uuid: %v", err))
 	}
 
-	pubKeyAddress, err := cryptopq.PubkeyToAddress(privateKey.PublicKey)
+	pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&privateKey.PublicKey)
 	if err != nil {
 		panic(fmt.Sprintf("PubkeyToAddress: %v", err))
 	}
@@ -157,7 +157,7 @@ func newKeyFromOQS(privateKey *oqs.PrivateKey) *Key {
 // into the Direct ICAP spec. for simplicity and easier compatibility with other libs, we
 // retry until the first byte is 0.
 func NewKeyForDirectICAP(rand io.Reader) *Key {
-	privateKey, err := oqs.GenerateKey()
+	privateKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic("key generation: oqs.GenerateKey failed: " + err.Error())
 	}
@@ -169,7 +169,7 @@ func NewKeyForDirectICAP(rand io.Reader) *Key {
 }
 
 func newKey(rand io.Reader) (*Key, error) {
-	privateKey, err := oqs.GenerateKey()
+	privateKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		return nil, err
 	}

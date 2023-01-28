@@ -19,7 +19,7 @@ package les
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 	"math/rand"
 	"net"
@@ -1286,7 +1286,7 @@ type clientPeerSet struct {
 	lock   sync.RWMutex
 	closed bool
 
-	privateKey                   *oqs.PrivateKey
+	privateKey                   *signaturealgorithm.PrivateKey
 	lastAnnounce, signedAnnounce announceData
 }
 
@@ -1358,7 +1358,7 @@ func (ps *clientPeerSet) len() int {
 
 // setSignerKey sets the signer key for signed announcements. Should be called before
 // starting the protocol handler.
-func (ps *clientPeerSet) setSignerKey(privateKey *oqs.PrivateKey) {
+func (ps *clientPeerSet) setSignerKey(privateKey *signaturealgorithm.PrivateKey) {
 	ps.privateKey = privateKey
 }
 

@@ -21,8 +21,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -37,9 +37,9 @@ import (
 // at github.com/ethereum/tests.
 
 var (
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	sigtest, _     = cryptopq.Sign([]byte("This is test program"), privtestkey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	sigtest, _     = cryptobase.SigAlg.Sign([]byte("This is test program"), privtestkey)
 	hexsigtest     = hex.EncodeToString(sigtest)
 
 	testAddr = common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -124,8 +124,8 @@ func TestEIP2718TransactionSigHash(t *testing.T) {
 func TestEIP2930Signer(t *testing.T) {
 
 	var (
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		keyAddr = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		keyAddr = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		signer1 = NewEIP2930Signer(big.NewInt(1))
 		signer2 = NewEIP2930Signer(big.NewInt(2))
 		tx0     = NewTx(&AccessListTx{Nonce: 1})
@@ -232,9 +232,9 @@ func decodeTx(data []byte) (*Transaction, error) {
 	return t, err
 }
 
-func defaultTestKey() (*oqs.PrivateKey, common.Address) {
-	key, _ := cryptopq.HexToOQS(hextestkey)
-	addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
+func defaultTestKey() (*signaturealgorithm.PrivateKey, common.Address) {
+	key, _ := cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 	return key, addr
 }
 
@@ -286,9 +286,9 @@ func TestTransactionPriceNonceSort1559(t *testing.T) {
 // the same account.
 func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	// Generate a batch of accounts to start with
-	keys := make([]*oqs.PrivateKey, 25)
+	keys := make([]*signaturealgorithm.PrivateKey, 25)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = cryptopq.GenerateKey()
+		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	signer := LatestSignerForChainID(common.Big1)
 
@@ -296,7 +296,7 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	groups := map[common.Address]Transactions{}
 	expectedCount := 0
 	for start, key := range keys {
-		addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		count := 25
 		for i := 0; i < 25; i++ {
 			var tx *Transaction
@@ -374,16 +374,16 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 // are prioritized to avoid network spam attacks aiming for a specific ordering.
 func TestTransactionTimeSort(t *testing.T) {
 	// Generate a batch of accounts to start with
-	keys := make([]*oqs.PrivateKey, 5)
+	keys := make([]*signaturealgorithm.PrivateKey, 5)
 	for i := 0; i < len(keys); i++ {
-		keys[i], _ = cryptopq.GenerateKey()
+		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	signer := HomesteadSigner{}
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
 	for start, key := range keys {
-		addr := cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 
 		tx, _ := SignTx(NewTransaction(0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
 		tx.time = time.Unix(0, int64(len(keys)-start))
@@ -420,7 +420,7 @@ func TestTransactionTimeSort(t *testing.T) {
 
 // TestTransactionCoding tests serializing/de-serializing to/from rlp and JSON.
 func TestTransactionCoding(t *testing.T) {
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}

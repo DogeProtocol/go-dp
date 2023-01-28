@@ -20,8 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -171,30 +170,26 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 	// "input" is (hash, v, r, s), each 32 bytes
 	// but for ecrecover we want (r, s, v)
 
-
-
 	const ecRecoverInputLength = 64
-	input = common.RightPadBytes(input, ecRecoverInputLength+oqs.SignPublicKeyLen)
+	input = common.RightPadBytes(input, ecRecoverInputLength+cryptobase.SigAlg.SignatureWithPublicKeyLength())
 
-	r := new(big.Int).SetBytes(input[ecRecoverInputLength : len(input)-ecRecoverInputLength-oqs.PublicKeyLen])
-	s := new(big.Int).SetBytes(input[len(input)-ecRecoverInputLength-oqs.PublicKeyLen:])
+	r := new(big.Int).SetBytes(input[ecRecoverInputLength : len(input)-ecRecoverInputLength-cryptobase.SigAlg.PublicKeyLength()])
+	s := new(big.Int).SetBytes(input[len(input)-ecRecoverInputLength-cryptobase.SigAlg.PublicKeyLength():])
 	v := byte(28 - 27)
 
 	// tighter sig s values input homestead only apply to tx sigs
-	if !allZero(input[32:63]) || !cryptopq.ValidateSignatureValues(v, r, s, false) {
+	if !allZero(input[32:63]) || !cryptobase.SigAlg.ValidateSignatureValues(v, r, s, false) {
 		return nil, nil
 	}
-
-
 
 	// We must make sure not to modify the 'input', so placing the 'v' along with
 	// the signature needs to be done on a new allocation
 
-	sig := make([]byte, oqs.SignPublicKeyLen)
+	sig := make([]byte, cryptobase.SigAlg.SignatureWithPublicKeyLength())
 	copy(sig, input[ecRecoverInputLength:])
 
 	// v needs to be at the end for libsecp256k1
-	pubKey, err := cryptopq.RecoverPublicKey(input[:32], sig)
+	pubKey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(input[:32], sig)
 	// make sure the public key is a valid one
 	if err != nil {
 		return nil, nil

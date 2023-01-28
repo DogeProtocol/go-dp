@@ -18,7 +18,7 @@ package miner
 
 import (
 	"github.com/ethereum/go-ethereum/consensus/proofofstake"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -57,12 +57,12 @@ var (
 	proofofstakeChainConfig *params.ChainConfig
 
 	// Test accounts
-	testBankKey, _  = cryptopq.GenerateKey()
-	testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
+	testBankKey, _  = cryptobase.SigAlg.GenerateKey()
+	testBankAddress = cryptobase.SigAlg.PublicKeyToAddressNoError(&testBankKey.PublicKey)
 	testBankFunds   = big.NewInt(1000000000000000000)
 
-	testUserKey, _  = cryptopq.GenerateKey()
-	testUserAddress = cryptopq.PubkeyToAddressNoError(testUserKey.PublicKey)
+	testUserKey, _  = cryptobase.SigAlg.GenerateKey()
+	testUserAddress = cryptobase.SigAlg.PublicKeyToAddressNoError(&testUserKey.PublicKey)
 
 	// Test transactions
 	pendingTxs []*types.Transaction
@@ -132,10 +132,10 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 
 	switch e := engine.(type) {
 	case *clique.Clique:
-		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
+		gspec.ExtraData = make([]byte, 32+common.AddressLength+cryptobase.SigAlg.SignatureWithPublicKeyLength())
 		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
 		e.Authorize(testBankAddress, func(account accounts.Account, s string, data []byte) ([]byte, error) {
-			return cryptopq.Sign(crypto.Keccak256(data), testBankKey)
+			return cryptobase.SigAlg.Sign(crypto.Keccak256(data), testBankKey)
 		})
 	case *ethash.Ethash:
 	default:

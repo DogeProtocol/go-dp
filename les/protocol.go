@@ -19,8 +19,8 @@ package les
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"math/big"
 
@@ -258,9 +258,9 @@ func (a *announceData) sanityCheck() error {
 }
 
 // sign adds a signature to the block announcement by the given privKey
-func (a *announceData) sign(privKey *oqs.PrivateKey) {
+func (a *announceData) sign(privKey *signaturealgorithm.PrivateKey) {
 	rlp, _ := rlp.EncodeToBytes(blockInfo{a.Hash, a.Number, a.Td})
-	sig, _ := cryptopq.Sign(crypto.Keccak256(rlp), privKey)
+	sig, _ := cryptobase.SigAlg.Sign(crypto.Keccak256(rlp), privKey)
 	a.Update = a.Update.add("sign", sig)
 }
 
@@ -271,7 +271,7 @@ func (a *announceData) checkSignature(id enode.ID, update keyValueMap) error {
 		return err
 	}
 	rlp, _ := rlp.EncodeToBytes(blockInfo{a.Hash, a.Number, a.Td})
-	recPubkey, err := cryptopq.SigToPub(crypto.Keccak256(rlp), sig)
+	recPubkey, err := cryptobase.SigAlg.PublicKeyFromSignature(crypto.Keccak256(rlp), sig)
 	if err != nil {
 		return err
 	}

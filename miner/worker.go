@@ -1036,9 +1036,15 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		select {
 		case w.taskCh <- &task{receipts: receipts, state: s, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
-			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
+			blockNumber := block.Number()
+			sealhash := w.engine.SealHash(block.Header())
+			fees, err := totalFees(block, receipts)
+			if err != nil {
+				return err
+			}
+			log.Info("Commit new mining work", "number", blockNumber, "sealhash", sealhash,
 				"uncles", len(uncles), "txs", w.current.tcount,
-				"gas", block.GasUsed(), "fees", totalFees(block, receipts),
+				"gas", block.GasUsed(), "fees", fees,
 				"elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
@@ -1070,11 +1076,17 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 }
 
 // totalFees computes total consumed miner fees in ETH. Block transactions and receipts have to have the same order.
-func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
+func totalFees(block *types.Block, receipts []*types.Receipt) (*big.Float, error) {
 	feesWei := new(big.Int)
 	for i, tx := range block.Transactions() {
-		minerFee, _ := tx.EffectiveGasTip(block.BaseFee())
+		minerFee, err := tx.EffectiveGasTip(block.BaseFee())
+		if err != nil {
+			return nil, err
+		}
+		if receipts == nil {
+			return nil, errors.New("receipts is nil")
+		}
 		feesWei.Add(feesWei, new(big.Int).Mul(new(big.Int).SetUint64(receipts[i].GasUsed), minerFee))
 	}
-	return new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether)))
+	return new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether))), nil
 }

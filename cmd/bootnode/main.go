@@ -20,8 +20,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"os"
 
@@ -46,7 +46,7 @@ func main() {
 		verbosity   = flag.Int("verbosity", int(log.LvlInfo), "log verbosity (0-5)")
 		vmodule     = flag.String("vmodule", "", "log verbosity pattern")
 
-		nodeKey *oqs.PrivateKey
+		nodeKey *signaturealgorithm.PrivateKey
 		err     error
 	)
 	flag.Parse()
@@ -62,11 +62,11 @@ func main() {
 	}
 	switch {
 	case *genKey != "":
-		nodeKey, err = cryptopq.GenerateKey()
+		nodeKey, err = cryptobase.SigAlg.GenerateKey()
 		if err != nil {
 			utils.Fatalf("could not generate key: %v", err)
 		}
-		if err = cryptopq.SaveOQS(*genKey, nodeKey); err != nil {
+		if err = cryptobase.SigAlg.SavePrivateKeyToFile(*genKey, nodeKey); err != nil {
 			utils.Fatalf("%v", err)
 		}
 		if !*writeAddr {
@@ -77,17 +77,17 @@ func main() {
 	case *nodeKeyFile != "" && *nodeKeyHex != "":
 		utils.Fatalf("Options -nodekey and -nodekeyhex are mutually exclusive")
 	case *nodeKeyFile != "":
-		if nodeKey, err = cryptopq.LoadOQS(*nodeKeyFile); err != nil {
+		if nodeKey, err = cryptobase.SigAlg.LoadPrivateKeyFromFile(*nodeKeyFile); err != nil {
 			utils.Fatalf("-nodekey: %v", err)
 		}
 	case *nodeKeyHex != "":
-		if nodeKey, err = cryptopq.HexToOQS(*nodeKeyHex); err != nil {
+		if nodeKey, err = cryptobase.SigAlg.HexToPrivateKey(*nodeKeyHex); err != nil {
 			utils.Fatalf("-nodekeyhex: %v", err)
 		}
 	}
 
 	if *writeAddr {
-		_, err := cryptopq.FromOQSPub(&nodeKey.PublicKey)
+		_, err := cryptobase.SigAlg.SerializePublicKey(&nodeKey.PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -138,7 +138,7 @@ func main() {
 	select {}
 }
 
-func printNotice(nodeKey *oqs.PublicKey, addr net.UDPAddr) {
+func printNotice(nodeKey *signaturealgorithm.PublicKey, addr net.UDPAddr) {
 	if addr.IP.IsUnspecified() {
 		addr.IP = net.IP{127, 0, 0, 1}
 	}

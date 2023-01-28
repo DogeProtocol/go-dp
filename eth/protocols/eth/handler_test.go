@@ -17,8 +17,7 @@
 package eth
 
 import (
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math"
 	"math/big"
 	"math/rand"
@@ -42,12 +41,12 @@ import (
 var (
 	// testKey is a private key to use for funding a tester account.
 
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	testAddr = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 )
 
 // testBackend is a mock implementation of the live Ethereum message handler. Its
@@ -403,19 +402,19 @@ func testGetNodeData(t *testing.T, protocol uint) {
 
 	// Define three accounts to simulate transactions with
 
-	key1, _ := cryptopq.GenerateKey()
-	hexkey1 := hex.EncodeToString(key1.D.Bytes())
+	key1, _ := cryptobase.SigAlg.GenerateKey()
+	hexkey1, _ := cryptobase.SigAlg.PrivateKeyToHex(key1)
 
-	key2, _ := cryptopq.GenerateKey()
-	hexkey2 := hex.EncodeToString(key2.D.Bytes())
+	key2, _ := cryptobase.SigAlg.GenerateKey()
+	hexkey2, _ := cryptobase.SigAlg.PrivateKeyToHex(key2)
 
-	acc1Key, _ := cryptopq.HexToOQS(hexkey1)
-	acc2Key, _ := cryptopq.HexToOQS(hexkey2)
-	acc1Addr, err := cryptopq.PubkeyToAddress(acc1Key.PublicKey)
+	acc1Key, _ := cryptobase.SigAlg.HexToPrivateKey(hexkey1)
+	acc2Key, _ := cryptobase.SigAlg.HexToPrivateKey(hexkey2)
+	acc1Addr, err := cryptobase.SigAlg.PublicKeyToAddress(&acc1Key.PublicKey)
 	if err != nil {
 		t.Fatalf("PubkeyToAddress")
 	}
-	acc2Addr, err := cryptopq.PubkeyToAddress(acc2Key.PublicKey)
+	acc2Addr, err := cryptobase.SigAlg.PublicKeyToAddress(&acc2Key.PublicKey)
 	if err != nil {
 		t.Fatalf("PubkeyToAddress")
 	}
@@ -532,20 +531,20 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 
 	// Define three accounts to simulate transactions with
 
-	key1, _ := cryptopq.GenerateKey()
-	hexkey1 := hex.EncodeToString(key1.D.Bytes())
+	key1, _ := cryptobase.SigAlg.GenerateKey()
+	hexkey1, _ := cryptobase.SigAlg.PrivateKeyToHex(key1)
 
-	key2, _ := cryptopq.GenerateKey()
-	hexkey2 := hex.EncodeToString(key2.D.Bytes())
+	key2, _ := cryptobase.SigAlg.GenerateKey()
+	hexkey2, _ := cryptobase.SigAlg.PrivateKeyToHex(key2)
 
-	acc1Key, _ := cryptopq.HexToOQS(hexkey1)
-	acc2Key, _ := cryptopq.HexToOQS(hexkey2)
-	acc1Addr, err := cryptopq.PubkeyToAddress(acc1Key.PublicKey)
+	acc1Key, _ := cryptobase.SigAlg.HexToPrivateKey(hexkey1)
+	acc2Key, _ := cryptobase.SigAlg.HexToPrivateKey(hexkey2)
+	acc1Addr, err := cryptobase.SigAlg.PublicKeyToAddress(&acc1Key.PublicKey)
 	if err != nil {
 		t.Fatalf("PubkeyToAddress")
 	}
 
-	acc2Addr, err := cryptopq.PubkeyToAddress(acc2Key.PublicKey)
+	acc2Addr, err := cryptobase.SigAlg.PublicKeyToAddress(&acc2Key.PublicKey)
 	if err != nil {
 		t.Fatalf("PubkeyToAddress")
 	}

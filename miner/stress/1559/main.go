@@ -18,8 +18,8 @@
 package main
 
 import (
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -53,9 +53,9 @@ func main() {
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
-	faucets := make([]*oqs.PrivateKey, 128)
+	faucets := make([]*signaturealgorithm.PrivateKey, 128)
 	for i := 0; i < len(faucets); i++ {
-		faucets[i], _ = cryptopq.GenerateKey()
+		faucets[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	// Pre-generate the ethash mining DAG so we don't race
 	ethash.MakeDataset(1, filepath.Join(os.Getenv("HOME"), ".ethash"))
@@ -139,10 +139,10 @@ func main() {
 	}
 }
 
-func makeTransaction(nonce uint64, privKey *oqs.PrivateKey, signer types.Signer, baseFee *big.Int) *types.Transaction {
+func makeTransaction(nonce uint64, privKey *signaturealgorithm.PrivateKey, signer types.Signer, baseFee *big.Int) *types.Transaction {
 	// Generate legacy transaction
 	if rand.Intn(2) == 0 {
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(privKey.PublicKey)
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&privKey.PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -153,7 +153,7 @@ func makeTransaction(nonce uint64, privKey *oqs.PrivateKey, signer types.Signer,
 		return tx
 	}
 	// Generate eip 1559 transaction
-	recipient, err := cryptopq.PubkeyToAddress(privKey.PublicKey)
+	recipient, err := cryptobase.SigAlg.PublicKeyToAddress(&privKey.PublicKey)
 	if err != nil {
 		panic(err)
 	}
@@ -192,7 +192,7 @@ func makeTransaction(nonce uint64, privKey *oqs.PrivateKey, signer types.Signer,
 
 // makeGenesis creates a custom Ethash genesis block based on some pre-defined
 // faucet accounts.
-func makeGenesis(faucets []*oqs.PrivateKey) *core.Genesis {
+func makeGenesis(faucets []*signaturealgorithm.PrivateKey) *core.Genesis {
 	genesis := core.DefaultRopstenGenesisBlock()
 
 	genesis.Config = params.AllEthashProtocolChanges
@@ -207,7 +207,7 @@ func makeGenesis(faucets []*oqs.PrivateKey) *core.Genesis {
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(faucet.PublicKey)
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&faucet.PublicKey)
 		if err != nil {
 			panic(err)
 		}

@@ -18,7 +18,7 @@ package enode
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"reflect"
 	"strconv"
@@ -44,7 +44,7 @@ const (
 type LocalNode struct {
 	cur atomic.Value // holds a non-nil node pointer while the record is up-to-date.
 	id  ID
-	key *oqs.PrivateKey
+	key *signaturealgorithm.PrivateKey
 	db  *DB
 
 	// everything below is protected by a lock
@@ -62,7 +62,7 @@ type lnEndpoint struct {
 }
 
 // NewLocalNode creates a local node.
-func NewLocalNode(db *DB, key *oqs.PrivateKey) *LocalNode {
+func NewLocalNode(db *DB, key *signaturealgorithm.PrivateKey) *LocalNode {
 	ln := &LocalNode{
 		id:      PubkeyToIDV4(&key.PublicKey),
 		db:      db,

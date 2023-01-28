@@ -20,8 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"strings"
 	"time"
@@ -371,7 +370,7 @@ func fetchKeystore(am *accounts.Manager) (*keystore.KeyStore, error) {
 // ImportRawKey stores the given hex encoded ECDSA key into the key directory,
 // encrypting it with the passphrase.
 func (s *PrivateAccountAPI) ImportRawKey(privkey string, password string) (common.Address, error) {
-	key, err := cryptopq.HexToOQS(privkey)
+	key, err := cryptobase.SigAlg.HexToPrivateKey(privkey)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -535,11 +534,11 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
 func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 
-	rpk, err := cryptopq.SigToPub(accounts.TextHash(data), sig)
+	rpk, err := cryptobase.SigAlg.PublicKeyFromSignature(accounts.TextHash(data), sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	pubKeyAddress, err := cryptopq.PubkeyToAddress(*rpk)
+	pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&*rpk)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -1929,7 +1928,7 @@ func (api *PublicDebugAPI) TestSignCliqueBlock(ctx context.Context, address comm
 	}
 	header := block.Header()
 	////header.Extra = make([]byte, 32+65)
-	header.Extra = make([]byte, 32+oqs.SignPublicKeyLen)
+	header.Extra = make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength())
 	encoded := clique.CliqueRLP(header)
 
 	// Look up the wallet containing the requested signer
@@ -1947,7 +1946,7 @@ func (api *PublicDebugAPI) TestSignCliqueBlock(ctx context.Context, address comm
 	log.Info("test signing of clique block",
 		"Sealhash", fmt.Sprintf("%x", sealHash),
 		"signature", fmt.Sprintf("%x", signature))
-	pubkey, err := cryptopq.RecoverPublicKey(sealHash, signature)
+	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(sealHash, signature)
 	if err != nil {
 		return common.Address{}, err
 	}

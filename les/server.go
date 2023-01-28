@@ -17,7 +17,7 @@
 package les
 
 import (
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -60,7 +60,7 @@ type LesServer struct {
 	peers       *clientPeerSet
 	serverset   *serverSet
 	vfluxServer *vfs.Server
-	privateKey  *oqs.PrivateKey
+	privateKey  *signaturealgorithm.PrivateKey
 
 	// Flow control and capacity management
 	fcManager    *flowcontrol.ClientManager

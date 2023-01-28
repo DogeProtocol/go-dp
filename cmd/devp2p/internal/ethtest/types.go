@@ -18,8 +18,7 @@ package ethtest
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
-
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
@@ -126,7 +125,7 @@ func (pt PooledTransactions) Code() int { return 26 }
 // Conn represents an individual connection with a peer
 type Conn struct {
 	*rlpx.Conn
-	ourKey                 *oqs.PrivateKey
+	ourKey                 *signaturealgorithm.PrivateKey
 	negotiatedProtoVersion uint
 	ourHighestProtoVersion uint
 	caps                   []p2p.Cap

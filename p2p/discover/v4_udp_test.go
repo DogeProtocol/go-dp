@@ -23,8 +23,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"math/rand"
 	"net"
@@ -50,11 +50,11 @@ var (
 )
 
 var (
-	key11, _ = cryptopq.GenerateKey()
-	key12, _ = cryptopq.GenerateKey()
-	key13, _ = cryptopq.GenerateKey()
-	key14, _ = cryptopq.GenerateKey()
-	key15, _ = cryptopq.GenerateKey()
+	key11, _ = cryptobase.SigAlg.GenerateKey()
+	key12, _ = cryptobase.SigAlg.GenerateKey()
+	key13, _ = cryptobase.SigAlg.GenerateKey()
+	key14, _ = cryptobase.SigAlg.GenerateKey()
+	key15, _ = cryptobase.SigAlg.GenerateKey()
 )
 
 type udpTest struct {
@@ -65,12 +65,11 @@ type udpTest struct {
 	db                  *enode.DB
 	udp                 *UDPv4
 	sent                [][]byte
-	localkey, remotekey *oqs.PrivateKey
+	localkey, remotekey *signaturealgorithm.PrivateKey
 	remoteaddr          *net.UDPAddr
 }
 
 func newUDPTest(t *testing.T) *udpTest {
-
 
 	test := &udpTest{
 		t:          t,
@@ -80,9 +79,14 @@ func newUDPTest(t *testing.T) *udpTest {
 		remoteaddr: &net.UDPAddr{IP: net.IP{10, 0, 1, 99}, Port: 30303},
 	}
 
+	sessionManager, err := CreateDpUdpSessionManager("127.0.0.1:30303")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	test.db, _ = enode.OpenDB("")
 	ln := enode.NewLocalNode(test.db, test.localkey)
-	test.udp, _ = ListenV4(test.pipe, ln, Config{ //todo
+	test.udp, _ = ListenV4(sessionManager, ln, Config{ //todo
 		PrivateKey: test.localkey,
 		Log:        testlog.Logger(t, log.LvlTrace),
 	})
@@ -105,7 +109,7 @@ func (test *udpTest) packetIn(wantError error, data v4wire.Packet) {
 }
 
 // handles a packet as if it had been sent to the transport by the key/endpoint.
-func (test *udpTest) packetInFrom(wantError error, key *oqs.PrivateKey, addr *net.UDPAddr, data v4wire.Packet) {
+func (test *udpTest) packetInFrom(wantError error, key *signaturealgorithm.PrivateKey, addr *net.UDPAddr, data v4wire.Packet) {
 	test.t.Helper()
 
 	enc, _, err := v4wire.Encode(key, data)
@@ -347,10 +351,10 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	// send the reply as two packets.
 
 	list := []*node{
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key11.N.Bytes()) + "@10.0.1.16:30303?discport=30304")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key12.N.Bytes()) + "@10.0.1.16:30303")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key13.N.Bytes()) + "@10.0.1.36:30301?discport=17")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key14.N.Bytes()) + "@10.0.1.16:30303")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key11.PublicKey).Bytes()) + "@10.0.1.16:30303?discport=30304")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key12.PublicKey).Bytes()) + "@10.0.1.16:30303")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key13.PublicKey).Bytes()) + "@10.0.1.36:30301?discport=17")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key14.PublicKey).Bytes()) + "@10.0.1.16:30303")),
 	}
 	rpclist := make([]v4wire.Node, len(list))
 	for i := range list {

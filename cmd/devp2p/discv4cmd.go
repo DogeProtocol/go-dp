@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"net"
 	"strings"
 	"time"
@@ -234,13 +234,13 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	var cfg discover.Config
 
 	if ctx.IsSet(nodekeyFlag.Name) {
-		key, err := cryptopq.HexToOQS(ctx.String(nodekeyFlag.Name))
+		key, err := cryptobase.SigAlg.HexToPrivateKey(ctx.String(nodekeyFlag.Name))
 		if err != nil {
 			exit(fmt.Errorf("-%s: %v", nodekeyFlag.Name, err))
 		}
 		cfg.PrivateKey = key
 	} else {
-		cfg.PrivateKey, _ = cryptopq.GenerateKey()
+		cfg.PrivateKey, _ = cryptobase.SigAlg.GenerateKey()
 	}
 
 	if commandHasFlag(ctx, bootnodesFlag) {

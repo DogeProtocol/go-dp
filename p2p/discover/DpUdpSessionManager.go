@@ -75,11 +75,7 @@ func (sm *DpUdpSessionManager) WriteToUDP(b []byte, addr *net.UDPAddr) (n int, e
 
 func CreateDpUdpSessionManager(address string) (*DpUdpSessionManager, error) {
 	if len(address) == 0 {
-		sessionManager := &DpUdpSessionManager{
-			baseListener: nil,
-			sessions:     make(map[string]*DpUdpSession),
-		}
-		return sessionManager, nil
+		return nil, errors.New("address cannot be nil")
 	}
 
 	if listener, err := kcp.ListenWithOptions(address, nil, dataShards, parityShards); err == nil {

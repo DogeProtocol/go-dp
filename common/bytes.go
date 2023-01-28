@@ -18,7 +18,17 @@
 package common
 
 import (
+	"encoding/binary"
 	"encoding/hex"
+	"errors"
+)
+
+const (
+	LengthByteSize = 8 // sign length store(dynamic length)
+	MaxUint        = ^uint(0)
+	MinUint        = 0
+	MaxInt         = int(MaxUint >> 1)
+	MinInt         = -MaxInt - 1
 )
 
 // FromHex returns the bytes represented by the hexadecimal string s.
@@ -136,4 +146,47 @@ func TrimRightZeroes(s []byte) []byte {
 		}
 	}
 	return s[:idx]
+}
+
+func CombineTwoParts(part1 []byte, part2 []byte) []byte {
+	totalLenBytes := make([]byte, LengthByteSize)
+	binary.LittleEndian.PutUint64(totalLenBytes, uint64(len(part1)+len(part2)))
+
+	part1LenBytes := make([]byte, LengthByteSize)
+	binary.LittleEndian.PutUint64(part1LenBytes, uint64(len(part1)))
+
+	buffer := append(totalLenBytes, part1LenBytes...)
+	buffer = append(buffer, part1...)
+	buffer = append(buffer, part2...)
+
+	return buffer
+}
+
+func ExtractTwoParts(data []byte) (part1 []byte, part2 []byte, err error) {
+	if len(data) < LengthByteSize+LengthByteSize {
+		return nil, nil, errors.New("insufficient length1")
+	}
+
+	totalLenTemp := binary.LittleEndian.Uint64(data[:LengthByteSize])
+	if totalLenTemp > uint64(MaxInt) {
+		return nil, nil, errors.New("invalid length")
+	}
+	totalLen := int(totalLenTemp)
+	if len(data) != totalLen+LengthByteSize+LengthByteSize {
+		return nil, nil, errors.New("invalid length")
+	}
+
+	tempLen1 := binary.LittleEndian.Uint64(data[LengthByteSize : LengthByteSize+LengthByteSize])
+	if tempLen1 > uint64(MaxInt) {
+		return nil, nil, errors.New("invalid length")
+	}
+	part1Len := int(tempLen1)
+	if part1Len > len(data)-LengthByteSize-LengthByteSize {
+		return nil, nil, errors.New("insufficient length2")
+	}
+
+	part1 = data[LengthByteSize+LengthByteSize : LengthByteSize+LengthByteSize+part1Len]
+	part2 = data[LengthByteSize+LengthByteSize+part1Len:]
+
+	return part1, part2, nil
 }

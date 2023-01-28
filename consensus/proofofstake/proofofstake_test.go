@@ -17,9 +17,7 @@
 package proofofstake
 
 import (
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -39,14 +37,13 @@ import (
 // empty one **also completes** the empty one, ending up in a known-block error.
 func TestReimportMirroredState(t *testing.T) {
 	// Initialize a Clique chain with a single signer
-	privtestkey, _ := cryptopq.GenerateKey()
-	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
+	privtestkey, _ := cryptobase.SigAlg.GenerateKey()
+	hextestkey, _ := cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 	var (
 		db     = rawdb.NewMemoryDatabase()
-		key, _ = cryptopq.HexToOQS(hextestkey)
-		////key, _ = cryptopq.HexToOQS("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		engine = New(params.AllProofOfStakeProtocolChanges, db, nil, common.Hash{})
 		signer = new(types.HomesteadSigner)
 	)
@@ -87,7 +84,7 @@ func TestReimportMirroredState(t *testing.T) {
 		header.Extra = make([]byte, extraVanity+extraSeal)
 		header.Difficulty = diffInTurn
 
-		sig, _ := cryptopq.Sign(SealHash(header).Bytes(), key)
+		sig, _ := cryptobase.SigAlg.Sign(SealHash(header).Bytes(), key)
 
 		copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 
@@ -125,7 +122,7 @@ func TestSealHash(t *testing.T) {
 	have := SealHash(&types.Header{
 		Difficulty: new(big.Int),
 		Number:     new(big.Int),
-		Extra:      make([]byte, 32+crypto.SignatureLength),
+		Extra:      make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength()),
 		BaseFee:    new(big.Int),
 	})
 	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f")

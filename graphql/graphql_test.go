@@ -17,9 +17,8 @@
 package graphql
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -276,10 +275,10 @@ func createGQLService(t *testing.T, stack *node.Node) {
 func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	// create backend
 
-	privtestkey, _ := cryptopq.GenerateKey()
-	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
-	key, _ := cryptopq.HexToOQS(hextestkey)
-	address, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	privtestkey, _ := cryptobase.SigAlg.GenerateKey()
+	hextestkey, _ := cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	key, _ := cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	address, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		t.Fatalf("PubkeyToAddress")
 	}

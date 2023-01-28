@@ -17,6 +17,7 @@
 package main
 
 import (
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -53,15 +54,15 @@ func TestAccountList(t *testing.T) {
 	defer geth.ExpectExit()
 	if runtime.GOOS == "windows" {
 		geth.Expect(`
-Account #0: {7ef5a6135f1fd6a02593eedc869c6d41d934aef8} keystore://{{.Datadir}}\keystore\UTC--2016-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8
-Account #1: {f466859ead1932d743d622cb74fc058882e8648a} keystore://{{.Datadir}}\keystore\aaa
-Account #2: {289d485d9771714cce91d3393d764e1311907acc} keystore://{{.Datadir}}\keystore\zzz
+Account #0: {ff8fd0e9064bcbc5462763229b8a4314f07cf000} keystore://{{.Datadir}}\keystore\UTC--2023-01-17T00-37-32.112011400Z--ff8fd0e9064bcbc5462763229b8a4314f07cf000
+Account #1: {9279739dce240363860f3672afa9e4c1e1f86ccc} keystore://{{.Datadir}}\keystore\aaa
+Account #2: {31cdf7786b0b26b733b545988701c6ed0601f848} keystore://{{.Datadir}}\keystore\zzz
 `)
 	} else {
 		geth.Expect(`
-Account #0: {7ef5a6135f1fd6a02593eedc869c6d41d934aef8} keystore://{{.Datadir}}/keystore/UTC--2016-03-22T12-57-55.920751759Z--7ef5a6135f1fd6a02593eedc869c6d41d934aef8
-Account #1: {f466859ead1932d743d622cb74fc058882e8648a} keystore://{{.Datadir}}/keystore/aaa
-Account #2: {289d485d9771714cce91d3393d764e1311907acc} keystore://{{.Datadir}}/keystore/zzz
+Account #0: {ff8fd0e9064bcbc5462763229b8a4314f07cf000} keystore://{{.Datadir}}/keystore/UTC--2023-01-17T00-37-32.112011400Z--ff8fd0e9064bcbc5462763229b8a4314f07cf000
+Account #1: {9279739dce240363860f3672afa9e4c1e1f86ccc} keystore://{{.Datadir}}/keystore/aaa
+Account #2: {31cdf7786b0b26b733b545988701c6ed0601f848} keystore://{{.Datadir}}/keystore/zzz
 `)
 	}
 }
@@ -89,16 +90,30 @@ Path of the secret key file: .*UTC--.+--[0-9a-f]{40}
 }
 
 func TestAccountImport(t *testing.T) {
+	key1, err := cryptobase.SigAlg.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	privkeyhex, err := cryptobase.SigAlg.PrivateKeyToHex(key1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key1.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct{ name, key, output string }{
 		{
 			name:   "correct account",
-			key:    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-			output: "Address: {fcad0b19bb29d4674531d6f115237e16afce377c}\n",
+			key:    privkeyhex,
+			output: "Address: {" + strings.ToLower(addr.StringNoHex()) + "}\n",
 		},
 		{
 			name:   "invalid character",
-			key:    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef1",
-			output: "Fatal: Failed to load the private key: invalid character '1' at end of key file\n",
+			key:    privkeyhex + "1",
+			output: "Fatal: Failed to load the private key from file: invalid character '1' at end of key file\n",
 		},
 	}
 	for _, test := range tests {
@@ -141,10 +156,10 @@ func TestAccountUpdate(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
 	geth := runGeth(t, "account", "update",
 		"--datadir", datadir, "--lightkdf",
-		"f466859ead1932d743d622cb74fc058882e8648a")
+		"ff8fd0e9064bcbc5462763229b8a4314f07cf000")
 	defer geth.ExpectExit()
 	geth.Expect(`
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
+Unlocking account ff8fd0e9064bcbc5462763229b8a4314f07cf000 | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "foobar"}}
 Please give a new password. Do not forget this password.
@@ -159,7 +174,7 @@ func TestWalletImport(t *testing.T) {
 	geth.Expect(`
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "foo"}}
-Address: {d4584b5f6229b7be90727b0fc8c6b91bb427821f}
+Address: {7522bAf8770939E65CEF366b7A30204f1dbc023f}
 `)
 
 	files, err := ioutil.ReadDir(filepath.Join(geth.Datadir, "keystore"))
@@ -180,9 +195,9 @@ Fatal: could not decrypt key with given password
 
 func TestUnlockFlag(t *testing.T) {
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "js", "testdata/empty.js")
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "js", "testdata/empty.js")
 	geth.Expect(`
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "foobar"}}
 `)
@@ -190,10 +205,10 @@ Password: {{.InputLine "foobar"}}
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0xf466859eAD1932D743d622CB74FC058882E8648A",
+		"=0x9279739dce240363860f3672afa9e4c1e1f86ccc",
 	}
 	for _, m := range wantMessages {
-		if !strings.Contains(geth.StderrText(), m) {
+		if !strings.Contains(strings.ToLower(geth.StderrText()), strings.ToLower(m)) {
 			t.Errorf("stderr text does not contain %q", m)
 		}
 	}
@@ -201,25 +216,25 @@ Password: {{.InputLine "foobar"}}
 
 func TestUnlockFlagWrongPassword(t *testing.T) {
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "js", "testdata/empty.js")
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "js", "testdata/empty.js")
 
 	defer geth.ExpectExit()
 	geth.Expect(`
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "wrong1"}}
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 2/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 2/3
 Password: {{.InputLine "wrong2"}}
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 3/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 3/3
 Password: {{.InputLine "wrong3"}}
-Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could not decrypt key with given password)
+Fatal: Failed to unlock account 9279739dce240363860f3672afa9e4c1e1f86ccc (could not decrypt key with given password)
 `)
 }
 
 // https://github.com/ethereum/go-ethereum/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--unlock", "0,2", "js", "testdata/empty.js")
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "--unlock", "0,2", "js", "testdata/empty.js")
 
 	geth.Expect(`
 Unlocking account 0 | Attempt 1/3
@@ -232,8 +247,8 @@ Password: {{.InputLine "foobar"}}
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x7EF5A6135f1FD6a02593eEdC869c6D41D934aef8",
-		"=0x289d485D9771714CCe91D3393D764E1311907ACc",
+		"=0xFF8fd0e9064bCBc5462763229b8a4314F07cF000",
+		"=0x31cDF7786B0B26b733B545988701c6Ed0601f848",
 	}
 	for _, m := range wantMessages {
 		if !strings.Contains(geth.StderrText(), m) {
@@ -244,17 +259,17 @@ Password: {{.InputLine "foobar"}}
 
 func TestUnlockFlagPasswordFile(t *testing.T) {
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--password", "testdata/passwords.txt", "--unlock", "0,2", "js", "testdata/empty.js")
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "--password", "testdata/passwords.txt", "--unlock", "0,2", "js", "testdata/empty.js")
 
 	geth.ExpectExit()
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x7EF5A6135f1FD6a02593eEdC869c6D41D934aef8",
-		"=0x289d485D9771714CCe91D3393D764E1311907ACc",
+		"=0xff8fd0e9064bcbc5462763229b8a4314f07cf000",
+		"=0x31cdf7786b0b26b733b545988701c6ed0601f848",
 	}
 	for _, m := range wantMessages {
-		if !strings.Contains(geth.StderrText(), m) {
+		if !strings.Contains(strings.ToLower(geth.StderrText()), strings.ToLower(m)) {
 			t.Errorf("stderr text does not contain %q", m)
 		}
 	}
@@ -262,7 +277,7 @@ func TestUnlockFlagPasswordFile(t *testing.T) {
 
 func TestUnlockFlagPasswordFileWrongPassword(t *testing.T) {
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--password",
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "--password",
 		"testdata/wrong-passwords.txt", "--unlock", "0,2")
 	defer geth.ExpectExit()
 	geth.Expect(`
@@ -273,8 +288,8 @@ Fatal: Failed to unlock account 0 (could not decrypt key with given password)
 func TestUnlockFlagAmbiguous(t *testing.T) {
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
-		store, "--unlock", "f466859ead1932d743d622cb74fc058882e8648a",
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "--keystore",
+		store, "--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc",
 		"js", "testdata/empty.js")
 	defer geth.ExpectExit()
 
@@ -284,10 +299,10 @@ func TestUnlockFlagAmbiguous(t *testing.T) {
 		return abs
 	})
 	geth.Expect(`
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "foobar"}}
-Multiple key files exist for address f466859ead1932d743d622cb74fc058882e8648a:
+Multiple key files exist for address 9279739dce240363860f3672afa9e4c1e1f86ccc:
    keystore://{{keypath "1"}}
    keystore://{{keypath "2"}}
 Testing your password against all of them...
@@ -299,10 +314,10 @@ In order to avoid this warning, you need to remove the following duplicate key f
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0xf466859eAD1932D743d622CB74FC058882E8648A",
+		"=0x9279739dce240363860f3672afa9e4c1e1f86ccc",
 	}
 	for _, m := range wantMessages {
-		if !strings.Contains(geth.StderrText(), m) {
+		if !strings.Contains(strings.ToLower(geth.StderrText()), strings.ToLower(m)) {
 			t.Errorf("stderr text does not contain %q", m)
 		}
 	}
@@ -311,8 +326,8 @@ In order to avoid this warning, you need to remove the following duplicate key f
 func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
 	geth := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
-		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
-		store, "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
+		"--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc", "--keystore",
+		store, "--unlock", "9279739dce240363860f3672afa9e4c1e1f86ccc")
 
 	defer geth.ExpectExit()
 
@@ -322,10 +337,10 @@ func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
 		return abs
 	})
 	geth.Expect(`
-Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
+Unlocking account 9279739dce240363860f3672afa9e4c1e1f86ccc | Attempt 1/3
 !! Unsupported terminal, password will be echoed.
 Password: {{.InputLine "wrong"}}
-Multiple key files exist for address f466859ead1932d743d622cb74fc058882e8648a:
+Multiple key files exist for address 9279739dce240363860f3672afa9e4c1e1f86ccc:
    keystore://{{keypath "1"}}
    keystore://{{keypath "2"}}
 Testing your password against all of them...

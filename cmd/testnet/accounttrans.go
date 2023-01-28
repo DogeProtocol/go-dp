@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"log"
 	"math/big"
@@ -27,7 +27,7 @@ func AccountPasswordCheckManual() {
 		fmt.Println("address : ", acc)
 		secretKey, _ := ReadDataFile(account.URL.Path)
 		key, _ := keystore.DecryptKey(secretKey, password)
-		pubKey, err := cryptopq.FromOQSPub(&key.PrivateKey.PublicKey)
+		pubKey, err := cryptobase.SigAlg.SerializePublicKey(&key.PrivateKey.PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -112,7 +112,7 @@ func deposit(address string, accountSlave string) {
 			fmt.Println("address, accountSlave", address, accountSlave)
 			secretKey, _ := ReadDataFile(account.URL.Path)
 			key, _ := keystore.DecryptKey(secretKey, password)
-			pubKey, err := cryptopq.FromOQSPub(&key.PrivateKey.PublicKey)
+			pubKey, err := cryptobase.SigAlg.SerializePublicKey(&key.PrivateKey.PublicKey)
 			if err != nil {
 				panic(err)
 			}
@@ -129,7 +129,7 @@ func deposit(address string, accountSlave string) {
 }
 
 func depositContract(fromaddress string, contractaddress string, pubKey []byte,
-	key *oqs.PrivateKey) (string, error) {
+	key *signaturealgorithm.PrivateKey) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -187,7 +187,7 @@ func depositContract(fromaddress string, contractaddress string, pubKey []byte,
 }
 
 func withdrawContract(address string, contractaddress string,
-	key *oqs.PrivateKey) (string, error) {
+	key *signaturealgorithm.PrivateKey) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -245,7 +245,7 @@ func withdrawContract(address string, contractaddress string,
 }
 
 func validatorList(fromaddress string, contractaddress string,
-	key *oqs.PrivateKey) (string, error) {
+	key *signaturealgorithm.PrivateKey) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {

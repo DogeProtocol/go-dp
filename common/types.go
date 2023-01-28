@@ -46,6 +46,7 @@ var (
 )
 
 type HashDynamic []byte
+
 // BytesToHashDynamic sets b to hash.
 // If b is larger than len(h), b will be cropped from the left.
 func BytesToHashDynamic(b []byte) HashDynamic {
@@ -54,6 +55,7 @@ func BytesToHashDynamic(b []byte) HashDynamic {
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
+
 // BytesToHash sets b to hash.
 // If b is larger than len(h), b will be cropped from the left.
 func BytesToHash(b []byte) Hash {
@@ -145,7 +147,6 @@ func (h *Hash) SetBytes(b []byte) {
 
 	copy(h[HashLength-len(b):], b)
 }
-
 
 // Generate implements testing/quick.Generator.
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
@@ -246,6 +247,10 @@ func (a Address) Hex() string {
 // String implements fmt.Stringer.
 func (a Address) String() string {
 	return a.Hex()
+}
+
+func (a Address) StringNoHex() string {
+	return string(a.Hex()[2:])
 }
 
 func (a *Address) checksumHex() []byte {

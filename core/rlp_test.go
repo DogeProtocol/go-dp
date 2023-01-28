@@ -17,10 +17,9 @@
 package core
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -34,8 +33,8 @@ import (
 )
 
 var (
-	privtestkey1, _ = cryptopq.GenerateKey()
-	hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
+	privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
 )
 
 func getBlock(transactions int, uncles int, dataSize int) *types.Block {
@@ -45,8 +44,8 @@ func getBlock(transactions int, uncles int, dataSize int) *types.Block {
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = cryptopq.HexToOQS(hextestkey1)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey1)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config: params.TestChainConfig,

@@ -22,8 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 	"reflect"
 	"sort"
@@ -592,7 +592,7 @@ func TestTraceBlock(t *testing.T) {
 }
 
 type Account struct {
-	key  *oqs.PrivateKey
+	key  *signaturealgorithm.PrivateKey
 	addr common.Address
 }
 
@@ -604,8 +604,8 @@ func (a Accounts) Less(i, j int) bool { return bytes.Compare(a[i].addr.Bytes(), 
 
 func newAccounts(n int) (accounts Accounts) {
 	for i := 0; i < n; i++ {
-		key, _ := cryptopq.GenerateKey()
-		addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+		key, _ := cryptobase.SigAlg.GenerateKey()
+		addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 		if err != nil {
 			panic(err)
 		}

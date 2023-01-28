@@ -19,8 +19,8 @@ package discover
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"sort"
 	"testing"
@@ -174,40 +174,40 @@ func checkLookupResults(t *testing.T, tn *preminedTestnet, results []*enode.Node
 // This is the test network for the Lookup test.
 // The nodes were obtained by running lookupTestnet.mine with a random NodeID as target.
 var (
-	key1, _ = cryptopq.GenerateKey()
-	hexkey1 = hex.EncodeToString(key1.D.Bytes())
+	key1, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey1, _ = cryptobase.SigAlg.PrivateKeyToHex(key1)
 
-	key2, _ = cryptopq.GenerateKey()
-	hexkey2 = hex.EncodeToString(key2.D.Bytes())
+	key2, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey2, _ = cryptobase.SigAlg.PrivateKeyToHex(key2)
 
-	key3, _ = cryptopq.GenerateKey()
-	hexkey3 = hex.EncodeToString(key3.D.Bytes())
+	key3, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey3, _ = cryptobase.SigAlg.PrivateKeyToHex(key3)
 
-	key4, _ = cryptopq.GenerateKey()
-	hexkey4 = hex.EncodeToString(key4.D.Bytes())
+	key4, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey4, _ = cryptobase.SigAlg.PrivateKeyToHex(key4)
 
-	key5, _ = cryptopq.GenerateKey()
-	hexkey5 = hex.EncodeToString(key5.D.Bytes())
+	key5, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey5, _ = cryptobase.SigAlg.PrivateKeyToHex(key5)
 
-	key6, _ = cryptopq.GenerateKey()
-	hexkey6 = hex.EncodeToString(key6.D.Bytes())
+	key6, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey6, _ = cryptobase.SigAlg.PrivateKeyToHex(key6)
 
-	key7, _ = cryptopq.GenerateKey()
-	hexkey7 = hex.EncodeToString(key7.D.Bytes())
+	key7, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey7, _ = cryptobase.SigAlg.PrivateKeyToHex(key7)
 
-	key8, _ = cryptopq.GenerateKey()
-	hexkey8 = hex.EncodeToString(key8.D.Bytes())
+	key8, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey8, _ = cryptobase.SigAlg.PrivateKeyToHex(key8)
 
-	key9, _ = cryptopq.GenerateKey()
-	hexkey9 = hex.EncodeToString(key9.D.Bytes())
+	key9, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey9, _ = cryptobase.SigAlg.PrivateKeyToHex(key9)
 
-	key10, _ = cryptopq.GenerateKey()
-	hexkey10 = hex.EncodeToString(key10.D.Bytes())
+	key10, _    = cryptobase.SigAlg.GenerateKey()
+	hexkey10, _ = cryptobase.SigAlg.PrivateKeyToHex(key10)
 )
 
 var lookupTestnet = &preminedTestnet{
-	target: hexEncPubkey(hex.EncodeToString(key1.N.Bytes())),
-	dists: [257][]*oqs.PrivateKey{
+	target: hexEncPubkey(hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key1.PublicKey).Bytes())),
+	dists: [257][]*signaturealgorithm.PrivateKey{
 		251: {
 			hexEncPrivkey(hexkey1),
 			hexEncPrivkey(hexkey2),
@@ -269,7 +269,7 @@ var lookupTestnet = &preminedTestnet{
 
 type preminedTestnet struct {
 	target encPubkey
-	dists  [hashBits + 1][]*oqs.PrivateKey
+	dists  [hashBits + 1][]*signaturealgorithm.PrivateKey
 }
 
 func (tn *preminedTestnet) len() int {
@@ -301,7 +301,7 @@ func (tn *preminedTestnet) node(dist, index int) *enode.Node {
 	return n
 }
 
-func (tn *preminedTestnet) nodeByAddr(addr *net.UDPAddr) (*enode.Node, *oqs.PrivateKey) {
+func (tn *preminedTestnet) nodeByAddr(addr *net.UDPAddr) (*enode.Node, *signaturealgorithm.PrivateKey) {
 	dist := int(addr.IP[1])<<8 + int(addr.IP[2])
 	index := int(addr.IP[3])
 	key := tn.dists[dist][index]
@@ -375,7 +375,7 @@ func (tn *preminedTestnet) mine() {
 		}
 		fmt.Printf("		%d: {\n", ld)
 		for _, key := range ns {
-			privKey, err := cryptopq.FromOQS(key)
+			privKey, err := cryptobase.SigAlg.SerializePrivateKey(key)
 			if err != nil {
 				panic(err)
 			}

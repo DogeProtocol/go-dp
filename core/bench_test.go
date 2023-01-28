@@ -17,9 +17,8 @@
 package core
 
 import (
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -75,10 +74,10 @@ func BenchmarkInsertChain_ring1000_diskdb(b *testing.B) {
 var (
 	// This is the content of the genesis block used by the benchmarks.
 
-	privtestkey, _  = cryptopq.GenerateKey()
-	hextestkey      = hex.EncodeToString(privtestkey.D.Bytes())
-	benchRootKey, _ = cryptopq.HexToOQS(hextestkey)
-	benchRootAddr   = cryptopq.PubkeyToAddressNoError(benchRootKey.PublicKey)
+	privtestkey, _  = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _   = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	benchRootKey, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	benchRootAddr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&benchRootKey.PublicKey)
 
 	benchRootFunds = math.BigPow(2, 100)
 )
@@ -97,7 +96,7 @@ func genValueTx(nbytes int) func(int, *BlockGen) {
 }
 
 var (
-	ringKeys  = make([]*oqs.PrivateKey, 1000)
+	ringKeys  = make([]*signaturealgorithm.PrivateKey, 1000)
 	ringAddrs = make([]common.Address, len(ringKeys))
 )
 
@@ -105,8 +104,8 @@ func init() {
 	ringKeys[0] = benchRootKey
 	ringAddrs[0] = benchRootAddr
 	for i := 1; i < len(ringKeys); i++ {
-		ringKeys[i], _ = cryptopq.GenerateKey()
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(ringKeys[i].PublicKey)
+		ringKeys[i], _ = cryptobase.SigAlg.GenerateKey()
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&ringKeys[i].PublicKey)
 		if err != nil {
 			panic(err)
 		}

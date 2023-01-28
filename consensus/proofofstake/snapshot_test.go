@@ -18,8 +18,8 @@ package proofofstake
 
 import (
 	"bytes"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 	"sort"
 	"testing"
@@ -36,12 +36,12 @@ import (
 // mapped from textual names used in the tests below to actual Ethereum private
 // keys capable of signing transactions.
 type testerAccountPool struct {
-	accounts map[string]*oqs.PrivateKey
+	accounts map[string]*signaturealgorithm.PrivateKey
 }
 
 func newTesterAccountPool() *testerAccountPool {
 	return &testerAccountPool{
-		accounts: make(map[string]*oqs.PrivateKey),
+		accounts: make(map[string]*signaturealgorithm.PrivateKey),
 	}
 }
 
@@ -67,10 +67,10 @@ func (ap *testerAccountPool) address(account string) common.Address {
 	}
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = cryptopq.GenerateKey()
+		ap.accounts[account], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	// Resolve and return the Ethereum address
-	addr, err := cryptopq.PubkeyToAddress(ap.accounts[account].PublicKey)
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&ap.accounts[account].PublicKey)
 	if err != nil {
 		panic(err)
 	}
@@ -83,10 +83,10 @@ func (ap *testerAccountPool) address(account string) common.Address {
 func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 	// Ensure we have a persistent key for the signer
 	if ap.accounts[signer] == nil {
-		ap.accounts[signer], _ = cryptopq.GenerateKey()
+		ap.accounts[signer], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	// Sign the header and embed the signature in extra data
-	sig, _ := cryptopq.Sign(SealHash(header).Bytes(), ap.accounts[signer])
+	sig, _ := cryptobase.SigAlg.Sign(SealHash(header).Bytes(), ap.accounts[signer])
 	copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 }
 

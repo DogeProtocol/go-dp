@@ -24,8 +24,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	pcsc "github.com/gballet/go-libpcsclite"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/text/unicode/norm"
@@ -62,19 +61,19 @@ type SecureChannelSession struct {
 // NewSecureChannelSession creates a new secure channel for the given card and public key.
 func NewSecureChannelSession(card *pcsc.Card, keyData []byte) (*SecureChannelSession, error) {
 	// Generate an ECDSA keypair for ourselves
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
-	cardPublic, err := cryptopq.UnmarshalPubkey(keyData)
+	cardPublic, err := cryptobase.SigAlg.DeserializePublicKey(keyData)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal public key from card: %v", err)
 	}
 
 	return &SecureChannelSession{
 		card:      card,
-		secret:    key.D.Bytes(),
-		publicKey: cardPublic.N.Bytes(),
+		secret:    cryptobase.SigAlg.PrivateKeyAsBigInt(key).Bytes(),
+		publicKey: cryptobase.SigAlg.PublicKeyAsBigInt(cardPublic).Bytes(),
 	}, nil
 
 }

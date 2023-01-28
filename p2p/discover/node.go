@@ -17,13 +17,12 @@
 package discover
 
 import (
-	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
-	"math/big"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
@@ -38,21 +37,20 @@ type node struct {
 
 type encPubkey [oqs.PublicKeyLen]byte
 
-func encodePubkey(key *oqs.PublicKey) encPubkey {
+func encodePubkey(key *signaturealgorithm.PublicKey) encPubkey {
+	encoded := cryptobase.SigAlg.EncodePublicKey(key)
 	var e encPubkey
-	math.ReadBits(key.N, e[:])
+	copy(e[:], encoded)
 	return e
 }
 
-
-func decodePubkey(e []byte) (*oqs.PublicKey, error) {
-	if len(e) != len(encPubkey{}) {
-		return nil, errors.New("wrong size public key data")
+func decodePubkey(e []byte) (*signaturealgorithm.PublicKey, error) {
+	key, err := cryptobase.SigAlg.DecodePublicKey(e)
+	if err != nil {
+		return nil, err
 	}
-	p := &oqs.PublicKey{N: new(big.Int)}
-	p.N.SetBytes(e[:])
 
-	return p, nil
+	return key, nil
 }
 
 func (e encPubkey) id() enode.ID {

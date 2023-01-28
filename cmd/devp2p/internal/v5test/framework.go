@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"time"
 
@@ -55,7 +55,7 @@ const waitTime = 300 * time.Millisecond
 // conn is a connection to the node under test.
 type conn struct {
 	localNode  *enode.LocalNode
-	localKey   *oqs.PrivateKey
+	localKey   *signaturealgorithm.PrivateKey
 	remote     *enode.Node
 	remoteAddr *net.UDPAddr
 	listeners  []net.PacketConn
@@ -73,7 +73,7 @@ type logger interface {
 
 // newConn sets up a connection to the given node.
 func newConn(dest *enode.Node, log logger) *conn {
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic(err)
 	}

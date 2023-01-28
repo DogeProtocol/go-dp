@@ -19,9 +19,8 @@ package light
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 	"time"
@@ -42,21 +41,21 @@ import (
 )
 
 var (
-	privtestkey1, _ = cryptopq.GenerateKey()
-	privtestkey2, _ = cryptopq.GenerateKey()
-	privtestkey3, _ = cryptopq.GenerateKey()
-	hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
-	hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
-	hextestkey3     = hex.EncodeToString(privtestkey3.D.Bytes())
+	privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+	privtestkey2, _ = cryptobase.SigAlg.GenerateKey()
+	privtestkey3, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
+	hextestkey2, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey2)
+	hextestkey3, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey3)
 
-	testBankKey, _  = cryptopq.HexToOQS(hextestkey1)
-	testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
+	testBankKey, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey1)
+	testBankAddress = cryptobase.SigAlg.PublicKeyToAddressNoError(&testBankKey.PublicKey)
 	testBankFunds   = big.NewInt(1_000_000_000_000_000_000)
 
-	acc1Key, _ = cryptopq.HexToOQS(hextestkey2)
-	acc2Key, _ = cryptopq.HexToOQS(hextestkey3)
-	acc1Addr   = cryptopq.PubkeyToAddressNoError(acc1Key.PublicKey)
-	acc2Addr   = cryptopq.PubkeyToAddressNoError(acc2Key.PublicKey)
+	acc1Key, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey2)
+	acc2Key, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey3)
+	acc1Addr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&acc1Key.PublicKey)
+	acc2Addr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&acc2Key.PublicKey)
 
 	testContractCode = common.Hex2Bytes("606060405260cc8060106000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806360cd2685146041578063c16431b914606b57603f565b005b6055600480803590602001909190505060a9565b6040518082815260200191505060405180910390f35b60886004808035906020019091908035906020019091905050608a565b005b80600060005083606481101560025790900160005b50819055505b5050565b6000600060005082606481101560025790900160005b5054905060c7565b91905056")
 	testContractAddr common.Address

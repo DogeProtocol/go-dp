@@ -17,8 +17,7 @@
 package core
 
 import (
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -55,11 +54,11 @@ func TestStateProcessorErrors(t *testing.T) {
 			LondonBlock:         big.NewInt(0),
 			Ethash:              new(params.EthashConfig),
 		}
-		privtestkey, _  = cryptopq.GenerateKey()
-		hextestkey = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		signer     = types.LatestSigner(config)
-		testKey, _ = cryptopq.HexToOQS(hextestkey)
+		testKey, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
 	)
 	var makeTx = func(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *types.Transaction {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data), signer, testKey)

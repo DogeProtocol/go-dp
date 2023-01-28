@@ -18,7 +18,7 @@ package p2p
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,12 +29,12 @@ import (
 
 func TestProtocolHandshake(t *testing.T) {
 	var (
-		prv0, _ = cryptopq.GenerateKey()
-		pub0, _ = cryptopq.FromOQSPub(&prv0.PublicKey) ////[1:]
+		prv0, _ = cryptobase.SigAlg.GenerateKey()
+		pub0, _ = cryptobase.SigAlg.SerializePublicKey(&prv0.PublicKey) ////[1:]
 		hs0     = &protoHandshake{Version: 3, ID: pub0, Caps: []Cap{{"a", 0}, {"b", 2}}}
 
-		prv1, _ = cryptopq.GenerateKey()
-		pub1, _ = cryptopq.FromOQSPub(&prv1.PublicKey) ////[1:]
+		prv1, _ = cryptobase.SigAlg.GenerateKey()
+		pub1, _ = cryptobase.SigAlg.SerializePublicKey(&prv1.PublicKey) ////[1:]
 		hs1     = &protoHandshake{Version: 3, ID: pub1, Caps: []Cap{{"c", 1}, {"d", 3}}}
 
 		wg sync.WaitGroup

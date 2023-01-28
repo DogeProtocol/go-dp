@@ -18,8 +18,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -69,17 +69,17 @@ If you want to encrypt an existing private key, it can be specified by setting
 			utils.Fatalf("Error checking if keyfile exists: %v", err)
 		}
 
-		var privateKey *oqs.PrivateKey
+		var privateKey *signaturealgorithm.PrivateKey
 		var err error
 		if file := ctx.String("privatekey"); file != "" {
 			// Load private key from file.
-			privateKey, err = cryptopq.LoadOQS(file)
+			privateKey, err = cryptobase.SigAlg.LoadPrivateKeyFromFile(file)
 			if err != nil {
 				utils.Fatalf("Can't load private key: %v", err)
 			}
 		} else {
 			// If not loaded, generate random.
-			privateKey, err = cryptopq.GenerateKey()
+			privateKey, err = cryptobase.SigAlg.GenerateKey()
 			if err != nil {
 				utils.Fatalf("Failed to generate random private key: %v", err)
 			}
@@ -90,7 +90,7 @@ If you want to encrypt an existing private key, it can be specified by setting
 		if err != nil {
 			utils.Fatalf("Failed to generate random uuid: %v", err)
 		}
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(privateKey.PublicKey)
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&privateKey.PublicKey)
 		if err != nil {
 			utils.Fatalf("PubkeyToAddress: %v", err)
 		}

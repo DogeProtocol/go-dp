@@ -19,8 +19,8 @@ package dnsdisc
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"reflect"
 	"testing"
 	"time"
@@ -393,13 +393,13 @@ func makeTestTree(domain string, nodes []*enode.Node, links []string) (*Tree, st
 }
 
 // testKeys creates deterministic private keys for testing.
-func testKeys(seed int64, n int) []*oqs.PrivateKey {
+func testKeys(seed int64, n int) []*signaturealgorithm.PrivateKey {
 
-	keys := make([]*oqs.PrivateKey, n)
+	keys := make([]*signaturealgorithm.PrivateKey, n)
 
 	for i := 0; i < n; i++ {
 
-		key, err := cryptopq.GenerateKey()
+		key, err := cryptobase.SigAlg.GenerateKey()
 		if err != nil {
 			panic("can't generate key: " + err.Error())
 		}
@@ -409,7 +409,7 @@ func testKeys(seed int64, n int) []*oqs.PrivateKey {
 	return keys
 }
 
-func testKey(seed int64) *oqs.PrivateKey {
+func testKey(seed int64) *signaturealgorithm.PrivateKey {
 	return testKeys(seed, 1)[0]
 }
 

@@ -20,12 +20,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 
 	"errors"
 
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"hash"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -41,16 +41,18 @@ const (
 // Nonce represents a nonce used for AES/GCM.
 type Nonce [gcmNonceSize]byte
 
-func EncodePubkey(key *oqs.PublicKey) []byte {
-
-		return cryptopq.CompressPubkey(key)
+func EncodePubkey(key *signaturealgorithm.PublicKey) []byte {
+	panic("not implemented")
+	//return cryptopq.CompressPubkey(key)
 
 }
+
 // DecodePubkey decodes a public key in compressed format.
 
-func DecodePubkey(e []byte) (*oqs.PublicKey, error) {
-	pub, error := cryptopq.DecompressPubkey(e)
-	return pub, error
+func DecodePubkey(e []byte) (*signaturealgorithm.PublicKey, error) {
+	panic("not implemented")
+	//pub, error := cryptopq.DecompressPubkey(e)
+	//return pub, error
 }
 
 // idNonceHash computes the ID signature hash used in the handshake.
@@ -64,10 +66,10 @@ func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte 
 }
 
 // makeIDSignature creates the ID nonce signature.
-func makeIDSignature(hash hash.Hash, key *oqs.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
+func makeIDSignature(hash hash.Hash, key *signaturealgorithm.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
 	input := idNonceHash(hash, challenge, ephkey, destID)
 
-	idsig, err := cryptopq.Sign(input, key)
+	idsig, err := cryptobase.SigAlg.Sign(input, key)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 			return errors.New("no secp256k1 public key in record")
 		}
 		input := idNonceHash(hash, challenge, ephkey, destID)
-		if !cryptopq.VerifySignature(pubkey, input, sig) {
+		if !cryptobase.SigAlg.Verify(pubkey, input, sig) {
 			return errInvalidNonceSig
 		}
 		return nil
@@ -100,7 +102,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 type hashFn func() hash.Hash
 
 // deriveKeys creates the session keys.
-func deriveKeys(hash hashFn, priv *oqs.PrivateKey, pub *oqs.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
+func deriveKeys(hash hashFn, priv *signaturealgorithm.PrivateKey, pub *signaturealgorithm.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
 	const text = "discovery v5 key agreement"
 	var info = make([]byte, 0, len(text)+len(n1)+len(n2))
 	info = append(info, text...)
@@ -123,10 +125,10 @@ func deriveKeys(hash hashFn, priv *oqs.PrivateKey, pub *oqs.PublicKey, n1, n2 en
 }
 
 // ecdh creates a shared secret.
-func ecdh(privkey *oqs.PrivateKey, pubkey *oqs.PublicKey) []byte {
+func ecdh(privkey *signaturealgorithm.PrivateKey, pubkey *signaturealgorithm.PublicKey) []byte {
 
-	d := privkey.D
-	n := pubkey.N
+	d := cryptobase.SigAlg.PrivateKeyAsBigInt(privkey)
+	n := cryptobase.SigAlg.PublicKeyAsBigInt(pubkey)
 	secX := big.NewInt(0).Mul(d, n)
 	if secX == nil {
 		return nil

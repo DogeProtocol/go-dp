@@ -23,7 +23,7 @@ import (
 	crand "crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"net"
 	"sync"
@@ -68,7 +68,7 @@ type UDPv4 struct {
 	sessionManager UdpSessionManager
 	log            log.Logger
 	netrestrict    *netutil.Netlist
-	priv           *oqs.PrivateKey
+	priv           *signaturealgorithm.PrivateKey
 	localNode      *enode.LocalNode
 	db             *enode.DB
 	tab            *Table
@@ -190,7 +190,7 @@ func (t *UDPv4) Resolve(n *enode.Node) *enode.Node {
 	if n.Load(&key) != nil {
 		return n // no secp256k1 key
 	}
-	result := t.LookupPubkey((*oqs.PublicKey)(&key))
+	result := t.LookupPubkey((*signaturealgorithm.PublicKey)(&key))
 	for _, rn := range result {
 		if rn.ID() == n.ID() {
 			if rn, err := t.RequestENR(rn); err == nil {
@@ -265,7 +265,7 @@ func (t *UDPv4) makePing(toaddr *net.UDPAddr) *v4wire.Ping {
 }
 
 // LookupPubkey finds the closest nodes to the given public key.
-func (t *UDPv4) LookupPubkey(key *oqs.PublicKey) []*enode.Node {
+func (t *UDPv4) LookupPubkey(key *signaturealgorithm.PublicKey) []*enode.Node {
 	if t.tab.len() == 0 {
 		// All nodes were dropped, refresh. The very first query will hit this
 		// case and run the bootstrapping logic.
@@ -550,7 +550,6 @@ func (t *UDPv4) readLoop(unhandled chan<- ReadPacket) {
 		defer close(unhandled)
 	}
 
-	//buf := make([]byte, maxPacketSize)
 	for {
 
 		dpUdpSession, err := t.sessionManager.Accept()
@@ -568,6 +567,9 @@ func (t *UDPv4) readLoop(unhandled chan<- ReadPacket) {
 				t.log.Debug("UDP read error", "err", err)
 			}
 			return
+		} else if dpUdpSession == nil {
+			panic("dpUdpSession is nil")
+			continue
 		}
 
 		go t.handleSession(*dpUdpSession)
@@ -669,7 +671,7 @@ func (t *UDPv4) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node) (*node, error) 
 }
 
 func nodeToRPC(n *node) v4wire.Node {
-	var key oqs.PublicKey
+	var key signaturealgorithm.PublicKey
 	var ekey v4wire.Pubkey
 	if err := n.Load((*enode.PqPubKey)(&key)); err == nil {
 		ekey = v4wire.EncodePubkey(&key)
@@ -704,7 +706,7 @@ func (t *UDPv4) wrapPacket(p v4wire.Packet) *packetHandlerV4 {
 // packetHandlerV4 wraps a packet with handler functions.
 type packetHandlerV4 struct {
 	v4wire.Packet
-	senderKey *oqs.PublicKey // used for ping
+	senderKey *signaturealgorithm.PublicKey // used for ping
 
 	// preverify checks whether the packet is valid and should be handled at all.
 	preverify func(p *packetHandlerV4, from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey) error

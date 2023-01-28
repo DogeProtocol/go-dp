@@ -17,8 +17,7 @@
 package catalyst
 
 import (
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -35,12 +34,12 @@ import (
 var (
 	// testKey is a private key to use for funding a tester account.
 
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
 
 	// testAddr is the Ethereum address of the tester account.
-	testAddr = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	testAddr = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 
 	testBalance = big.NewInt(2e15)
 )

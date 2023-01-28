@@ -124,3 +124,31 @@ func TestTrimRightZeroes(t *testing.T) {
 		}
 	}
 }
+
+func TestCombineExtractParts(t *testing.T) {
+	part1 := []byte("HELLO ")
+	part2 := []byte("WORLD")
+
+	combined := CombineTwoParts(part1, part2)
+
+	if len(combined) != len(part1)+len(part2)+LengthByteSize+LengthByteSize {
+		t.Errorf("length validation failed")
+	}
+
+	part1Extracted, part2Extracted, err := ExtractTwoParts(combined)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(part1Extracted, part1) {
+		t.Errorf("extract problem")
+	}
+
+	if !bytes.Equal(part2Extracted, part2) {
+		t.Errorf("extract problem")
+	}
+
+	_, _, err = ExtractTwoParts(combined[:2])
+	if err == nil {
+		t.Fatal(err)
+	}
+}

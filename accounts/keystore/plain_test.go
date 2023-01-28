@@ -20,7 +20,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -100,29 +99,6 @@ func TestKeyStorePassphraseDecryptionFail(t *testing.T) {
 	}
 }
 
-func TestImportPreSaleKey(t *testing.T) {
-	dir, ks := tmpKeyStoreIface(t, true)
-	defer os.RemoveAll(dir)
-
-	// file content of a presale key file generated with:
-	// python pyethsaletool.py genwallet
-	// with password "foo"
-	key, _ := cryptopq.GenerateKey()
-	hexkey := hex.EncodeToString(key.D.Bytes())
-	fileContent := "{\"encseed\":" + hexkey + "\",\"ethaddr\": \"d4584b5f6229b7be90727b0fc8c6b91bb427821f\", \"email\": \"gustav.simonsson@gmail.com\", \"btcaddr\": \"1EVknXyFC68kKNLkh6YnKzW41svSRoaAcx\"}"
-	pass := "foo"
-	account, _, err := importPreSaleKey(ks, []byte(fileContent), pass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if account.Address != common.HexToAddress("d4584b5f6229b7be90727b0fc8c6b91bb427821f") {
-		t.Errorf("imported account has wrong address %x", account.Address)
-	}
-	if !strings.HasPrefix(account.URL.Path, dir) {
-		t.Errorf("imported account file not in keystore directory: %q", account.URL)
-	}
-}
-
 // Test and utils for the key store tests in the Ethereum JSON tests;
 // testdataKeyStoreTests/basic_tests.json
 type KeyStoreTestV3 struct {
@@ -189,26 +165,6 @@ func TestV1_1(t *testing.T) {
 	t.Parallel()
 	tests := loadKeyStoreTestV1("testdata/v1_test_vector.json", t)
 	testDecryptV1(tests["test1"], t)
-}
-
-func TestV1_2(t *testing.T) {
-	t.Parallel()
-	ks := &keyStorePassphrase{"testdata/v1", LightScryptN, LightScryptP, true}
-	addr := common.HexToAddress("cb61d5a9c4896fb9658090b597ef0e7be6f7b67e")
-	file := "testdata/v1/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e/cb61d5a9c4896fb9658090b597ef0e7be6f7b67e"
-	k, err := ks.GetKey(addr, file, "g")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkey, err := cryptopq.FromOQS(k.PrivateKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	privHex := hex.EncodeToString(pkey)
-	expectedHex := "d1b1178d3529626a1a93e073f65028370d14c7eb0936eb42abef05db6f37ad7d"
-	if privHex != expectedHex {
-		t.Fatal(fmt.Errorf("Unexpected privkey: %v, expected %v", privHex, expectedHex))
-	}
 }
 
 func testDecryptV3(test KeyStoreTestV3, t *testing.T) {

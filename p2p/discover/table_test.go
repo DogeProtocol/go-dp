@@ -17,10 +17,9 @@
 package discover
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/rand"
 
 	"net"
@@ -58,9 +57,9 @@ func testPingReplace(t *testing.T, newNodeIsResponding, lastInBucketIsResponding
 	<-tab.initDone
 
 	// Fill up the sender's bucket.
-	key1, _  := cryptopq.GenerateKey()
-	hexkey := hex.EncodeToString(key1.D.Bytes())
-	pingKey, _ := cryptopq.HexToOQS(hexkey)
+	key1, _ := cryptobase.SigAlg.GenerateKey()
+	hexkey, _ := cryptobase.SigAlg.PrivateKeyToHex(key1)
+	pingKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexkey)
 	pingSender := wrapNode(enode.NewV4(&pingKey.PublicKey, net.IP{127, 0, 0, 1}, 99, 99))
 	last := fillBucket(tab, pingSender)
 
@@ -422,8 +421,8 @@ func quickcfg() *quick.Config {
 	}
 }
 
-func newkey() *oqs.PrivateKey {
-	key, err := cryptopq.GenerateKey()
+func newkey() *signaturealgorithm.PrivateKey {
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}

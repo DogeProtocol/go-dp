@@ -21,8 +21,7 @@ package checkpointoracle
 
 import (
 	"encoding/binary"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -130,7 +129,7 @@ func (oracle *CheckpointOracle) VerifySigners(index uint64, hash [32]byte, signa
 		checked = make(map[common.Address]struct{})
 	)
 	for i := 0; i < len(signatures); i++ {
-		if len(signatures[i]) > oqs.SignPublicKeyLen {
+		if len(signatures[i]) > cryptobase.SigAlg.SignatureWithPublicKeyLength() {
 			continue
 		}
 		// EIP 191 style signatures
@@ -147,7 +146,7 @@ func (oracle *CheckpointOracle) VerifySigners(index uint64, hash [32]byte, signa
 		binary.BigEndian.PutUint64(buf, index)
 		data := append([]byte{0x19, 0x00}, append(oracle.config.Address.Bytes(), append(buf, hash[:]...)...)...)
 
-		pubkey, err := cryptopq.RecoverPublicKey(crypto.Keccak256(data), signatures[i])
+		pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(crypto.Keccak256(data), signatures[i])
 		if err != nil {
 			return false, nil
 		}

@@ -18,9 +18,9 @@ package p2p
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"io"
 	"math/rand"
@@ -37,11 +37,11 @@ import (
 
 type testTransport struct {
 	*rlpxTransport
-	rpub     *oqs.PublicKey
+	rpub     *signaturealgorithm.PublicKey
 	closeErr error
 }
 
-func newTestTransport(rpub *oqs.PublicKey, fd net.Conn, dialDest *oqs.PublicKey) transport {
+func newTestTransport(rpub *signaturealgorithm.PublicKey, fd net.Conn, dialDest *signaturealgorithm.PublicKey) transport {
 	wrapped := newRLPX(fd, dialDest, "test").(*rlpxTransport)
 
 	dummyData := make([]byte, 32)
@@ -55,13 +55,13 @@ func newTestTransport(rpub *oqs.PublicKey, fd net.Conn, dialDest *oqs.PublicKey)
 	return &testTransport{rpub: rpub, rlpxTransport: wrapped}
 }
 
-func (c *testTransport) doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error) {
+func (c *testTransport) doEncHandshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error) {
 	return c.rpub, nil
 }
 
 func (c *testTransport) doProtoHandshake(our *protoHandshake) (*protoHandshake, error) {
 
-	pubkey, err := cryptopq.FromOQSPub(c.rpub)
+	pubkey, err := cryptobase.SigAlg.SerializePublicKey(c.rpub)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (c *testTransport) close(err error) {
 	c.closeErr = err
 }
 
-func startTestServer(t *testing.T, remoteKey *oqs.PublicKey, pf func(*Peer)) *Server {
+func startTestServer(t *testing.T, remoteKey *signaturealgorithm.PublicKey, pf func(*Peer)) *Server {
 	config := Config{
 		Name:        "test",
 		MaxPeers:    10,
@@ -85,7 +85,7 @@ func startTestServer(t *testing.T, remoteKey *oqs.PublicKey, pf func(*Peer)) *Se
 	server := &Server{
 		Config:      config,
 		newPeerHook: pf,
-		newTransport: func(fd net.Conn, dialDest *oqs.PublicKey, context string) transport {
+		newTransport: func(fd net.Conn, dialDest *signaturealgorithm.PublicKey, context string) transport {
 			return newTestTransport(remoteKey, fd, dialDest)
 		},
 	}
@@ -315,8 +315,7 @@ func TestServerPeerLimits(t *testing.T) {
 	clientkey := newkey()
 	clientnode := enode.NewV4(&clientkey.PublicKey, nil, 0, 0)
 
-
-	pubKey, err := cryptopq.FromOQSPub(&clientkey.PublicKey)
+	pubKey, err := cryptobase.SigAlg.SerializePublicKey(&clientkey.PublicKey)
 	if err != nil {
 		t.Fatalf("FromOQSPub")
 	}
@@ -338,7 +337,7 @@ func TestServerPeerLimits(t *testing.T) {
 			Protocols:   []Protocol{discard},
 			Logger:      testlog.Logger(t, log.LvlTrace),
 		},
-		newTransport: func(fd net.Conn, dialDest *oqs.PublicKey, context string) transport { return tp },
+		newTransport: func(fd net.Conn, dialDest *signaturealgorithm.PublicKey, context string) transport { return tp },
 	}
 	if err := srv.Start(); err != nil {
 		t.Fatalf("couldn't start server: %v", err)
@@ -387,13 +386,12 @@ func TestServerSetupConn(t *testing.T) {
 		srvpub            = &srvkey.PublicKey
 	)
 
-
-	srvPub, err := cryptopq.FromOQSPub(srvpub)
+	srvPub, err := cryptobase.SigAlg.SerializePublicKey(srvpub)
 	if err != nil {
 		t.Fatalf("FromOQSPub")
 	}
 
-	cPub, err := cryptopq.FromOQSPub(clientpub)
+	cPub, err := cryptobase.SigAlg.SerializePublicKey(clientpub)
 	if err != nil {
 		t.Fatalf("FromOQSPub")
 	}
@@ -459,7 +457,7 @@ func TestServerSetupConn(t *testing.T) {
 			}
 			srv := &Server{
 				Config:       cfg,
-				newTransport: func(fd net.Conn, dialDest *oqs.PublicKey, context string) transport { return test.tt },
+				newTransport: func(fd net.Conn, dialDest *signaturealgorithm.PublicKey, context string) transport { return test.tt },
 				log:          cfg.Logger,
 			}
 			if !test.dontstart {
@@ -481,7 +479,7 @@ func TestServerSetupConn(t *testing.T) {
 }
 
 type setupTransport struct {
-	pubkey            *oqs.PublicKey
+	pubkey            *signaturealgorithm.PublicKey
 	encHandshakeErr   error
 	phs               protoHandshake
 	protoHandshakeErr error
@@ -490,7 +488,7 @@ type setupTransport struct {
 	closeErr error
 }
 
-func (c *setupTransport) doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error) {
+func (c *setupTransport) doEncHandshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error) {
 	c.calls += "doEncHandshake,"
 	return c.pubkey, c.encHandshakeErr
 }
@@ -516,8 +514,8 @@ func (c *setupTransport) ReadMsg() (Msg, error) {
 	panic("ReadMsg called on setupTransport")
 }
 
-func newkey() *oqs.PrivateKey {
-	key, err := cryptopq.GenerateKey()
+func newkey() *signaturealgorithm.PrivateKey {
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic("couldn't generate key: " + err.Error())
 	}
@@ -545,7 +543,7 @@ func TestServerInboundThrottle(t *testing.T) {
 			Protocols:   []Protocol{discard},
 			Logger:      testlog.Logger(t, log.LvlTrace),
 		},
-		newTransport: func(fd net.Conn, dialDest *oqs.PublicKey, context string) transport {
+		newTransport: func(fd net.Conn, dialDest *signaturealgorithm.PublicKey, context string) transport {
 			newTransportCalled <- struct{}{}
 			return newRLPX(fd, dialDest, "test")
 		},

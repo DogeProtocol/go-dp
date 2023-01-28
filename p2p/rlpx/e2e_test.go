@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
 	"math/rand"
 	"testing"
@@ -26,7 +26,7 @@ func Test_HandshakeOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverSigningKey, err := oqs.GenerateKey()
+	serverSigningKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func Test_HandshakeOnly(t *testing.T) {
 
 	}()
 
-	clientKey, err := oqs.GenerateKey()
+	clientKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func Test_SinglePingPong(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverSigningKey, err := oqs.GenerateKey()
+	serverSigningKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func Test_SinglePingPong(t *testing.T) {
 
 	}()
 
-	clientKey, err := oqs.GenerateKey()
+	clientKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func Test_e2eHandshake(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverSigningKey, err := oqs.GenerateKey()
+	serverSigningKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func Test_e2eHandshake(t *testing.T) {
 		}
 	}()
 
-	clientKey, err := oqs.GenerateKey()
+	clientKey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}

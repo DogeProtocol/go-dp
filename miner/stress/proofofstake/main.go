@@ -19,8 +19,8 @@ package main
 
 import (
 	"bytes"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -48,13 +48,13 @@ func main() {
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
-	faucets := make([]*oqs.PrivateKey, 128)
+	faucets := make([]*signaturealgorithm.PrivateKey, 128)
 	for i := 0; i < len(faucets); i++ {
-		faucets[i], _ = cryptopq.GenerateKey()
+		faucets[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	sealers := make([]*oqs.PrivateKey, 4)
+	sealers := make([]*signaturealgorithm.PrivateKey, 4)
 	for i := 0; i < len(sealers); i++ {
-		sealers[i], _ = cryptopq.GenerateKey()
+		sealers[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	// Create a Clique network based off of the Rinkeby config
 	genesis := makeGenesis(faucets, sealers)
@@ -111,7 +111,7 @@ func main() {
 		backend := nodes[index%len(nodes)]
 
 		// Create a self transaction and inject into the pool
-		pubKeyAddress, err := cryptopq.PubkeyToAddress(faucets[index].PublicKey)
+		pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&faucets[index].PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -133,7 +133,7 @@ func main() {
 
 // makeGenesis creates a custom Clique genesis block based on some pre-defined
 // signer and faucet accounts.
-func makeGenesis(faucets []*oqs.PrivateKey, sealers []*oqs.PrivateKey) *core.Genesis {
+func makeGenesis(faucets []*signaturealgorithm.PrivateKey, sealers []*signaturealgorithm.PrivateKey) *core.Genesis {
 	// Create a Clique network based off of the Rinkeby config
 	genesis := core.DefaultRinkebyGenesisBlock()
 	genesis.GasLimit = 25000000
@@ -144,7 +144,7 @@ func makeGenesis(faucets []*oqs.PrivateKey, sealers []*oqs.PrivateKey) *core.Gen
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
-		pubKeyAddress, err := cryptopq.PubkeyToAddress(faucet.PublicKey)
+		pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&faucet.PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -155,7 +155,7 @@ func makeGenesis(faucets []*oqs.PrivateKey, sealers []*oqs.PrivateKey) *core.Gen
 	// Sort the signers and embed into the extra-data section
 	signers := make([]common.Address, len(sealers))
 	for i, sealer := range sealers {
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(sealer.PublicKey)
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&sealer.PublicKey)
 		if err != nil {
 			panic(err)
 		}

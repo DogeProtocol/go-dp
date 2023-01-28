@@ -21,7 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 	"testing/quick"
@@ -34,7 +34,7 @@ import (
 // TestPythonInterop checks that we can decode and verify a record produced by the Python
 // implementation.
 func TestPythonInterop(t *testing.T) {
-	testKey, _ := cryptopq.HexToOQS(hexprvkeytest1)
+	testKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexprvkeytest1)
 	var r1 enr.Record
 	r1.Set(enr.IP{127, 0, 0, 1})
 	r1.Set(enr.UDP(30303))
@@ -56,7 +56,7 @@ func TestPythonInterop(t *testing.T) {
 	}
 
 	var (
-		wantID  = HexID(crypto.Keccak256Hash(testKey.N.Bytes()).Hex())
+		wantID  = HexID(crypto.Keccak256Hash(cryptobase.SigAlg.PublicKeyAsBigInt(&testKey.PublicKey).Bytes()).Hex())
 		wantSeq = uint64(1)
 		wantIP  = enr.IPv4{127, 0, 0, 1}
 		wantUDP = enr.UDP(30303)

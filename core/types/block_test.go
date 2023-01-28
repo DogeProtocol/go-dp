@@ -19,7 +19,7 @@ package types
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"hash"
 	"math/big"
 	"reflect"
@@ -32,13 +32,11 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-
-
 var (
-	privtestkey1, _  = cryptopq.GenerateKey()
-	hextestkey1 = hex.EncodeToString(privtestkey.D.Bytes())
-	sigtest1, _ = cryptopq.Sign([]byte("This is test program"),privtestkey)
-	hexsigtest1 = hex.EncodeToString(sigtest)
+	privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
+	sigtest1, _     = cryptobase.SigAlg.Sign([]byte("This is test program"), privtestkey)
+	hexsigtest1     = hex.EncodeToString(sigtest)
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -175,7 +173,10 @@ func TestEIP2718BlockEncoding(t *testing.T) {
 		GasPrice: big.NewInt(10),
 	})
 	sig := common.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100")
-	tx1, _ = tx1.WithSignature(HomesteadSigner{}, sig)
+	tx1, err := tx1.WithSignature(HomesteadSigner{}, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create ACL tx.
 	addr := common.HexToAddress("0x0000000000000000000000000000000000000001")
@@ -188,7 +189,10 @@ func TestEIP2718BlockEncoding(t *testing.T) {
 		AccessList: AccessList{{Address: addr, StorageKeys: []common.Hash{{0}}}},
 	})
 	sig2 := common.Hex2Bytes("3dbacc8d0259f2508625e97fdfc57cd85fdd16e5821bc2c10bdd1a52649e8335476e10695b183a87b0aa292a7f4b78ef0c3fbe62aa2c42c84e1d9c3da159ef1401")
-	tx2, _ = tx2.WithSignature(NewEIP2930Signer(big.NewInt(1)), sig2)
+	tx2, err = tx2.WithSignature(NewEIP2930Signer(big.NewInt(1)), sig2)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	check("len(Transactions)", len(block.Transactions()), 2)
 	check("Transactions[0].Hash", block.Transactions()[0].Hash(), tx1.Hash())
@@ -253,7 +257,7 @@ func (h *testHasher) Hash() common.Hash {
 
 func makeBenchBlock() *Block {
 	var (
-		key, _   = cryptopq.GenerateKey()
+		key, _   = cryptobase.SigAlg.GenerateKey()
 		txs      = make([]*Transaction, 70)
 		receipts = make([]*Receipt, len(txs))
 		signer   = LatestSigner(params.TestChainConfig)

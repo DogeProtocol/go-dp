@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"io/ioutil"
@@ -80,7 +81,7 @@ func withdraw(contractAddress string, depositorAddress string, depositorPassword
 		log.Println(e + " GETH_STAKING_DEPOSITER GETH_DEPOSITER_PATH")
 		return
 	}
-	if depositorKey != nil && len(depositorKey.PrivateKey.D.Bytes()) >= oqs.PrivateKeyLen {
+	if depositorKey != nil && len(cryptobase.SigAlg.PrivateKeyAsBigInt(depositorKey.PrivateKey).Bytes()) >= cryptobase.SigAlg.PrivateKeyLength() {
 		tx, err := withdrawContract(depositorAddress, contractAddress,
 			depositorKey.PrivateKey, withdrawAmount)
 		if err != nil {
@@ -95,7 +96,7 @@ func withdraw(contractAddress string, depositorAddress string, depositorPassword
 }
 
 func withdrawContract(toaddress string, contractaddress string,
-	key *oqs.PrivateKey, withdrawAmount string) (string, error) {
+	key *signaturealgorithm.PrivateKey, withdrawAmount string) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {

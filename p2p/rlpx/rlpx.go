@@ -18,8 +18,7 @@
 package rlpx
 
 import (
-
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"time"
 )
@@ -31,7 +30,7 @@ import (
 // This type is not generally safe for concurrent use, but reading and writing of messages
 // may happen concurrently after the handshake.
 type Conn struct {
-	dialDest *oqs.PublicKey
+	dialDest *signaturealgorithm.PublicKey
 	conn     net.Conn
 
 	// These are the buffers for snappy compression.
@@ -48,7 +47,7 @@ type Conn struct {
 
 // NewConn wraps the given network connection. If dialDest is non-nil, the connection
 // behaves as the initiator during the handshake.
-func NewConn(conn net.Conn, dialDest *oqs.PublicKey, context string) *Conn {
+func NewConn(conn net.Conn, dialDest *signaturealgorithm.PublicKey, context string) *Conn {
 	connection := &Conn{
 		dialDest: dialDest,
 		conn:     conn,
@@ -145,7 +144,7 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 
 // Handshake performs the handshake. This must be called before any data is written
 // or read from the connection.
-func (c *Conn) Handshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error) {
+func (c *Conn) Handshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error) {
 	if c.client != nil {
 		c.client.SetClientSigningPrivateKey(prv)
 		err := c.client.PerformHandshake()

@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/rand"
 	"testing"
 	"time"
@@ -292,7 +292,7 @@ func signTest(id []byte, r *Record) error {
 }
 
 func makeTestSig(id []byte, seq uint64) []byte {
-	sig := make([]byte, oqs.SignPublicKeyLen, len(id)+oqs.SignPublicKeyLen)
+	sig := make([]byte, cryptobase.SigAlg.SignatureWithPublicKeyLength(), len(id)+cryptobase.SigAlg.SignatureWithPublicKeyLength())
 	binary.BigEndian.PutUint64(sig[:8], seq)
 	sig = append(sig, id...)
 	return sig

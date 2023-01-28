@@ -17,15 +17,10 @@
 package crypto
 
 import (
-
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
-
-
 	"hash"
 
 	"math/big"
-
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -34,13 +29,10 @@ import (
 )
 
 //SignatureLength indicates the byte length required to carry a signature with recovery id.
-const SignatureLength = oqs.SignPublicKeyLen // 64 bytes ECDSA signature + 1 byte recovery id
 
 // RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
 
-
 // DigestLength sets the signature digest exact length
-
 
 var (
 	secp256k1N, _  = new(big.Int).SetString("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
@@ -112,4 +104,3 @@ func CreateAddress(b common.Address, nonce uint64) common.Address {
 func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
 	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
 }
-

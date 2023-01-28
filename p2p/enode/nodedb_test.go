@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"net"
 	"os"
@@ -30,40 +30,36 @@ import (
 	"time"
 )
 
-
 var (
+	key1, _  = cryptobase.SigAlg.GenerateKey()
+	key2, _  = cryptobase.SigAlg.GenerateKey()
+	key3, _  = cryptobase.SigAlg.GenerateKey()
+	key4, _  = cryptobase.SigAlg.GenerateKey()
+	key5, _  = cryptobase.SigAlg.GenerateKey()
+	key6, _  = cryptobase.SigAlg.GenerateKey()
+	key7, _  = cryptobase.SigAlg.GenerateKey()
+	key8, _  = cryptobase.SigAlg.GenerateKey()
+	key9, _  = cryptobase.SigAlg.GenerateKey()
+	key10, _ = cryptobase.SigAlg.GenerateKey()
+	key11, _ = cryptobase.SigAlg.GenerateKey()
+	key12, _ = cryptobase.SigAlg.GenerateKey()
+	key13, _ = cryptobase.SigAlg.GenerateKey()
+	key14, _ = cryptobase.SigAlg.GenerateKey()
 
-
-	key1, _ = cryptopq.GenerateKey()
-	key2, _ = cryptopq.GenerateKey()
-	key3, _ = cryptopq.GenerateKey()
-	key4, _ = cryptopq.GenerateKey()
-	key5, _ = cryptopq.GenerateKey()
-	key6, _ = cryptopq.GenerateKey()
-	key7, _ = cryptopq.GenerateKey()
-	key8, _ = cryptopq.GenerateKey()
-	key9, _ = cryptopq.GenerateKey()
-	key10, _ = cryptopq.GenerateKey()
-	key11, _ = cryptopq.GenerateKey()
-	key12, _ = cryptopq.GenerateKey()
-	key13, _ = cryptopq.GenerateKey()
-	key14, _ = cryptopq.GenerateKey()
-
-	pubenckey1 = hex.EncodeToString(key1.PublicKey.N.Bytes())
-	pubenckey2 = hex.EncodeToString(key2.PublicKey.N.Bytes())
-	pubenckey3 = hex.EncodeToString(key3.PublicKey.N.Bytes())
-	pubenckey4 = hex.EncodeToString(key4.PublicKey.N.Bytes())
-	pubenckey5 = hex.EncodeToString(key5.PublicKey.N.Bytes())
-	pubenckey6 = hex.EncodeToString(key6.PublicKey.N.Bytes())
-	pubenckey7 = hex.EncodeToString(key7.PublicKey.N.Bytes())
-	pubenckey8 = hex.EncodeToString(key8.PublicKey.N.Bytes())
-	pubenckey9 = hex.EncodeToString(key9.PublicKey.N.Bytes())
-	pubenckey10 = hex.EncodeToString(key10.PublicKey.N.Bytes())
-	pubenckey11 = hex.EncodeToString(key11.PublicKey.N.Bytes())
-	pubenckey12 = hex.EncodeToString(key12.PublicKey.N.Bytes())
-	pubenckey13 = hex.EncodeToString(key13.PublicKey.N.Bytes())
-	pubenckey14 = hex.EncodeToString(key14.PublicKey.N.Bytes())
-
+	pubenckey1  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key1.PublicKey).Bytes())
+	pubenckey2  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key2.PublicKey).Bytes())
+	pubenckey3  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key3.PublicKey).Bytes())
+	pubenckey4  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key4.PublicKey).Bytes())
+	pubenckey5  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key5.PublicKey).Bytes())
+	pubenckey6  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key6.PublicKey).Bytes())
+	pubenckey7  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key7.PublicKey).Bytes())
+	pubenckey8  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key8.PublicKey).Bytes())
+	pubenckey9  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key9.PublicKey).Bytes())
+	pubenckey10 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key10.PublicKey).Bytes())
+	pubenckey11 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key11.PublicKey).Bytes())
+	pubenckey12 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key12.PublicKey).Bytes())
+	pubenckey13 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key13.PublicKey).Bytes())
+	pubenckey14 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key14.PublicKey).Bytes())
 )
 
 var keytestID = HexID("51232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439")

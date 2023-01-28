@@ -23,8 +23,8 @@ package keystore
 import (
 	crand "crypto/rand"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -271,7 +271,7 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 	}
 	// Sign the hash using plain ECDSA operations
 
-	return cryptopq.Sign(hash, unlockedKey.PrivateKey)
+	return cryptobase.SigAlg.Sign(hash, unlockedKey.PrivateKey)
 }
 
 // SignTx signs the given transaction with the requested account.
@@ -298,7 +298,7 @@ func (ks *KeyStore) SignHashWithPassphrase(a accounts.Account, passphrase string
 		return nil, err
 	}
 	defer zeroKey(key.PrivateKey)
-	return cryptopq.Sign(hash, key.PrivateKey)
+	return cryptobase.SigAlg.Sign(hash, key.PrivateKey)
 }
 
 // SignTxWithPassphrase signs the transaction if the private key matching the
@@ -455,7 +455,7 @@ func (ks *KeyStore) Import(keyJSON []byte, passphrase, newPassphrase string) (ac
 }
 
 // ImportKey stores the given key into the key directory, encrypting it with the passphrase.
-func (ks *KeyStore) ImportKey(priv *oqs.PrivateKey, passphrase string) (accounts.Account, error) {
+func (ks *KeyStore) ImportKey(priv *signaturealgorithm.PrivateKey, passphrase string) (accounts.Account, error) {
 	ks.importMu.Lock()
 	defer ks.importMu.Unlock()
 
@@ -500,9 +500,6 @@ func (ks *KeyStore) ImportPreSaleKey(keyJSON []byte, passphrase string) (account
 }
 
 // zeroKey zeroes a private key in memory.
-func zeroKey(k *oqs.PrivateKey) {
-	b := k.D.Bits()
-	for i := range b {
-		b[i] = 0
-	}
+func zeroKey(k *signaturealgorithm.PrivateKey) {
+	cryptobase.SigAlg.Zeroize(k)
 }

@@ -11,13 +11,10 @@ import (
 // Constants for the handshake.
 const (
 	//pubLen          = oqs.PublicKeyLen
-	shaLength           = 32 // hash length (for nonce etc)
-	kemPublicKeyLen     = 1138
-	symmetricKeySize    = 32
-	ivSize              = 12
-	KemName             = "NTRU-HRSS-701"
-	kemCipherTextLength = 1138
-	kemSecretLength     = 32
+	shaLength        = 32 // hash length (for nonce etc)
+	kemPublicKeyLen  = 1138
+	symmetricKeySize = 32
+	ivSize           = 12
 
 	majorVersion = 1
 	minorVersion = 1

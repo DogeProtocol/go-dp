@@ -18,9 +18,8 @@ package bind_test
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 	"time"
@@ -33,8 +32,9 @@ import (
 )
 
 var (
-	key, _     = cryptopq.GenerateKey()
-	testKey, _ = cryptopq.HexToOQS(hex.EncodeToString(key.D.Bytes()))
+	key, _     = cryptobase.SigAlg.GenerateKey()
+	hexkey, _  = cryptobase.SigAlg.PrivateKeyToHex(key)
+	testKey, _ = cryptobase.SigAlg.HexToPrivateKey(hexkey)
 )
 
 var waitDeployedTests = map[string]struct {
@@ -60,7 +60,7 @@ func TestWaitDeployed(t *testing.T) {
 	for name, test := range waitDeployedTests {
 		backend := backends.NewSimulatedBackend(
 			core.GenesisAlloc{
-				cryptopq.PubkeyToAddressNoError(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
+				cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
 			},
 			10000000,
 		)
@@ -71,7 +71,10 @@ func TestWaitDeployed(t *testing.T) {
 		gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
 
 		tx := types.NewContractCreation(0, big.NewInt(0), test.gas, gasPrice, common.FromHex(test.code))
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, err1 := types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		if err1 != nil {
+			t.Fatal(err1)
+		}
 
 		// Wait for it to get mined in the background.
 		var (
@@ -106,7 +109,7 @@ func TestWaitDeployed(t *testing.T) {
 func TestWaitDeployedCornerCases(t *testing.T) {
 	backend := backends.NewSimulatedBackend(
 		core.GenesisAlloc{
-			cryptopq.PubkeyToAddressNoError(testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
+			cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey): {Balance: big.NewInt(10000000000000000)},
 		},
 		10000000,
 	)
