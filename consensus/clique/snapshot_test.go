@@ -67,7 +67,11 @@ func (ap *testerAccountPool) address(account string) common.Address {
 	}
 	// Ensure we have a persistent key for the account
 	if ap.accounts[account] == nil {
-		ap.accounts[account], _ = cryptobase.SigAlg.GenerateKey()
+		var err error
+		ap.accounts[account], err = cryptobase.SigAlg.GenerateKey()
+		if err != nil {
+			panic(err)
+		}
 	}
 	// Resolve and return the Ethereum address
 	return cryptobase.SigAlg.PublicKeyToAddressNoError(&ap.accounts[account].PublicKey)

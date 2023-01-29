@@ -18,6 +18,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -150,5 +151,16 @@ func TestCombineExtractParts(t *testing.T) {
 	_, _, err = ExtractTwoParts(combined[:2])
 	if err == nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLenConversion(t *testing.T) {
+	for i := 1; i <= MaxLenSize; i++ {
+		b := LenToBytes(i)
+		len := BytesToLen(b[:])
+		if i != len {
+			fmt.Println(i, len)
+			t.Fatalf("TestLenConversionFailed")
+		}
 	}
 }

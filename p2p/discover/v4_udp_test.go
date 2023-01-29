@@ -43,7 +43,8 @@ import (
 // shared test variables
 var (
 	futureExp          = uint64(time.Now().Add(10 * time.Hour).Unix())
-	testTarget         = v4wire.Pubkey{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
+	pubBytes           = []byte{0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
+	testTarget         = v4wire.CreateWirePubKey(pubBytes)
 	testRemote         = v4wire.Endpoint{IP: net.ParseIP("1.1.1.1").To4(), UDP: 1, TCP: 2}
 	testLocalAnnounced = v4wire.Endpoint{IP: net.ParseIP("2.2.2.2").To4(), UDP: 3, TCP: 4}
 	testLocal          = v4wire.Endpoint{IP: net.ParseIP("3.3.3.3").To4(), UDP: 5, TCP: 6}
@@ -256,7 +257,7 @@ func TestUDPv4_findnodeTimeout(t *testing.T) {
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
 	toid := enode.ID{1, 2, 3, 4}
-	target := v4wire.Pubkey{4, 5, 6, 7}
+	target := v4wire.CreateWirePubKey([]byte{4, 5, 6, 7})
 	result, err := test.udp.findnode(toid, toaddr, target)
 	if err != errTimeout {
 		t.Error("expected timeout error, got", err)
@@ -343,7 +344,7 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	// wait for the findnode to be sent.
 	// after it is sent, the transport is waiting for a reply
 	test.waitPacketOut(func(p *v4wire.Findnode, to *net.UDPAddr, hash []byte) {
-		if p.Target != testTarget {
+		if v4wire.WirePubKeyEquals(p.Target, testTarget) == false {
 			t.Errorf("wrong target: got %v, want %v", p.Target, testTarget)
 		}
 	})

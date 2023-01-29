@@ -161,6 +161,9 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
+	if len(signature) == 0 {
+		panic("signature is empty")
+	}
 	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err

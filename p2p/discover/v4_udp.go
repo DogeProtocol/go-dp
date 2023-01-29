@@ -291,13 +291,13 @@ func (t *UDPv4) lookupSelf() []*enode.Node {
 
 func (t *UDPv4) newRandomLookup(ctx context.Context) *lookup {
 	var target encPubkey
-	crand.Read(target[:])
+	crand.Read(target.PubBytes)
 	return t.newLookup(ctx, target)
 }
 
 func (t *UDPv4) newLookup(ctx context.Context, targetKey encPubkey) *lookup {
-	target := enode.ID(crypto.Keccak256Hash(targetKey[:]))
-	ekey := v4wire.Pubkey(targetKey)
+	target := enode.ID(crypto.Keccak256Hash(targetKey.PubBytes))
+	ekey := v4wire.CreateWirePubKey(targetKey.PubBytes)
 	it := newLookup(ctx, t.tab, target, func(n *node) ([]*node, error) {
 		return t.findnode(n.ID(), n.addr(), ekey)
 	})
@@ -811,7 +811,7 @@ func (t *UDPv4) handleFindnode(h *packetHandlerV4, from *net.UDPAddr, fromID eno
 	req := h.Packet.(*v4wire.Findnode)
 
 	// Determine closest nodes.
-	target := enode.ID(crypto.Keccak256Hash(req.Target[:]))
+	target := enode.ID(crypto.Keccak256Hash(req.Target.PubBytes))
 	closest := t.tab.findnodeByID(target, bucketSize, true).entries
 
 	// Send neighbors in chunks with at most maxNeighbors per packet

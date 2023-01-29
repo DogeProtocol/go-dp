@@ -140,7 +140,7 @@ func TestForwardCompatibility(t *testing.T) {
 		if !reflect.DeepEqual(packet, test.wantPacket) {
 			t.Errorf("got %s\nwant %s", spew.Sdump(packet), spew.Sdump(test.wantPacket))
 		}
-		if nodekey != wantNodeKey {
+		if WirePubKeyEquals(nodekey, wantNodeKey) == false {
 			t.Errorf("got id %v\nwant id %v", nodekey, wantNodeKey)
 		}
 	}
@@ -152,9 +152,5 @@ func hexPubkey(h string) (ret Pubkey) {
 	if err != nil {
 		panic(err)
 	}
-	if len(b) != len(ret) {
-		panic("invalid length")
-	}
-	copy(ret[:], b)
-	return ret
+	return CreateWirePubKey(b)
 }

@@ -18,8 +18,8 @@ package discover
 
 import (
 	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/oqs"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"net"
 	"time"
 
@@ -35,12 +35,12 @@ type node struct {
 	livenessChecks uint      // how often liveness was checked
 }
 
-type encPubkey [oqs.PublicKeyLen]byte
+type encPubkey v4wire.Pubkey
 
 func encodePubkey(key *signaturealgorithm.PublicKey) encPubkey {
 	encoded := cryptobase.SigAlg.EncodePublicKey(key)
 	var e encPubkey
-	copy(e[:], encoded)
+	copy(e.PubBytes, encoded)
 	return e
 }
 
@@ -54,7 +54,7 @@ func decodePubkey(e []byte) (*signaturealgorithm.PublicKey, error) {
 }
 
 func (e encPubkey) id() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+	return enode.ID(crypto.Keccak256Hash(e.PubBytes))
 }
 
 func wrapNode(n *enode.Node) *node {

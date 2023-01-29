@@ -35,7 +35,7 @@ func TestUDPv4_Lookup(t *testing.T) {
 	test := newUDPTest(t)
 
 	// Lookup on empty table returns no nodes.
-	targetKey, _ := decodePubkey(lookupTestnet.target[:])
+	targetKey, _ := decodePubkey(lookupTestnet.target.PubBytes)
 	if results := test.udp.LookupPubkey(targetKey); len(results) > 0 {
 		t.Fatalf("lookup on empty table returned %d results: %#v", len(results), results)
 	}
@@ -367,7 +367,7 @@ func (tn *preminedTestnet) mine() {
 		}
 	}
 	fmt.Printf("&preminedTestnet{\n")
-	fmt.Printf("	target: hexEncPubkey(\"%x\"),\n", tn.target[:])
+	fmt.Printf("	target: hexEncPubkey(\"%x\"),\n", tn.target.PubBytes)
 	fmt.Printf("	dists: [%d][]*oqs.PrivateKey{\n", len(tn.dists))
 	for ld, ns := range tn.dists {
 		if len(ns) == 0 {

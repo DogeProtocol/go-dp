@@ -1,0 +1,10 @@
+FALCON_INCLUDE_DIR=C:/github/hybrid-pqc/build/include
+FALCON_LIB_DIR=C:/github/hybrid-pqc/build/lib
+
+Name: falcon
+Description: C library for quantum resistant cryptography
+Version: 0.0.1-dev
+Cflags: -I${FALCON_INCLUDE_DIR}
+Ldflags: '-extldflags "-Wl,-stack_size -Wl,0x1000000"'
+Libs: -L${FALCON_LIB_DIR} -lfalcon
+

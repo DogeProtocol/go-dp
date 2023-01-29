@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 
-	"github.com/ethereum/go-ethereum/crypto/oqs"
 	"net"
 	"time"
 
@@ -129,11 +128,33 @@ const MaxNeighbors = 1
 
 // Pubkey represents an encoded 64-byte secp256k1 public key.
 
-type Pubkey [oqs.PublicKeyLen]byte
+type Pubkey struct {
+	PubBytes []byte
+}
+
+func WirePubKeyEquals(pub1 Pubkey, pub2 Pubkey) bool {
+	if bytes.Compare(pub1.PubBytes, pub2.PubBytes) == 0 {
+		return true
+	}
+
+	return false
+}
+
+func CreateWirePubKey(pubBytes []byte) Pubkey {
+	return Pubkey{PubBytes: pubBytes}
+}
+
+func CreateWirePubKeyFromSigAlg(pubKey *signaturealgorithm.PublicKey) Pubkey {
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+	return Pubkey{PubBytes: pubBytes}
+}
 
 // ID returns the node ID corresponding to the public key.
 func (e Pubkey) ID() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+	return enode.ID(crypto.Keccak256Hash(e.PubBytes))
 }
 
 // Node represents information about a node.
@@ -306,14 +327,14 @@ func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
 	if err != nil {
 		return key, err
 	}
-	copy(key[:], pubkey[:])
+	copy(key.PubBytes, pubkey[:])
 	return key, nil
 }
 
 // EncodePubkey encodes a secp256k1 public key.
 func EncodePubkey(key *signaturealgorithm.PublicKey) Pubkey {
 	var e Pubkey
-	math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e[:])
+	math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e.PubBytes)
 	return e
 }
 
@@ -321,7 +342,7 @@ func EncodePubkey(key *signaturealgorithm.PublicKey) Pubkey {
 
 func DecodePubkey(e Pubkey) (*signaturealgorithm.PublicKey, error) {
 
-	keyBytes := e[:] //todo: fix
+	keyBytes := e.PubBytes //todo: fix
 	count := 0
 	for _, v := range keyBytes {
 		if v == 0 {

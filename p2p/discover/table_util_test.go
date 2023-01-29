@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"math/rand"
 	"net"
 	"sort"
@@ -246,9 +247,5 @@ func hexEncPubkey(h string) (ret encPubkey) {
 	if err != nil {
 		panic(err)
 	}
-	if len(b) != len(ret) {
-		panic("invalid length")
-	}
-	copy(ret[:], b)
-	return ret
+	return encPubkey(v4wire.CreateWirePubKey(b))
 }

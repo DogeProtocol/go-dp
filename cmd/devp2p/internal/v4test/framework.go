@@ -115,7 +115,7 @@ func (te *testenv) remoteEndpoint() v4wire.Endpoint {
 
 func contains(ns []v4wire.Node, key v4wire.Pubkey) bool {
 	for _, n := range ns {
-		if n.ID == key {
+		if v4wire.WirePubKeyEquals(n.ID, key) {
 			return true
 		}
 	}
