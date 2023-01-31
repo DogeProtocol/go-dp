@@ -150,7 +150,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("HexToPrivateKeyNoError failed")
 	}
 
-	if bytes.Compare(key3.D.Bytes(), key31.D.Bytes()) != 0 {
+	if bytes.Compare(key3.PriData, key31.PriData) != 0 {
 		t.Fatal("private key compare failed")
 	}
 
@@ -237,7 +237,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(pub1Key.N.Bytes(), pubBackFromHex.N.Bytes()) != 0 {
+	if bytes.Compare(pub1Key.PubData, pubBackFromHex.PubData) != 0 {
 		t.Fatal("public key compare failed")
 	}
 
@@ -247,21 +247,26 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal(err)
 	}
 
-	if bytes.Compare(pubkeyDecoded.N.Bytes(), pub1Key.N.Bytes()) != 0 {
+	if bytes.Compare(pubkeyDecoded.PubData, pub1Key.PubData) != 0 {
 		t.Fatal(err)
 	}
 
-	bigIntBytes := sig.PrivateKeyAsBigInt(key1).Bytes()
+	//bigIntBytes := sig.PrivateKeyAsBigInt(key1).Bytes()
 	serializedKey1Bytes, err := sig.SerializePrivateKey(key1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Compare(bigIntBytes, serializedKey1Bytes) != 0 {
-		t.Fatal("pri key compare failed")
+	priDeserialized, err := sig.DeserializePrivateKey(serializedKey1Bytes)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if bytes.Compare(sig.PublicKeyAsBigInt(pub1Key).Bytes(), pub1Key.N.Bytes()) != 0 {
-		t.Fatal("pub key compare failed")
+	if bytes.Compare(key1.PriData, priDeserialized.PriData) != 0 {
+		t.Fatal("pri data compare failed 2")
+	}
+
+	if bytes.Compare(key1.PublicKey.PubData, priDeserialized.PublicKey.PubData) != 0 {
+		t.Fatal("pub data compare failed")
 	}
 
 	sig.Zeroize(key1)

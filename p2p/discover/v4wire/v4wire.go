@@ -27,7 +27,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -334,7 +333,11 @@ func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
 // EncodePubkey encodes a secp256k1 public key.
 func EncodePubkey(key *signaturealgorithm.PublicKey) Pubkey {
 	var e Pubkey
-	math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e.PubBytes)
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(key)
+	if err != nil {
+		return e
+	}
+	copy(e.PubBytes, pubBytes[:])
 	return e
 }
 

@@ -81,7 +81,12 @@ func withdraw(contractAddress string, depositorAddress string, depositorPassword
 		log.Println(e + " GETH_STAKING_DEPOSITER GETH_DEPOSITER_PATH")
 		return
 	}
-	if depositorKey != nil && len(cryptobase.SigAlg.PrivateKeyAsBigInt(depositorKey.PrivateKey).Bytes()) >= cryptobase.SigAlg.PrivateKeyLength() {
+	priBytes, err := cryptobase.SigAlg.SerializePrivateKey(depositorKey.PrivateKey)
+	if err != nil {
+		panic(err)
+	}
+
+	if depositorKey != nil && len(priBytes) >= cryptobase.SigAlg.PrivateKeyLength() {
 		tx, err := withdrawContract(depositorAddress, contractAddress,
 			depositorKey.PrivateKey, withdrawAmount)
 		if err != nil {

@@ -13,7 +13,6 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
-	"math/big"
 	"unsafe"
 )
 
@@ -344,44 +343,57 @@ func (sig *Signature) generateKey() (*signaturealgorithm.PrivateKey, error) {
 	if rv != C.OQS_SUCCESS {
 		return nil, ErrKeypairFailed
 	}
+
 	privy := new(signaturealgorithm.PrivateKey)
-	privy.D = new(big.Int).SetBytes(sig.secretKey)
-	privy.PublicKey.N = new(big.Int).SetBytes(publicKey)
+	privy.PriData = make([]byte, len(sig.secretKey))
+	copy(privy.PriData, sig.secretKey)
+
+	privy.PublicKey.PubData = make([]byte, len(publicKey))
+	copy(privy.PublicKey.PubData, publicKey)
+
 	return privy, nil
 }
 
 // convertBytesToPrivate exports the corresponding secret key from the sig receiver.
 func (sig *Signature) convertBytesToPrivate(privy []byte) (*signaturealgorithm.PrivateKey, error) {
-	if len(privy) != int(sig.sig.length_secret_key) {
+	if len(privy) != sig.AlgDetails.LengthSecretKey {
 		return nil, ErrInvalidPrivateKeyLen
 	}
 	privKey := new(signaturealgorithm.PrivateKey)
-	privKey.D = new(big.Int).SetBytes(privy)
+	privKey.PriData = make([]byte, sig.AlgDetails.LengthSecretKey)
+	copy(privKey.PriData, privy)
+
 	return privKey, nil
 }
 
 // convertBytesToPublic exports the corresponding secret key from the sig receiver.
 func (sig *Signature) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicKey, error) {
-	if len(pub) != int(sig.sig.length_public_key) {
+	if len(pub) != sig.AlgDetails.LengthPublicKey {
 		return nil, ErrInvalidPublicKeyLen
 	}
 	pubKey := new(signaturealgorithm.PublicKey)
-	pubKey.N = new(big.Int).SetBytes(pub)
+	pubKey.PubData = make([]byte, sig.AlgDetails.LengthPublicKey)
+	copy(pubKey.PubData, pub)
 	return pubKey, nil
 }
 
 // exportPrivateKey exports a private key into a binary dump.
 func (sig *Signature) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byte, error) {
-	if len(privy.D.Bytes()) != int(sig.sig.length_secret_key) {
+	if len(privy.PriData) != sig.AlgDetails.LengthSecretKey {
 		return nil, ErrInvalidPrivateKeyLen
 	}
-	return privy.D.Bytes(), nil
+
+	buf := make([]byte, sig.AlgDetails.LengthSecretKey)
+	copy(buf, privy.PriData)
+	return buf, nil
 }
 
 // exportPublicKey exports a public key into a binary dump.
 func (sig *Signature) exportPublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
-	if len(pub.N.Bytes()) != int(sig.sig.length_public_key) {
+	if len(pub.PubData) != sig.AlgDetails.LengthPublicKey {
 		return nil, ErrInvalidPublicKeyLen
 	}
-	return pub.N.Bytes(), nil
+	buf := make([]byte, sig.AlgDetails.LengthPublicKey)
+	copy(buf, pub.PubData)
+	return buf, nil
 }

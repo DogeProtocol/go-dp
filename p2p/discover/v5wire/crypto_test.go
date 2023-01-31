@@ -44,7 +44,7 @@ func TestVector_KDF(t *testing.T) {
 
 	destKey := &testKeyB.PublicKey
 	s := deriveKeys(sha256.New, ephKey, destKey, net.nodeA.id(), net.nodeB.id(), cdata)
-	t.Logf("ephemeral-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(ephKey))
+	//t.Logf("ephemeral-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(ephKey))
 	t.Logf("dest-pubkey = %#x", EncodePubkey(destKey))
 	t.Logf("node-id-a = %#x", net.nodeA.id().Bytes())
 	t.Logf("node-id-b = %#x", net.nodeB.id().Bytes())
@@ -65,7 +65,7 @@ func TestVector_IDSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("static-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(key))
+	//t.Logf("static-key = %#x", cryptobase.SigAlg.PrivateKeyAsBigInt(key))
 	t.Logf("challenge-data = %#x", cdata)
 	t.Logf("ephemeral-pubkey = %#x", ephkey)
 	t.Logf("node-id-B = %#x", destID.Bytes())

@@ -6,14 +6,13 @@ import (
 )
 
 type PublicKey struct {
-	N *big.Int // public key bytes
+	PubData []byte
 }
 
 type PrivateKey struct {
-	PublicKey          // public part.
-	D         *big.Int // private key bytes
+	PublicKey // public part.
+	PriData   []byte
 }
-
 type SignatureAlgorithm interface {
 	SignatureName() string
 	PublicKeyLength() int
@@ -53,9 +52,9 @@ type SignatureAlgorithm interface {
 
 	Zeroize(prv *PrivateKey)
 
-	PrivateKeyAsBigInt(prv *PrivateKey) *big.Int
+	//PrivateKeyAsBigInt(prv *PrivateKey) *big.Int
 
-	PublicKeyAsBigInt(pub *PublicKey) *big.Int
+	//PublicKeyAsBigInt(pub *PublicKey) *big.Int
 
 	PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error)
 

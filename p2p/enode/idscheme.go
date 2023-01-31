@@ -18,7 +18,6 @@ package enode
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
@@ -86,7 +85,12 @@ func (V4ID) NodeAddr(r *enr.Record) []byte {
 	}
 	buf := make([]byte, cryptobase.SigAlg.PublicKeyLength())
 	pk := signaturealgorithm.PublicKey(pubkey)
-	math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(&pk), buf)
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(&pk)
+	copy(buf, pubBytes)
+	if err != nil {
+		panic(err)
+	}
+
 	return crypto.Keccak256(buf)
 }
 

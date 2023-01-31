@@ -70,10 +70,18 @@ func NewSecureChannelSession(card *pcsc.Card, keyData []byte) (*SecureChannelSes
 		return nil, fmt.Errorf("could not unmarshal public key from card: %v", err)
 	}
 
+	priBytes, err := cryptobase.SigAlg.SerializePrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(cardPublic)
+	if err != nil {
+		return nil, err
+	}
 	return &SecureChannelSession{
 		card:      card,
-		secret:    cryptobase.SigAlg.PrivateKeyAsBigInt(key).Bytes(),
-		publicKey: cryptobase.SigAlg.PublicKeyAsBigInt(cardPublic).Bytes(),
+		secret:    priBytes,
+		publicKey: pubBytes,
 	}, nil
 
 }

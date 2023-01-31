@@ -6,8 +6,8 @@ package hybrid
 */
 import "C"
 import (
+	"bytes"
 	"errors"
-	"runtime/debug"
 	"unsafe"
 )
 
@@ -15,8 +15,8 @@ const (
 	OK                     = 0
 	CRYPTO_SECRETKEY_BYTES = 64 + 1281
 	CRYPTO_PUBLICKEY_BYTES = 32 + 897
-	CRYPTO_SIGNATURE_BYTES = 64 + 690 + 40 + 2 + CRYPTO_MESSAGE_LEN + CRYPTO_MESSAGE_LEN + 2 //Nonce + 2 for size
-	CRYPTO_MESSAGE_LEN     = 32                                                              //todo: validate this
+	CRYPTO_SIGNATURE_BYTES = 2 + 2 + 64 + CRYPTO_MESSAGE_LEN + 690 + 40 + 2 + CRYPTO_MESSAGE_LEN //Nonce + 2 for size
+	CRYPTO_MESSAGE_LEN     = 32                                                                  //todo: validate this
 	SIG_NAME               = "Falcon-512-ed25519"
 )
 
@@ -46,10 +46,14 @@ func GenerateKey() (publicKey []byte, secretKey []byte, err error) {
 		(*C.uchar)(unsafe.Pointer(&publicKey[0])),
 		(*C.uchar)(unsafe.Pointer(&secretKey[0])))
 
+	if bytes.Compare(publicKey[:32], secretKey[32:64]) != 0 {
+		return nil, nil, ErrKeypairFailed
+	}
+
 	if rv != OK {
 		return nil, nil, errors.New("GenerateKey failed")
 	}
-	return publicKey, secretKey, nil
+	return publicKey[:CRYPTO_PUBLICKEY_BYTES], secretKey[:CRYPTO_SECRETKEY_BYTES], nil
 }
 
 func Sign(secretKey []byte, message []byte) ([]byte, error) {
@@ -57,8 +61,7 @@ func Sign(secretKey []byte, message []byte) ([]byte, error) {
 		return nil, ErrInvalidPrivateKeyLen
 	}
 
-	if len(message) == 0 || len(message) != CRYPTO_MESSAGE_LEN {
-		debug.PrintStack()
+	if len(message) != CRYPTO_MESSAGE_LEN {
 		return nil, ErrInvalidMsgLen
 	}
 
@@ -96,7 +99,7 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 		return ErrInvalidSignatureLen
 	}
 
-	rv := C.crypto_sign_falcon_ed25519_open((*C.uchar)(unsafe.Pointer(&message[0])),
+	rv := C.crypto_verify_falcon_ed25519((*C.uchar)(unsafe.Pointer(&message[0])),
 		(C.size_t)(uint64(len(message))),
 		(*C.uchar)(unsafe.Pointer(&signature[0])),
 		(C.size_t)(uint64(len(signature))),

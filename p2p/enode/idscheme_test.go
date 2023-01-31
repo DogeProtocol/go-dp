@@ -41,7 +41,7 @@ func TestEmptyNodeID(t *testing.T) {
 	}
 	require.NoError(t, SignV4(&r, privkey))
 
-	expected := strings.TrimPrefix(crypto.Keccak256Hash(cryptobase.SigAlg.PublicKeyAsBigInt(&privkey.PublicKey).Bytes()).Hex(), "0x")
+	expected := strings.TrimPrefix(crypto.Keccak256Hash(privkey.PublicKey.PubData).Hex(), "0x")
 	assert.Equal(t, expected, hex.EncodeToString(ValidSchemes.NodeAddr(&r)))
 }
 

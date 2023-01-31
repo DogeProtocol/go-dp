@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	LengthByteSize = 8
+	LengthByteSize = 2
 	MaxUint        = ^uint(0)
 	MinUint        = 0
 	MaxInt         = int(MaxUint >> 1)
@@ -199,6 +199,27 @@ func LenToBytes(len int) (b []byte) {
 		panic(errors.New("LenToBytes max length exceeded"))
 	}
 	b = make([]byte, LengthByteSize)
+	binary.LittleEndian.PutUint16(b, uint16(len))
+
+	len1 := BytesToLen(b)
+	if len1 != len {
+		fmt.Println("LenToBytes", len, len1)
+		panic("len compare failed")
+	}
+
+	return b
+}
+
+func BytesToLen(b []byte) (len int) {
+	return int(binary.LittleEndian.Uint16(b[:]))
+}
+
+/*
+func LenToBytes(len int) (b []byte) {
+	if len > MaxLenSize {
+		panic(errors.New("LenToBytes max length exceeded"))
+	}
+	b = make([]byte, LengthByteSize)
 	binary.LittleEndian.PutUint64(b, uint64(len))
 
 	len1 := BytesToLen(b)
@@ -212,4 +233,4 @@ func LenToBytes(len int) (b []byte) {
 
 func BytesToLen(b []byte) (len int) {
 	return int(binary.LittleEndian.Uint64(b[:]))
-}
+}*/

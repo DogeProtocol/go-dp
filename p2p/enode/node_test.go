@@ -56,7 +56,7 @@ func TestPythonInterop(t *testing.T) {
 	}
 
 	var (
-		wantID  = HexID(crypto.Keccak256Hash(cryptobase.SigAlg.PublicKeyAsBigInt(&testKey.PublicKey).Bytes()).Hex())
+		wantID  = HexID(crypto.Keccak256Hash(testKey.PublicKey.PubData).Hex())
 		wantSeq = uint64(1)
 		wantIP  = enr.IPv4{127, 0, 0, 1}
 		wantUDP = enr.UDP(30303)

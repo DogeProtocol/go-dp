@@ -36,11 +36,11 @@ var (
 	key3, _ = cryptobase.SigAlg.GenerateKey()
 	key4, _ = cryptobase.SigAlg.GenerateKey()
 
-	hexpubkey  = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key1.PublicKey).Bytes())
-	hexpubkey1 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key1.PublicKey).Bytes())
-	hexpubkey2 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key2.PublicKey).Bytes())
-	hexpubkey3 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key3.PublicKey).Bytes())
-	hexpubkey4 = hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key4.PublicKey).Bytes())
+	hexpubkey  = hex.EncodeToString(key1.PriData)
+	hexpubkey1 = hex.EncodeToString(key1.PriData)
+	hexpubkey2 = hex.EncodeToString(key2.PriData)
+	hexpubkey3 = hex.EncodeToString(key3.PriData)
+	hexpubkey4 = hex.EncodeToString(key4.PriData)
 
 	hexPrivatekey, _ = cryptobase.SigAlg.PrivateKeyToHex(key1)
 )

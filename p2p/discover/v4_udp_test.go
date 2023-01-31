@@ -352,10 +352,10 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	// send the reply as two packets.
 
 	list := []*node{
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key11.PublicKey).Bytes()) + "@10.0.1.16:30303?discport=30304")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key12.PublicKey).Bytes()) + "@10.0.1.16:30303")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key13.PublicKey).Bytes()) + "@10.0.1.36:30301?discport=17")),
-		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key14.PublicKey).Bytes()) + "@10.0.1.16:30303")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key11.PriData) + "@10.0.1.16:30303?discport=30304")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key12.PriData) + "@10.0.1.16:30303")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key13.PriData) + "@10.0.1.36:30301?discport=17")),
+		wrapNode(enode.MustParse("enode://" + hex.EncodeToString(key14.PriData) + "@10.0.1.16:30303")),
 	}
 	rpclist := make([]v4wire.Node, len(list))
 	for i := range list {

@@ -206,7 +206,7 @@ var (
 )
 
 var lookupTestnet = &preminedTestnet{
-	target: hexEncPubkey(hex.EncodeToString(cryptobase.SigAlg.PublicKeyAsBigInt(&key1.PublicKey).Bytes())),
+	target: hexEncPubkey(hex.EncodeToString(key1.PriData)),
 	dists: [257][]*signaturealgorithm.PrivateKey{
 		251: {
 			hexEncPrivkey(hexkey1),

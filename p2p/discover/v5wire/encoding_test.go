@@ -449,7 +449,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 			// Handshake message packet.
 			fmt.Fprint(o, "\nhandshake inputs:\n\n")
 			printWhoareyou(challenge)
-			fmt.Fprintf(o, "ephemeral-key = %#x\n", cryptobase.SigAlg.PrivateKeyAsBigInt(testEphKey))
+			//fmt.Fprintf(o, "ephemeral-key = %#x\n", cryptobase.SigAlg.PrivateKeyAsBigInt(testEphKey))
 
 		}
 	default:

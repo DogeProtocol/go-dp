@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"runtime/debug"
 )
 
 type HybridSig struct {
@@ -62,9 +62,16 @@ func (s HybridSig) GenerateKey() (*signaturealgorithm.PrivateKey, error) {
 		return nil, err
 	}
 
+	if len(pubKey) != s.publicKeyLength || len(priKey) != s.privateKeyLength {
+		panic("keygen basic check failed")
+	}
+
 	privy := new(signaturealgorithm.PrivateKey)
-	privy.D = new(big.Int).SetBytes(priKey)
-	privy.PublicKey.N = new(big.Int).SetBytes(pubKey)
+	privy.PriData = make([]byte, len(priKey))
+	copy(privy.PriData, priKey)
+
+	privy.PublicKey.PubData = make([]byte, len(pubKey))
+	copy(privy.PublicKey.PubData, pubKey)
 
 	return privy, nil
 }
@@ -332,10 +339,14 @@ func (osig HybridSig) ValidateSignatureValues(v byte, r, s *big.Int, homestead b
 		R, S := r.Bytes(), s.Bytes()
 
 		if len(R) != osig.PublicKeyLength() {
+			fmt.Println("ValidateSignatureValues r public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
+			debug.PrintStack()
 			return false
 		}
 
 		if len(S) < osig.SignatureLength() {
+			fmt.Println("ValidateSignatureValues s public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
+			debug.PrintStack()
 			return false
 		}
 
@@ -353,28 +364,15 @@ func (s HybridSig) SignatureStartValue() byte {
 }
 
 func (s HybridSig) Zeroize(prv *signaturealgorithm.PrivateKey) {
-	b := prv.D.Bits()
+	b := prv.PriData
 	for i := range b {
 		b[i] = 0
 	}
 }
 
-func (s HybridSig) PrivateKeyAsBigInt(prv *signaturealgorithm.PrivateKey) *big.Int {
-	privKeyBytes, err := s.SerializePrivateKey(prv)
-	if err != nil {
-		panic(err) //todo: no panic
-	}
-
-	return new(big.Int).SetBytes(privKeyBytes)
-}
-
-func (s HybridSig) PublicKeyAsBigInt(pub *signaturealgorithm.PublicKey) *big.Int {
-	return pub.N
-}
-
 func (s HybridSig) EncodePublicKey(pubKey *signaturealgorithm.PublicKey) []byte {
 	encoded := make([]byte, s.publicKeyLength)
-	math.ReadBits(s.PublicKeyAsBigInt(pubKey), encoded[:])
+	copy(encoded, pubKey.PubData)
 	return encoded
 }
 
@@ -382,9 +380,9 @@ func (s HybridSig) DecodePublicKey(encoded []byte) (*signaturealgorithm.PublicKe
 	if len(encoded) != s.publicKeyLength {
 		return nil, errors.New("wrong size public key data")
 	}
-	p := &signaturealgorithm.PublicKey{N: new(big.Int)}
-	p.N.SetBytes(encoded[:])
-
+	p := &signaturealgorithm.PublicKey{}
+	p.PubData = make([]byte, s.publicKeyLength)
+	copy(p.PubData, encoded)
 	return p, nil
 }
 
@@ -422,38 +420,44 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 
 // convertBytesToPrivate exports the corresponding secret key from the sig receiver.
 func (s HybridSig) convertBytesToPrivate(privy []byte) (*signaturealgorithm.PrivateKey, error) {
-	if len(privy) != int(s.privateKeyLength) {
+	if len(privy) != s.privateKeyLength {
 		return nil, ErrInvalidPrivateKeyLen
 	}
 	privKey := new(signaturealgorithm.PrivateKey)
-	privKey.D = new(big.Int).SetBytes(privy)
+	privKey.PriData = make([]byte, s.privateKeyLength)
+	copy(privKey.PriData, privy)
+
 	return privKey, nil
 }
 
 // convertBytesToPublic exports the corresponding secret key from the sig receiver.
 func (s HybridSig) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicKey, error) {
-	if len(pub) != int(s.publicKeyLength) {
-		fmt.Println("convertBytesToPublic", len(pub), s.publicKeyLength)
+	if len(pub) != s.publicKeyLength {
 		return nil, ErrInvalidPublicKeyLen
 	}
 	pubKey := new(signaturealgorithm.PublicKey)
-	pubKey.N = new(big.Int).SetBytes(pub)
+	pubKey.PubData = make([]byte, s.publicKeyLength)
+	copy(pubKey.PubData, pub)
 	return pubKey, nil
 }
 
 // exportPrivateKey exports a private key into a binary dump.
 func (s HybridSig) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byte, error) {
-	if len(privy.D.Bytes()) != int(s.privateKeyLength) {
+	if len(privy.PriData) != s.privateKeyLength {
 		return nil, ErrInvalidPrivateKeyLen
 	}
-	return privy.D.Bytes(), nil
+
+	buf := make([]byte, s.privateKeyLength)
+	copy(buf, privy.PriData)
+	return buf, nil
 }
 
 // exportPublicKey exports a public key into a binary dump.
 func (s HybridSig) exportPublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
-	if len(pub.N.Bytes()) != int(s.publicKeyLength) {
-		fmt.Println("exportPublicKey", len(pub.N.Bytes()), s.publicKeyLength)
+	if len(pub.PubData) != s.publicKeyLength {
 		return nil, ErrInvalidPublicKeyLen
 	}
-	return pub.N.Bytes(), nil
+	buf := make([]byte, s.publicKeyLength)
+	copy(buf, pub.PubData)
+	return buf, nil
 }

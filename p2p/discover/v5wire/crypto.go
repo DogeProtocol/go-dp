@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
-	"math/big"
 
 	"errors"
 
@@ -127,14 +126,16 @@ func deriveKeys(hash hashFn, priv *signaturealgorithm.PrivateKey, pub *signature
 // ecdh creates a shared secret.
 func ecdh(privkey *signaturealgorithm.PrivateKey, pubkey *signaturealgorithm.PublicKey) []byte {
 
-	d := cryptobase.SigAlg.PrivateKeyAsBigInt(privkey)
-	n := cryptobase.SigAlg.PublicKeyAsBigInt(pubkey)
-	secX := big.NewInt(0).Mul(d, n)
-	if secX == nil {
-		return nil
-	}
+	panic("not implemented")
 
-	return secX.Bytes()
+	//d := cryptobase.SigAlg.PrivateKeyAsBigInt(privkey)
+	//n := cryptobase.SigAlg.PublicKeyAsBigInt(pubkey)
+	//secX := big.NewInt(0).Mul(d, n)
+	//if secX == nil {
+	//return nil
+	//}
+
+	//return secX.Bytes()
 
 }
 

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
@@ -335,28 +334,15 @@ func (s OqsSig) SignatureStartValue() byte {
 }
 
 func (s OqsSig) Zeroize(prv *signaturealgorithm.PrivateKey) {
-	b := prv.D.Bits()
+	b := prv.PriData
 	for i := range b {
 		b[i] = 0
 	}
 }
 
-func (s OqsSig) PrivateKeyAsBigInt(prv *signaturealgorithm.PrivateKey) *big.Int {
-	privKeyBytes, err := s.SerializePrivateKey(prv)
-	if err != nil {
-		panic(err) //todo: no panic
-	}
-
-	return new(big.Int).SetBytes(privKeyBytes)
-}
-
-func (s OqsSig) PublicKeyAsBigInt(pub *signaturealgorithm.PublicKey) *big.Int {
-	return pub.N
-}
-
 func (s OqsSig) EncodePublicKey(pubKey *signaturealgorithm.PublicKey) []byte {
 	encoded := make([]byte, s.publicKeyLength)
-	math.ReadBits(s.PublicKeyAsBigInt(pubKey), encoded[:])
+	copy(encoded, pubKey.PubData)
 	return encoded
 }
 
@@ -364,9 +350,9 @@ func (s OqsSig) DecodePublicKey(encoded []byte) (*signaturealgorithm.PublicKey, 
 	if len(encoded) != s.publicKeyLength {
 		return nil, errors.New("wrong size public key data")
 	}
-	p := &signaturealgorithm.PublicKey{N: new(big.Int)}
-	p.N.SetBytes(encoded[:])
-
+	p := &signaturealgorithm.PublicKey{}
+	p.PubData = make([]byte, s.publicKeyLength)
+	copy(p.PubData, encoded)
 	return p, nil
 }
 

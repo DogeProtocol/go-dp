@@ -27,7 +27,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 )
@@ -175,7 +174,7 @@ func (n *Node) URLv4() string {
 	n.Load((*PqPubKey)(&key))
 
 	switch {
-	case scheme == "v4" || key != signaturealgorithm.PublicKey{}:
+	case scheme == "v4" || len(key.PubData) > 0:
 		data, err := cryptobase.SigAlg.SerializePublicKey(&key)
 		if err != nil {
 
@@ -202,6 +201,11 @@ func (n *Node) URLv4() string {
 // PubkeyToIDV4 derives the v4 node address from the given public key.
 func PubkeyToIDV4(key *signaturealgorithm.PublicKey) ID {
 	e := make([]byte, cryptobase.SigAlg.PublicKeyLength())
-	math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e)
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(key)
+	if err != nil {
+		panic(err)
+	}
+	copy(e, pubBytes)
+	//math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e)
 	return ID(crypto.Keccak256Hash(e))
 }

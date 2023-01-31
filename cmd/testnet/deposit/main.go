@@ -125,7 +125,12 @@ func deposit(contractAddress string,
 	}
 
 	if len(pubKey) >= cryptobase.SigAlg.PublicKeyLength() {
-		if depositorKey != nil && len(cryptobase.SigAlg.PrivateKeyAsBigInt(depositorKey.PrivateKey).Bytes()) >= cryptobase.SigAlg.PrivateKeyLength() {
+		priBytes, err := cryptobase.SigAlg.SerializePrivateKey(depositorKey.PrivateKey)
+		if err != nil {
+			panic(err)
+		}
+
+		if depositorKey != nil && len(priBytes) >= cryptobase.SigAlg.PrivateKeyLength() {
 			tx, err := depositContract(depositorAddress, contractAddress, pubKey,
 				depositorKey.PrivateKey, depositAmount)
 			if err != nil {

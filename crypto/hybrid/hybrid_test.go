@@ -11,6 +11,9 @@ var (
 )
 
 func TestHybrid_Basic(t *testing.T) {
+	if CRYPTO_SIGNATURE_BYTES != 864 {
+		t.Fatal("incorrect sig size")
+	}
 	pubKey, priKey, err := GenerateKey()
 	if err != nil {
 		t.Fatal(err)
@@ -28,6 +31,11 @@ func TestHybrid_Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	digestHash1[0] = digestHash1[0] + 1
+	err = Verify(digestHash1, signature, pubKey)
+	if err == nil {
+		t.Fatal(err)
+	}
 }
 
 func TestHybrid_Random(t *testing.T) {
