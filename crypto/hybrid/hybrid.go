@@ -15,8 +15,8 @@ const (
 	OK                     = 0
 	CRYPTO_SECRETKEY_BYTES = 64 + 1281
 	CRYPTO_PUBLICKEY_BYTES = 32 + 897
-	CRYPTO_SIGNATURE_BYTES = 2 + 2 + 64 + CRYPTO_MESSAGE_LEN + 690 + 40 + 2 + CRYPTO_MESSAGE_LEN //Nonce + 2 for size
-	CRYPTO_MESSAGE_LEN     = 32                                                                  //todo: validate this
+	CRYPTO_SIGNATURE_BYTES = 2 + 2 + 64 + CRYPTO_MESSAGE_LEN + 40 + 690 //Nonce + 2 for size
+	CRYPTO_MESSAGE_LEN     = 32                                         //todo: validate this
 	SIG_NAME               = "Falcon-512-ed25519"
 )
 

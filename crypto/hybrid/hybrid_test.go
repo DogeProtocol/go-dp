@@ -11,7 +11,7 @@ var (
 )
 
 func TestHybrid_Basic(t *testing.T) {
-	if CRYPTO_SIGNATURE_BYTES != 864 {
+	if CRYPTO_SIGNATURE_BYTES != 830 {
 		t.Fatal("incorrect sig size")
 	}
 	pubKey, priKey, err := GenerateKey()
