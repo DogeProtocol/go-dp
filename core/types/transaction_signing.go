@@ -510,10 +510,7 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	}
 	// encode the signature in uncompressed format
 	r, s := R.Bytes(), S.Bytes()
-	//sig := make([]byte, len(r)+len(s))
 
-	//copy(sig[:len(r)], r)
-	//copy(sig[len(r):], s)
 	combinedSignature, err := cryptobase.SigAlg.CombinePublicKeySignature(s, r)
 	if err != nil {
 		return common.Address{}, err

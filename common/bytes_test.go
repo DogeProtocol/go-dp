@@ -132,6 +132,14 @@ func TestCombineExtractParts(t *testing.T) {
 
 	combined := CombineTwoParts(part1, part2)
 
+	if len(part1) != 6 {
+		t.Fatal("incorrect part1 length")
+	}
+
+	if len(part2) != 5 {
+		t.Fatal("incorrect part1 length")
+	}
+
 	if len(combined) != len(part1)+len(part2)+LengthByteSize+LengthByteSize {
 		t.Errorf("length validation failed")
 	}

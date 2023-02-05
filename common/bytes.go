@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"runtime/debug"
 )
 
@@ -177,14 +176,11 @@ func ExtractTwoParts(data []byte) (part1 []byte, part2 []byte, err error) {
 	totalLen := BytesToLen(data[:LengthByteSize])
 
 	if len(data) != totalLen+LengthByteSize+LengthByteSize {
-		fmt.Println("ExtractTwoParts", len(data), totalLen, LengthByteSize+LengthByteSize)
-		debug.PrintStack()
 		return nil, nil, errors.New("invalid length 2")
 	}
 
 	part1Len := BytesToLen(data[LengthByteSize : LengthByteSize+LengthByteSize])
 	if part1Len > len(data)-LengthByteSize-LengthByteSize {
-		fmt.Println("ExtractTwoParts", len(data), totalLen, part1Len, LengthByteSize+LengthByteSize)
 		return nil, nil, errors.New("invalid length 3")
 	}
 
@@ -203,7 +199,6 @@ func LenToBytes(len int) (b []byte) {
 
 	len1 := BytesToLen(b)
 	if len1 != len {
-		fmt.Println("LenToBytes", len, len1)
 		panic("len compare failed")
 	}
 
@@ -213,24 +208,3 @@ func LenToBytes(len int) (b []byte) {
 func BytesToLen(b []byte) (len int) {
 	return int(binary.LittleEndian.Uint16(b[:]))
 }
-
-/*
-func LenToBytes(len int) (b []byte) {
-	if len > MaxLenSize {
-		panic(errors.New("LenToBytes max length exceeded"))
-	}
-	b = make([]byte, LengthByteSize)
-	binary.LittleEndian.PutUint64(b, uint64(len))
-
-	len1 := BytesToLen(b)
-	if len1 != len {
-		fmt.Println("LenToBytes", len, len1)
-		panic("len compare failed")
-	}
-
-	return b
-}
-
-func BytesToLen(b []byte) (len int) {
-	return int(binary.LittleEndian.Uint64(b[:]))
-}*/
