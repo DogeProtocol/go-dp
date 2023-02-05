@@ -1,8 +1,8 @@
 package hybrid
 
 /*
-#cgo pkg-config: libhybrid
-#include <falcon/hybrid.h>
+#cgo pkg-config: libhybridpqc
+#include <hybridpqc/hybrid.h>
 */
 import "C"
 import (
@@ -13,7 +13,7 @@ import (
 
 const (
 	OK                     = 0
-	CRYPTO_SECRETKEY_BYTES = 64 + 1281
+	CRYPTO_SECRETKEY_BYTES = 64 + 1281 + 897
 	CRYPTO_PUBLICKEY_BYTES = 32 + 897
 	CRYPTO_SIGNATURE_BYTES = 2 + 2 + 64 + CRYPTO_MESSAGE_LEN + 40 + 690 //Nonce + 2 for size
 	CRYPTO_MESSAGE_LEN     = 32                                         //todo: validate this
@@ -46,14 +46,19 @@ func GenerateKey() (publicKey []byte, secretKey []byte, err error) {
 		(*C.uchar)(unsafe.Pointer(&publicKey[0])),
 		(*C.uchar)(unsafe.Pointer(&secretKey[0])))
 
+	if rv != OK {
+		return nil, nil, errors.New("GenerateKey failed")
+	}
+
 	if bytes.Compare(publicKey[:32], secretKey[32:64]) != 0 {
 		return nil, nil, ErrKeypairFailed
 	}
 
-	if rv != OK {
-		return nil, nil, errors.New("GenerateKey failed")
+	if bytes.Compare(publicKey[32:], secretKey[64+1281:]) != 0 {
+		return nil, nil, ErrKeypairFailed
 	}
-	return publicKey[:CRYPTO_PUBLICKEY_BYTES], secretKey[:CRYPTO_SECRETKEY_BYTES], nil
+
+	return publicKey[:], secretKey[:], nil
 }
 
 func Sign(secretKey []byte, message []byte) ([]byte, error) {
@@ -110,4 +115,22 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 	}
 
 	return nil
+}
+
+func PrivateAndPublicFromPrivateKey(compositePrivateKey []byte) (privateBytes []byte, publicBytes []byte, err error) {
+	if len(compositePrivateKey) != CRYPTO_SECRETKEY_BYTES {
+		return nil, nil, ErrInvalidPrivateKeyLen
+	}
+
+	pubKeyBytes := make([]byte, CRYPTO_PUBLICKEY_BYTES)
+
+	rv := C.crypto_public_key_from_private_key_falcon_ed25519(
+		(*C.uchar)(unsafe.Pointer(&pubKeyBytes[0])),
+		(*C.uchar)(unsafe.Pointer(&compositePrivateKey[0])))
+
+	if rv != 0 {
+		return nil, nil, ErrRecoverPublicKeyFailed
+	}
+
+	return compositePrivateKey, pubKeyBytes, nil
 }

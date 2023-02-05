@@ -1,6 +1,7 @@
 package hybrid
 
 import (
+	"bytes"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/rand"
 	"testing"
@@ -17,6 +18,19 @@ func TestHybrid_Basic(t *testing.T) {
 	pubKey, priKey, err := GenerateKey()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	priBytes, pubBytes, err := PrivateAndPublicFromPrivateKey(priKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bytes.Compare(priKey, priBytes) != 0 {
+		t.Fatal("PrivateAndPublicFromPrivateKey private compare failed")
+	}
+
+	if bytes.Compare(pubKey, pubBytes) != 0 {
+		t.Fatal("PrivateAndPublicFromPrivateKey public compare failed")
 	}
 
 	digestHash1 := []byte(testmsg1)
@@ -36,6 +50,16 @@ func TestHybrid_Basic(t *testing.T) {
 	if err == nil {
 		t.Fatal(err)
 	}
+
+	signature2, err := Sign(priKey, digestHash1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Verify(digestHash1, signature2, pubKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func TestHybrid_Random(t *testing.T) {

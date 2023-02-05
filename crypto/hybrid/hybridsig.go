@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"os"
 	"runtime/debug"
 )
@@ -82,22 +81,14 @@ func (s HybridSig) SerializePrivateKey(priv *signaturealgorithm.PrivateKey) ([]b
 		return nil, err
 	}
 
-	pubBytes, err := s.SerializePublicKey(&priv.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return common.CombineTwoParts(priBytes, pubBytes), nil
+	return priBytes, err
 }
 
 func (s HybridSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.PrivateKey, error) {
-	privKeyBytes, pubKeyBytes, err := common.ExtractTwoParts(priv)
+
+	privKeyBytes, pubKeyBytes, err := PrivateAndPublicFromPrivateKey(priv)
 	if err != nil {
 		return nil, err
-	}
-
-	if s.doesPrivateMatchPublic(privKeyBytes, pubKeyBytes) == false {
-		return nil, errors.New("publicKey does not match privateKey")
 	}
 
 	privKey, err := s.convertBytesToPrivate(privKeyBytes)
@@ -115,24 +106,6 @@ func (s HybridSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.Priva
 	return privKey, err
 }
 
-func (s HybridSig) doesPrivateMatchPublic(privKeyBytes []byte, pubKeyBytes []byte) bool {
-	tempPrivBytes := make([]byte, len(privKeyBytes))
-	copy(tempPrivBytes, privKeyBytes)
-
-	digestHash := make([]byte, 32)
-	rand.Read(digestHash)
-	signature, err := Sign(tempPrivBytes, digestHash)
-	if err != nil {
-		return false
-	}
-
-	err = Verify(digestHash, signature, pubKeyBytes)
-	if err == nil {
-		return true
-	} else {
-		return false
-	}
-}
 
 func (s HybridSig) SerializePublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
 	return s.exportPublicKey(pub)
@@ -205,7 +178,7 @@ func (s HybridSig) LoadPrivateKeyFromFile(file string) (*signaturealgorithm.Priv
 	defer fd.Close()
 
 	r := bufio.NewReader(fd)
-	buf := make([]byte, (s.privateKeyLength+s.publicKeyLength+common.LengthByteSize+common.LengthByteSize)*2)
+	buf := make([]byte, (s.privateKeyLength)*2)
 	n, err := readASCII(buf, r)
 	if err != nil {
 		return nil, err
