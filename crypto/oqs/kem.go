@@ -16,7 +16,7 @@ import (
 	"unsafe"
 )
 
-const KemName = "Kyber512"
+const KemName = "Kyber512" //sntrup761
 
 var (
 	ErrKemInitial              = errors.New("kem is not supported by OQS")

@@ -264,7 +264,6 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 
 	fromKey, err := recoverNodeKey(digest, sig)
 	if err != nil {
-
 		return nil, fromKey, hash, err
 	}
 
@@ -326,6 +325,7 @@ func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
 	if err != nil {
 		return key, err
 	}
+	key.PubBytes = make([]byte, len(pubkey))
 	copy(key.PubBytes, pubkey[:])
 	return key, nil
 }
@@ -337,6 +337,7 @@ func EncodePubkey(key *signaturealgorithm.PublicKey) Pubkey {
 	if err != nil {
 		return e
 	}
+	e.PubBytes = make([]byte, len(pubBytes))
 	copy(e.PubBytes, pubBytes[:])
 	return e
 }
@@ -353,7 +354,6 @@ func DecodePubkey(e Pubkey) (*signaturealgorithm.PublicKey, error) {
 		}
 	}
 	if count == len(keyBytes) {
-
 		return nil, errors.New("all zero public key")
 	}
 
