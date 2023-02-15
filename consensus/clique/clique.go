@@ -155,9 +155,6 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 		return common.Address{}, errMissingSignature
 	}
 
-	//Dynamic size fixed
-	//sigSize := int(binary.LittleEndian.Uint64(header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+common.LengthByteSize]))
-	//signature := header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+sigSize+common.LengthByteSize]
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address

@@ -219,8 +219,8 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	for i, header := range headers {
 		// Remove any votes on checkpoint blocks
 		number := header.Number.Uint64()
-		////if number%s.config.Epoch == 0 {
-		if number >= shiftBlockNumber {
+		if number%s.config.Epoch == 0 {
+
 			snap.Votes = nil
 			snap.Tally = make(map[common.Address]Tally)
 		}
