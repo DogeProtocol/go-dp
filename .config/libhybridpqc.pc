@@ -1,7 +1,7 @@
 HYBRIDPQC_INCLUDE_DIR=C:/github/hybrid-pqc/build/include
 HYBRIDPQC_LIB_DIR=C:/github/hybrid-pqc/build/lib
 
-Name: falcon
+Name: hybridpqc
 Description: C library for quantum resistant cryptography
 Version: 0.0.1-dev
 Cflags: -I${HYBRIDPQC_INCLUDE_DIR}
