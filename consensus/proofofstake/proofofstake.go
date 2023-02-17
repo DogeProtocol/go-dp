@@ -628,11 +628,6 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			copy(validatorsBytes[i*common.AddressLength:], validator.Bytes())
 		}
 
-		extraSuffix := len(header.Extra) - extraSeal
-		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
-			return errMismatchingEpochValidators
-		}
-
 		//Depositor reward
 		validatorValid := 1
 		validators, _ = c.GetValidatorsAddress1(number, header.ParentHash)
