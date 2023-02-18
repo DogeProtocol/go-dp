@@ -102,7 +102,7 @@ type testerVote struct {
 
 // Tests that Clique signer voting is evaluated correctly for various simple and
 // complex scenarios, as well as that a few special corner cases fail correctly.
-func TestClique(t *testing.T) {
+func TestProofOfStake(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
 		epoch   uint64

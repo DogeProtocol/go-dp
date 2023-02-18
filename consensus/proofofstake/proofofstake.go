@@ -28,7 +28,6 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
@@ -614,41 +613,28 @@ func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.
 // rewards given.
 func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header,
 	receipts *[]*types.Receipt, systemTxs *[]*types.Transaction, usedGas *uint64) (err error) {
-
 	number := header.Number.Uint64()
 
 	if number >= shiftBlockNumber {
-		validators, err := c.GetValidators1(header.ParentHash)
+		//Depositor reward
+		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
 		if err != nil {
 			return err
 		}
-		sort.Sort(signersAscending(validators))
-		validatorsBytes := make([]byte, len(validators)*common.AddressLength)
-		for i, validator := range validators {
-			copy(validatorsBytes[i*common.AddressLength:], validator.Bytes())
-		}
-
-		//Depositor reward
-		validatorValid := 1
-		validators, _ = c.GetValidatorsAddress1(number, header.ParentHash)
-		if len(validators) <= 0 {
-			validatorValid = 0
-			validators, _ = c.GetValidators(number, header.ParentHash)
-		}
-
 		if len(validators) > 0 {
 			index := number % uint64(len(validators))
 			validator := validators[index]
-			depositor := validator
-			if validatorValid == 1 {
-				depositor, _ = c.GetDepositor(validator, header.ParentHash)
+			depositor, err := c.GetDepositor(validator, header.ParentHash)
+			if err != nil {
+				return err
 			}
-			err := c.accumulateRewards(state, header, uncles, depositor)
+			err = c.accumulateRewards(state, header, uncles, depositor)
 			if err != nil {
 				return err
 			}
 		}
 	}
+
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
 
@@ -662,24 +648,19 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 	number := header.Number.Uint64()
 
 	if number >= shiftBlockNumber {
-		number := header.Number.Uint64()
-
 		//Depositor reward
-		validatorValid := 1
-		validators, _ := c.GetValidatorsAddress1(number, header.ParentHash)
-		if len(validators) <= 0 {
-			validatorValid = 0
-			validators, _ = c.GetValidators(number, header.ParentHash)
+		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
+		if err != nil {
+			return nil, nil, err
 		}
-
 		if len(validators) > 0 {
 			index := number % uint64(len(validators))
 			validator := validators[index]
-			depositor := validator
-			if validatorValid == 1 {
-				depositor, _ = c.GetDepositor(validator, header.ParentHash)
+			depositor, err := c.GetDepositor(validator, header.ParentHash)
+			if err != nil {
+				return nil, nil, err
 			}
-			err := c.accumulateRewards(state, header, uncles, depositor)
+			err = c.accumulateRewards(state, header, uncles, depositor)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -795,7 +776,6 @@ func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Bloc
 			log.Warn("Sealing result is not read by miner", "sealhash", SealHash(header))
 		}
 	}()
-
 	return nil
 }
 
@@ -912,11 +892,8 @@ func (c *ProofOfStake) accumulateRewards(state *state.StateDB, header *types.Hea
 	r.Div(r, big8)
 	r.Div(blockReward, big32)
 	reward.Add(reward, r)
+	state.AddBalance(validator, reward)
 
-	number := header.Number.Uint64()
-	if int64(number) >= (shiftBlockNumber + 300) {
-		state.AddBalance(validator, reward)
-	}
 	return nil
 }
 
