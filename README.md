@@ -6,10 +6,11 @@ go-dp is a Golang implementation of the Doge Protocol blockchain node client. Th
 
 ## Prerequisites
 
-### Post Quantum Cryptography (liboqs)
+### Post Quantum Cryptography
 
-1) Follow the steps in https://github.com/DogeProtocol/liboqs to build the liboqs binaries (Post Quantum Cryptography Libraries)
-2) Install Package Manager:
+1) Follow the steps in https://github.com/open-quantum-safe/liboqs to build the liboqs binaries (Post Quantum Cryptography Libraries)
+2) Follow the steps in https://github.com/DogeProtocol/hybrid-pqc to build the hybrid-pqc binaries (Post Quantum Cryptography Libraries)
+3) Install Package Manager:
 #### Linux
 ```
 apt-get install -y pkg-config
@@ -22,6 +23,7 @@ apt-get install -y pkg-config
 4) Edit go-dp/.config/liboqs.pc to point to the liboqs build folder from Step 1)
 5) Set the PKG_CONFIG_PATH environment variable to point to the absolute path of go-dp/.config/liboqc.pc file in your computer.
 6) Add the build/bin folder where liboqs.dll (example C:\liboqs\build\bin) is located to the PATH environment variable.
+7) Add the build/bin folder where libhybridpqc.dll (example C:\hybrid-pqc\build\bin) is located to the PATH environment variable.
 
 ## Building geth
 
@@ -40,12 +42,12 @@ Check the [documentation](https://dpdocs.org/testnet-setup.html) portal for info
 
 go-dp is a fork of the Go Ethereum Client (go-ethereum) with the following changes:
 
-1) Falcon, which is a NIST standardized post-quantum digital signature scheme, is used to secure accounts. This is a change from using ECDSA which is vulnerable to quantum computers (Shor's algorithm).
+1) Hybrid-PQC that uses a mix of EdDSA and Falcon which is a NIST standardized post-quantum digital signature scheme, is used to secure accounts. This is a change from using ECDSA which is vulnerable to quantum computers (Shor's algorithm).
 
-2) NTRU HRSS, which is a post-quantum KEM scheme, is used to secure inter-node communication.
+2) Kyber, which is a post-quantum KEM scheme, is used to secure inter-node communication.
 
 3) These cryptographic schemes have been added in the following package:
-   (https://github.com/DogeProtocol/go-dp/tree/dogep/cryptopq)
+   (https://github.com/DogeProtocol/go-dp/tree/dogep/crypto)
 
 4) UDP Discovery Protocol has been updated to use session based error correction (Reed Solomon Codes) using the [KCP GO](https://github.com/xtaci/kcp-go) library.
 The discovery protocol in Ethereum relies on a single datagram packet size being smaller than commonly accepted MTU size. 
