@@ -232,7 +232,6 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
 
-	//sigSize := int(binary.LittleEndian.Uint64(input[macSize : macSize+common.LengthByteSize]))
 	sigSize := cryptobase.SigAlg.SignatureWithPublicKeyLength() //todo: make this dynamic
 	if sigSize > inputSize {
 		return nil, Pubkey{}, nil, ErrPacketTooSmall

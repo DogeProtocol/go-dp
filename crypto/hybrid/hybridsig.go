@@ -106,7 +106,6 @@ func (s HybridSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.Priva
 	return privKey, err
 }
 
-
 func (s HybridSig) SerializePublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
 	return s.exportPublicKey(pub)
 }
@@ -205,7 +204,7 @@ func (s HybridSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[s.publicKeyBytesIndexStart:]), nil
+	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
 }
 
 func (s HybridSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {

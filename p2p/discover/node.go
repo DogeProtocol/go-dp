@@ -40,6 +40,7 @@ type encPubkey v4wire.Pubkey
 func encodePubkey(key *signaturealgorithm.PublicKey) encPubkey {
 	encoded := cryptobase.SigAlg.EncodePublicKey(key)
 	var e encPubkey
+	e.PubBytes = make([]byte, len(encoded))
 	copy(e.PubBytes, encoded)
 	return e
 }

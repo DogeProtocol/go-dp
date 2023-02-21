@@ -86,6 +86,7 @@ func (oracle *CheckpointOracle) RegisterCheckpoint(opts *bind.TransactOpts, inde
 		v []uint8
 	)
 	for i := 0; i < len(sigs); i++ {
+		panic("fix here")
 		if len(sigs[i]) > cryptobase.SigAlg.SignatureWithPublicKeyLength() {
 			return nil, errors.New("invalid signature")
 		}

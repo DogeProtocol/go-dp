@@ -232,7 +232,7 @@ func (s MockSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.Add
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[s.publicKeyBytesIndexStart:]), nil
+	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
 }
 
 func (s MockSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {

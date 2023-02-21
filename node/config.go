@@ -357,6 +357,7 @@ func (c *Config) NodeKey() *signaturealgorithm.PrivateKey {
 	}
 	// Generate ephemeral key if no datadir is being used.
 	if c.DataDir == "" {
+		log.Info("Ephemeral node private key")
 		key, err := cryptobase.SigAlg.GenerateKey()
 		if err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
@@ -365,11 +366,16 @@ func (c *Config) NodeKey() *signaturealgorithm.PrivateKey {
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(keyfile); err == nil {
+	key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(keyfile)
+	if err == nil {
+		log.Info("Returning key from LoadPrivateKeyFromFile", keyfile)
 		return key
 	}
+	if err != nil {
+		log.Error("NodeKey error", err, keyfile)
+	}
 	// No persistent key found, generate and store a new one.
-	key, err := cryptobase.SigAlg.GenerateKey()
+	key, err = cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
 	}

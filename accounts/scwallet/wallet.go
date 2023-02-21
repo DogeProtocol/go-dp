@@ -880,7 +880,6 @@ func (s *Session) walletStatus() (*walletStatus, error) {
 }
 
 // derivationPath fetches the wallet's current derivation path from the card.
-//
 //lint:ignore U1000 needs to be added to the console interface
 func (s *Session) derivationPath() (accounts.DerivationPath, error) {
 	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1Path, 0, nil)
@@ -901,6 +900,7 @@ type initializeData struct {
 
 // initialize initializes the card with new key data.
 func (s *Session) initialize(seed []byte) error {
+
 	// Check that the wallet isn't currently initialized,
 	// otherwise the key would be overwritten.
 	status, err := s.Wallet.Status()
@@ -925,6 +925,7 @@ func (s *Session) initialize(seed []byte) error {
 	}
 
 	id := initializeData{}
+	panic("needs fix")
 	pubKeyData, err := cryptobase.SigAlg.SerializePublicKey(&key.PublicKey)
 	if err != nil {
 		return err
@@ -984,8 +985,8 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 	if _, err := asn1.UnmarshalWithParams(response.Data, sigdata, "tag:0"); err != nil {
 		return accounts.Account{}, err
 	}
+	panic("needs fix")
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
-	//OQS signature
 	sig := make([]byte, len(rbytes)+len(sbytes))
 	copy(sig[:len(rbytes)], rbytes)
 	copy(sig[len(rbytes):], sbytes)
@@ -1059,6 +1060,7 @@ func (s *Session) sign(path accounts.DerivationPath, hash []byte) ([]byte, error
 	rbytes, sbytes := sigdata.Signature.R.Bytes(), sigdata.Signature.S.Bytes()
 
 	//OQS signature
+	panic("needs fix")
 	sig := make([]byte, len(rbytes)+len(sbytes))
 	copy(sig[:len(rbytes)], rbytes)
 	copy(sig[len(rbytes):], sbytes)

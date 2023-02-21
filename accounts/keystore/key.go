@@ -129,6 +129,15 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	}
 
 	k.Address = common.BytesToAddress(addr)
+
+	pubAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&privkey.PublicKey)
+	if err != nil {
+		return err
+	}
+	if pubAddr != k.Address {
+		return accounts.ErrUnknownAccount
+	}
+
 	k.PrivateKey = privkey
 
 	return nil

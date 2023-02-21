@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"math/rand"
@@ -82,6 +83,10 @@ func deployExplorer(client *sshClient, network string, bootnodes []string, confi
 	// Generate the content to upload to the server
 	workdir := fmt.Sprintf("%d", rand.Int63())
 	files := make(map[string][]byte)
+
+	if isClique == true && isProofOfStake == true {
+		return nil, errors.New("both clique and PoS are true")
+	}
 
 	dockerfile := new(bytes.Buffer)
 	template.Must(template.New("").Parse(explorerDockerfile)).Execute(dockerfile, map[string]interface{}{

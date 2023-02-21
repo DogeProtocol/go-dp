@@ -178,7 +178,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 		return common.Address{}, err
 	}
 	var validator common.Address
-	copy(validator[:], crypto.Keccak256(pubkey[1:])[12:])
+	copy(validator[:], crypto.Keccak256(pubkey[:])[12:])
 	sigcache.Add(hash, validator)
 	return validator, nil
 }
@@ -611,8 +611,8 @@ func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
-func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header,
-	receipts *[]*types.Receipt, systemTxs *[]*types.Transaction, usedGas *uint64) (err error) {
+func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) error {
+
 	number := header.Number.Uint64()
 
 	if number >= shiftBlockNumber {
@@ -643,26 +643,25 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, []*types.Receipt, error) {
+func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	number := header.Number.Uint64()
 
 	if number >= shiftBlockNumber {
 		//Depositor reward
 		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if len(validators) > 0 {
 			index := number % uint64(len(validators))
 			validator := validators[index]
 			depositor, err := c.GetDepositor(validator, header.ParentHash)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			err = c.accumulateRewards(state, header, uncles, depositor)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 	}
@@ -670,13 +669,10 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
 	}
-	if receipts == nil {
-		receipts = make([]*types.Receipt, 0)
-	}
 
 	// should not happen. Once happen, stop the node is better than broadcast the block
 	if header.GasLimit < header.GasUsed {
-		return nil, nil, errors.New("gas consumption of system txs exceed the gas limit")
+		return nil, errors.New("gas consumption of system txs exceed the gas limit")
 	}
 	header.UncleHash = types.CalcUncleHash(nil)
 	var blk *types.Block
@@ -694,7 +690,7 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 	wg.Wait()
 	blk.SetRoot(rootHash)
 	// Assemble and return the final block for sealing
-	return blk, receipts, nil
+	return blk, nil
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks

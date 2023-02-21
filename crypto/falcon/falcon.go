@@ -68,9 +68,9 @@ func Sign(secretKey []byte, message []byte) ([]byte, error) {
 	var lenSig uint64
 
 	rv := C.crypto_sign_falcon((*C.uchar)(unsafe.Pointer(&signature[0])),
-		(*C.ulonglong)(unsafe.Pointer(&lenSig)),
+		(*C.size_t)(unsafe.Pointer(&lenSig)),
 		(*C.uchar)(unsafe.Pointer(&message[0])),
-		(C.ulonglong)(uint64(len(message))),
+		(C.size_t)(uint64(len(message))),
 		(*C.uchar)(unsafe.Pointer(&secretKey[0])))
 
 	if rv != OK {
@@ -112,9 +112,9 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 	messageCheck := make([]byte, CRYPTO_SIGNATURE_BYTES+len(message))
 
 	rv := C.crypto_sign_falcon_open((*C.uchar)(unsafe.Pointer(&messageCheck[0])),
-		(*C.ulonglong)(unsafe.Pointer(&msgLenCheck)),
+		(*C.size_t)(unsafe.Pointer(&msgLenCheck)),
 		(*C.uchar)(unsafe.Pointer(&sigExtracted[0])),
-		(C.ulonglong)(uint64(len(sigExtracted))),
+		(C.size_t)(uint64(len(sigExtracted))),
 		(*C.uchar)(unsafe.Pointer(&publicKey[0])))
 
 	if rv != OK {

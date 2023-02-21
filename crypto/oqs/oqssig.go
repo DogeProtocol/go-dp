@@ -214,7 +214,7 @@ func (s OqsSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.Addr
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[s.publicKeyBytesIndexStart:]), nil
+	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
 }
 
 func (s OqsSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {
