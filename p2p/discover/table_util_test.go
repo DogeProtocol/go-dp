@@ -21,8 +21,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"math/rand"
 	"net"
 	"sort"
@@ -228,12 +229,12 @@ func sortedByDistanceTo(distbase enode.ID, slice []*node) bool {
 }
 
 // hexEncPrivkey decodes h as a private key.
-func hexEncPrivkey(h string) *oqs.PrivateKey {
+func hexEncPrivkey(h string) *signaturealgorithm.PrivateKey {
 	b, err := hex.DecodeString(h)
 	if err != nil {
 		panic(err)
 	}
-	key, err := cryptopq.ToOQS(b)
+	key, err := cryptobase.SigAlg.DeserializePrivateKey(b)
 	if err != nil {
 		panic(err)
 	}
@@ -246,9 +247,5 @@ func hexEncPubkey(h string) (ret encPubkey) {
 	if err != nil {
 		panic(err)
 	}
-	if len(b) != len(ret) {
-		panic("invalid length")
-	}
-	copy(ret[:], b)
-	return ret
+	return encPubkey(v4wire.CreateWirePubKey(b))
 }

@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"math/big"
 
@@ -119,7 +119,7 @@ func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
 // Example call (should fail on password too short)
 // {"jsonrpc":"2.0","method":"clef_importRawKey","params":["1111111111111111111111111111111111111111111111111111111111111111","test"], "id":6}
 func (s *UIServerAPI) ImportRawKey(privkey string, password string) (accounts.Account, error) {
-	key, err := cryptopq.HexToOQS(privkey)
+	key, err := cryptobase.SigAlg.HexToPrivateKey(privkey)
 	if err != nil {
 		return accounts.Account{}, err
 	}

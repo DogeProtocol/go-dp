@@ -20,15 +20,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"net/url"
 	"regexp"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 )
 
@@ -83,7 +82,7 @@ func ParseV4(rawurl string) (*Node, error) {
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4(pubkey *oqs.PublicKey, ip net.IP, tcp, udp int) *Node {
+func NewV4(pubkey *signaturealgorithm.PublicKey, ip net.IP, tcp, udp int) *Node {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
@@ -110,7 +109,7 @@ func isNewV4(n *Node) bool {
 
 func parseComplete(rawurl string) (*Node, error) {
 	var (
-		id               *oqs.PublicKey
+		id               *signaturealgorithm.PublicKey
 		tcpPort, udpPort uint64
 	)
 	u, err := url.Parse(rawurl)
@@ -156,29 +155,29 @@ func parseComplete(rawurl string) (*Node, error) {
 }
 
 // parsePubkey parses a hex-encoded secp256k1 public key.
-func parsePubkey(in string) (*oqs.PublicKey, error) {
+func parsePubkey(in string) (*signaturealgorithm.PublicKey, error) {
 	b, err := hex.DecodeString(in)
 	if err != nil {
 		return nil, err
 	}
 
-	return cryptopq.UnmarshalPubkey(b)
+	return cryptobase.SigAlg.DeserializePublicKey(b)
 }
 
 func (n *Node) URLv4() string {
 	var (
 		scheme enr.ID
 		nodeid string
-		key    oqs.PublicKey
+		key    signaturealgorithm.PublicKey
 	)
 	n.Load(&scheme)
 	n.Load((*PqPubKey)(&key))
 
 	switch {
-	case scheme == "v4" || key != oqs.PublicKey{}:
-		data, err := cryptopq.FromOQSPub(&key)
+	case scheme == "v4" || len(key.PubData) > 0:
+		data, err := cryptobase.SigAlg.SerializePublicKey(&key)
 		if err != nil {
-		
+
 			return ""
 		}
 		nodeid = fmt.Sprintf("%x", data)
@@ -200,8 +199,13 @@ func (n *Node) URLv4() string {
 }
 
 // PubkeyToIDV4 derives the v4 node address from the given public key.
-func PubkeyToIDV4(key *oqs.PublicKey) ID {
-	e := make([]byte, oqs.PublicKeyLen)
-	math.ReadBits(key.N, e)
+func PubkeyToIDV4(key *signaturealgorithm.PublicKey) ID {
+	e := make([]byte, cryptobase.SigAlg.PublicKeyLength())
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(key)
+	if err != nil {
+		panic(err)
+	}
+	copy(e, pubBytes)
+	//math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e)
 	return ID(crypto.Keccak256Hash(e))
 }

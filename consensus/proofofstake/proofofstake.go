@@ -19,18 +19,15 @@ package proofofstake
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
@@ -57,7 +54,7 @@ const (
 
 	wiggleTime = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
 
-	shiftBlockNumber = 0 // proofofstake contract switches
+	shiftBlockNumber = 100 // proofofstake contract switches
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
 )
@@ -68,8 +65,8 @@ var (
 
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 
-	extraVanity = 32                     // Fixed number of extra-data prefix bytes reserved for validator vanity
-	extraSeal   = crypto.SignatureLength // Fixed number of extra-data suffix bytes reserved for validator seal
+	extraVanity = 32                                               // Fixed number of extra-data prefix bytes reserved for validator vanity
+	extraSeal   = cryptobase.SigAlg.SignatureWithPublicKeyLength() // Fixed number of extra-data suffix bytes reserved for validator seal
 
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new validator
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
@@ -163,33 +160,25 @@ type SignerTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Tra
 
 // ecrecover extracts the Ethereum account address from a signed header.
 func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
-	///fmt.Println("ecrecover ...")
 	// If the signature's already cached, return that
-	///fmt.Println("ecrecover ...header.Extra[:100]", header.Extra[:100])
 	hash := header.Hash()
-	///fmt.Println("ecrecover ...hash", hash)
 	if address, known := sigcache.Get(hash); known {
-		///fmt.Println("ecrecover ...address", address)
 		return address.(common.Address), nil
 	}
 	// Retrieve the signature from the header extra-data
-	///fmt.Println("ecrecover ...extraSeal, header.Extra[:100]", extraSeal, header.Extra[:100])
 	if len(header.Extra) < extraSeal {
 		return common.Address{}, errMissingSignature
 	}
 
-	//Dynamic size fixed
-	sigSize := int(binary.LittleEndian.Uint64(header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+oqs.SignerLength]))
-	signature := header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+sigSize+oqs.SignerLength]
-	///fmt.Println("ecrecover ...signature[:100]", signature[:100])
+	signature := header.Extra[len(header.Extra)-extraSeal:]
+
 	// Recover the public key and the Ethereum address
-	pubkey, err := cryptopq.RecoverPublicKey(SealHash(header).Bytes(), signature)
+	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
 	var validator common.Address
 	copy(validator[:], crypto.Keccak256(pubkey[1:])[12:])
-	///fmt.Println("ecrecover ...validator", validator)
 	sigcache.Add(hash, validator)
 	return validator, nil
 }
@@ -206,8 +195,6 @@ type ProofOfStake struct {
 	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
 
 	proposals map[common.Address]bool // Current list of proposals we are pushing
-
-	////signer common.Address // Ethereum address of the signing key
 
 	signer    types.Signer
 	validator common.Address
@@ -226,7 +213,6 @@ type ProofOfStake struct {
 // signers set to the ones provided by the user.
 func New(chainConfig *params.ChainConfig, db ethdb.Database,
 	ethAPI *ethapi.PublicBlockChainAPI, genesisHash common.Hash) *ProofOfStake {
-	///fmt.Println("New ...")
 	// Set any missing consensus parameters to their defaults
 	conf := *chainConfig
 	if conf.ProofOfStake.Epoch == 0 {
@@ -252,14 +238,11 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
 func (c *ProofOfStake) Author(header *types.Header) (common.Address, error) {
-	///fmt.Println("Author ...")
-	///////fmt.Println("Author ...header, c.signatures", header, c.signatures)
 	return ecrecover(header, c.signatures)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
 func (c *ProofOfStake) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
-	///fmt.Println("VerifyHeader ...")
 	return c.verifyHeader(chain, header, nil)
 }
 
@@ -267,7 +250,6 @@ func (c *ProofOfStake) VerifyHeader(chain consensus.ChainHeaderReader, header *t
 // method returns a quit channel to abort the operations and a results channel to
 // retrieve the async verifications (the order is that of the input slice).
 func (c *ProofOfStake) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
-	///fmt.Println("VerifyHeaders ...")
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 
@@ -290,7 +272,6 @@ func (c *ProofOfStake) VerifyHeaders(chain consensus.ChainHeaderReader, headers 
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
 func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
-	///fmt.Println("verifyHeader ...")
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -301,9 +282,7 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 		return consensus.ErrFutureBlock
 	}
 	// Checkpoint blocks need to enforce zero beneficiary
-	////checkpoint := (number % c.config.Epoch) == 0
-	checkpoint := number >= shiftBlockNumber
-	///fmt.Println("checkpoint := number >= shiftBlockNumber", checkpoint, number, shiftBlockNumber, header.Coinbase, common.Address{})
+	checkpoint := (number % c.config.Epoch) == 0
 	if checkpoint && header.Coinbase != (common.Address{}) {
 		return errInvalidCheckpointBeneficiary
 	}
@@ -315,7 +294,6 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 		return errInvalidCheckpointVote
 	}
 	// Check that the extra-data contains both the vanity and signature
-	/////fmt.Println("verifyHeader:::", len(header.Extra), header.Extra)
 	if len(header.Extra) < extraVanity {
 		return errMissingVanity
 	}
@@ -361,7 +339,6 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
 func (c *ProofOfStake) verifyCascadingFields(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
-	///fmt.Println("verifyCascadingFields ...")
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -398,56 +375,36 @@ func (c *ProofOfStake) verifyCascadingFields(chain consensus.ChainHeaderReader, 
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
 
-	/**** Check ****/
-	////snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
-	_, err := c.snapshot(chain, number-1, header.ParentHash, parents)
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
 	if err != nil {
 		return err
 	}
 
-	// If the block is a checkpoint block, verify the validator list
-	////if number%c.config.Epoch == 0 {
-	if number >= shiftBlockNumber {
-		/****
-		validatorsBytes := make([]byte, len(snap.Signers)*common.AddressLength)
-		for i, validator := range snap.signers() {
-			///fmt.Println("signer", i, validator.Bytes())
-			copy(validatorsBytes[i*common.AddressLength:], validator[:])
+	// If the block is a checkpoint block, verify the signer list
+	if number%c.config.Epoch == 0 {
+		signers := make([]byte, len(snap.Signers)*common.AddressLength)
+		for i, signer := range snap.signers() {
+			copy(signers[i*common.AddressLength:], signer[:])
 		}
-		****/
-
-		validators, err := c.GetValidators1(header.ParentHash)
-		if err != nil {
-			return err
-		}
-		sort.Sort(signersAscending(validators))
-		validatorsBytes := make([]byte, len(validators)*common.AddressLength)
-		for i, validator := range validators {
-			copy(validatorsBytes[i*common.AddressLength:], validator.Bytes())
-		}
-
-		///fmt.Println("verifyCascadingFields... len(header.Extra), header.Extra[:100]", len(header.Extra), header.Extra[:100])
 		extraSuffix := len(header.Extra) - extraSeal
-		///fmt.Println("header.Extra[extraVanity:extraSuffix], validatorsBytes ", header.Extra[extraVanity:extraSuffix], validatorsBytes)
 
-		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
+		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], signers) {
 			return errMismatchingCheckpointSigners
 		}
 	}
+
 	// All basic checks passed, verify the seal and return
 	return c.verifySeal(chain, header, parents)
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
 func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
-	///fmt.Println("snapshot ...")
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
 		snap    *Snapshot
 	)
 	for snap == nil {
-		///////fmt.Println("snapshot ...,snap == nil")
 		// If an in-memory snapshot was found, use that
 		if s, ok := c.recents.Get(hash); ok {
 			snap = s.(*Snapshot)
@@ -455,7 +412,6 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 		}
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%checkpointInterval == 0 {
-			///fmt.Println("snapshot ... loadSnapshot")
 			if s, err := loadSnapshot(c.config, c.signatures, c.db, hash); err == nil {
 				log.Trace("Loaded voting snapshot from disk", "number", number, "hash", hash)
 				snap = s
@@ -466,27 +422,22 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 		// at a checkpoint block without a parent (light client CHT), or we have piled
 		// up more headers than allowed to be reorged (chain reinit from a freezer),
 		// consider the checkpoint trusted and snapshot it. 	if number > 10 {
-		////if number == 0 || (number%c.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold || chain.GetHeaderByNumber(number-1) == nil)) {
-		if number == 0 || (number >= shiftBlockNumber && (len(headers) > params.FullImmutabilityThreshold || chain.GetHeaderByNumber(number-1) == nil)) {
-			///fmt.Println("snapshot ... number >= shiftBlockNumber")
+		if number == 0 || (number%c.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold || chain.GetHeaderByNumber(number-1) == nil)) {
 			checkpoint := chain.GetHeaderByNumber(number)
 			if checkpoint != nil {
 				hash := checkpoint.Hash()
 				//dynamic length
-				///fmt.Println("snapshot::: number >= shiftBlockNumber ", len(checkpoint.Extra), checkpoint.Extra)
 
 				addresslength := len(checkpoint.Extra) - extraVanity - extraSeal
-				///fmt.Println("snapshot ... addresslength ... len(checkpoint.Extra) - extraVanity - extraSeal)", addresslength)
 				if addresslength < 0 {
 					addresslength = len(checkpoint.Extra) - extraVanity - 65
-					///fmt.Println("snapshot ... addresslength ... len(checkpoint.Extra) - extraVanity - 65)", addresslength)
 				}
+
 				signers := make([]common.Address, addresslength/common.AddressLength)
 
 				for i := 0; i < len(signers); i++ {
 					copy(signers[i][:], checkpoint.Extra[extraVanity+i*common.AddressLength:])
 				}
-				///fmt.Println("snapshot ... signers", signers)
 				snap = newSnapshot(c.config, c.signatures, number, hash, signers)
 				if err := snap.store(c.db); err != nil {
 					return nil, err
@@ -518,7 +469,6 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 	for i := 0; i < len(headers)/2; i++ {
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
-	///fmt.Println("snapshot ... len(headers)", len(headers))
 	snap, err := snap.apply(headers)
 	if err != nil {
 		return nil, err
@@ -538,8 +488,6 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 // VerifyUncles implements consensus.Engine, always returning an error for any
 // uncles as this consensus mechanism doesn't permit uncles.
 func (c *ProofOfStake) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
-	///fmt.Println("VerifyUncles ...")
-	///fmt.Println("VerifyUncles ...len(block.Uncles())", len(block.Uncles()))
 	if len(block.Uncles()) > 0 {
 		return errors.New("uncles not allowed")
 	}
@@ -551,7 +499,6 @@ func (c *ProofOfStake) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
 func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
-	///fmt.Println("verifySeal ...")
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -569,11 +516,6 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 	if err != nil {
 		return err
 	}
-
-	///fmt.Println("verifySeal ... validator != header.Coinbase", validator, header.Coinbase)
-	//if validator != header.Coinbase {
-	//	return errCoinBaseMisMatch
-	//}
 
 	if _, ok := snap.Signers[validator]; !ok {
 		return errUnauthorizedSigner
@@ -603,22 +545,17 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	///fmt.Println("Prepare ...")
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
-	////header.Coinbase = c.validator
 	header.Nonce = types.BlockNonce{}
 
 	number := header.Number.Uint64()
-	///fmt.Println("Prepare ...number", number)
 
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
 		return err
 	}
-
-	/****
 	if number%c.config.Epoch != 0 {
 		c.lock.RLock()
 
@@ -640,47 +577,22 @@ func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.
 		}
 		c.lock.RUnlock()
 	}
-	****/
-
 	// Set the correct difficulty
 	header.Difficulty = calcDifficulty(snap, c.validator)
 
 	// Ensure the extra data has all its components
 	if len(header.Extra) < extraVanity {
 		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
-		///fmt.Println("Prepare-1 ... len(header.Extra), header.Extra", len(header.Extra), header.Extra)
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	///fmt.Println("Prepare-2 ... len(header.Extra), header.Extra", len(header.Extra), header.Extra)
+	if number%c.config.Epoch == 0 {
 
-	////if number%c.config.Epoch == 0 {
-	if number >= shiftBlockNumber {
-		validators, err := c.GetValidators1(header.ParentHash)
-		if err != nil {
-			return err
+		for _, signer := range snap.signers() {
+			header.Extra = append(header.Extra, signer[:]...)
 		}
-		////index := number % uint64(len(validators))
-		////header.Extra = append(header.Extra, validators[index][:]...)
-		// sort validator by address
-		sort.Sort(signersAscending(validators))
-		validatorsBytes := make([]byte, len(validators)*common.AddressLength)
-		for i, validator := range validators {
-			///fmt.Println("Validator", validator)
-			copy(validatorsBytes[i*common.AddressLength:], validator.Bytes())
-			////header.Extra = append(header.Extra, validator[:]...)
-		}
-		header.Extra = append(header.Extra, validatorsBytes...)
-
-		//for _, signer := range snap.signers() {
-		///fmt.Println("signer", signer)
-		////header.Extra = append(header.Extra, signer[:]...)
-		//}
-		///fmt.Println("Prepare-3 ... len(header.Extra), header.Extra", len(header.Extra), header.Extra)
 	}
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-
-	///fmt.Println("Prepare-4:::len(header.Extra), header.Extra[:100] ", len(header.Extra), header.Extra[:100])
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
@@ -701,54 +613,31 @@ func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.
 // rewards given.
 func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header,
 	receipts *[]*types.Receipt, systemTxs *[]*types.Transaction, usedGas *uint64) (err error) {
-
 	number := header.Number.Uint64()
-	///fmt.Println("Finalize.........number", number)
 
 	if number >= shiftBlockNumber {
-		validators, err := c.GetValidators1(header.ParentHash)
+		//Depositor reward
+		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
 		if err != nil {
 			return err
 		}
-		sort.Sort(signersAscending(validators))
-		validatorsBytes := make([]byte, len(validators)*common.AddressLength)
-		for i, validator := range validators {
-			copy(validatorsBytes[i*common.AddressLength:], validator.Bytes())
-		}
-
-		extraSuffix := len(header.Extra) - extraSeal
-		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
-			return errMismatchingEpochValidators
-		}
-
-		//Depositor reward
-		validatorValid := 1
-		validators, _ = c.GetValidatorsAddress1(number, header.ParentHash)
-		if len(validators) <= 0 {
-			validatorValid = 0
-			validators, _ = c.GetValidators(number, header.ParentHash)
-		}
-
 		if len(validators) > 0 {
 			index := number % uint64(len(validators))
 			validator := validators[index]
-			depositor := validator
-			if validatorValid == 1 {
-				depositor, _ = c.GetDepositor(validator, header.ParentHash)
-				///fmt.Println("depositor", depositor)
+			depositor, err := c.GetDepositor(validator, header.ParentHash)
+			if err != nil {
+				return err
 			}
-			err := c.accumulateRewards(state, header, uncles, depositor)
+			err = c.accumulateRewards(state, header, uncles, depositor)
 			if err != nil {
 				return err
 			}
 		}
 	}
+
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
 
-	if len(*systemTxs) > 0 {
-		return errors.New("the length of systemTxs do not match")
-	}
 	return nil
 }
 
@@ -757,28 +646,21 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, []*types.Receipt, error) {
 	number := header.Number.Uint64()
-	///fmt.Println("FinalizeAndAssemble.........number", number)
 
 	if number >= shiftBlockNumber {
-		number := header.Number.Uint64()
-
 		//Depositor reward
-		validatorValid := 1
-		validators, _ := c.GetValidatorsAddress1(number, header.ParentHash)
-		if len(validators) <= 0 {
-			validatorValid = 0
-			validators, _ = c.GetValidators(number, header.ParentHash)
+		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
+		if err != nil {
+			return nil, nil, err
 		}
-
 		if len(validators) > 0 {
 			index := number % uint64(len(validators))
 			validator := validators[index]
-			depositor := validator
-			if validatorValid == 1 {
-				depositor, _ = c.GetDepositor(validator, header.ParentHash)
-				///fmt.Println("depositor", depositor)
+			depositor, err := c.GetDepositor(validator, header.ParentHash)
+			if err != nil {
+				return nil, nil, err
 			}
-			err := c.accumulateRewards(state, header, uncles, depositor)
+			err = c.accumulateRewards(state, header, uncles, depositor)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -788,7 +670,7 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
 	}
-	if receipts == nil { ////
+	if receipts == nil {
 		receipts = make([]*types.Receipt, 0)
 	}
 
@@ -818,7 +700,6 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
 func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signTxFn SignerTxFn) {
-	///fmt.Println("Authorize ...")
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -830,12 +711,10 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
 func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	///fmt.Println("Seal ...")
 	header := block.Header()
 
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
-	///fmt.Println("Seal ...number", number)
 	if number == 0 {
 		return errUnknownBlock
 	}
@@ -897,7 +776,6 @@ func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Bloc
 			log.Warn("Sealing result is not read by miner", "sealhash", SealHash(header))
 		}
 	}()
-
 	return nil
 }
 
@@ -906,8 +784,6 @@ func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Bloc
 // * DIFF_NOTURN(2) if BLOCK_NUMBER % SIGNER_COUNT != SIGNER_INDEX
 // * DIFF_INTURN(1) if BLOCK_NUMBER % SIGNER_COUNT == SIGNER_INDEX
 func (c *ProofOfStake) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
-	///fmt.Println("CalcDifficulty ...")
-	///fmt.Println("CalcDifficulty ...chain, parent.Number.Uint64(), parent.Hash()", chain, parent.Number.Uint64(), parent.Hash())
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
 		return nil
@@ -916,8 +792,6 @@ func (c *ProofOfStake) CalcDifficulty(chain consensus.ChainHeaderReader, time ui
 }
 
 func calcDifficulty(snap *Snapshot, validator common.Address) *big.Int {
-	///fmt.Println("calcDifficulty ...")
-	///fmt.Println("calcDifficulty ...snap.Number+1, validator, diffInTurn", snap.Number+1, validator, diffInTurn)
 	if snap.inturn(snap.Number+1, validator) {
 		return new(big.Int).Set(diffInTurn)
 	}
@@ -926,14 +800,11 @@ func calcDifficulty(snap *Snapshot, validator common.Address) *big.Int {
 
 // SealHash returns the hash of a block prior to it being sealed.
 func (c *ProofOfStake) SealHash(header *types.Header) common.Hash {
-	///fmt.Println("SealHash ...")
-	///fmt.Println("SealHash ...header", header)
 	return SealHash(header)
 }
 
 // Close implements consensus.Engine. It's a noop for proofofstake as there are no background threads.
 func (c *ProofOfStake) Close() error {
-	///fmt.Println("Close ...")
 	return nil
 }
 
@@ -950,9 +821,7 @@ func (c *ProofOfStake) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash(header *types.Header) (hash common.Hash) {
-	///fmt.Println("SealHash ...")
 	hasher := sha3.NewLegacyKeccak256()
-	///fmt.Println("SealHash ...hasher", hasher)
 	encodeSigHeader(hasher, header)
 	hasher.(crypto.KeccakState).Read(hash[:])
 	return hash
@@ -966,14 +835,12 @@ func SealHash(header *types.Header) (hash common.Hash) {
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
 func ProofOfStakeRLP(header *types.Header) []byte {
-	///fmt.Println("ProofOfStakeRLP ...")
 	b := new(bytes.Buffer)
 	encodeSigHeader(b, header)
 	return b.Bytes()
 }
 
 func encodeSigHeader(w io.Writer, header *types.Header) {
-	///fmt.Println("encodeSigHeader::: len(header.Extra), header.Extra[:100]", len(header.Extra), header.Extra[:100])
 	enc := []interface{}{
 		header.ParentHash,
 		header.UncleHash,
@@ -987,7 +854,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 		header.GasLimit,
 		header.GasUsed,
 		header.Time,
-		header.Extra[:len(header.Extra)-crypto.SignatureLength], // Yes, this will panic if extra is too short
+		header.Extra[:len(header.Extra)-cryptobase.SigAlg.SignatureWithPublicKeyLength()], // Yes, this will panic if extra is too short
 		header.MixDigest,
 		header.Nonce,
 	}
@@ -1015,36 +882,6 @@ var (
 func (c *ProofOfStake) accumulateRewards(state *state.StateDB, header *types.Header,
 	uncles []*types.Header, validator common.Address) error {
 
-	/*
-		coinbase := header.Coinbase
-		balance := state.GetBalance(consensus.SystemAddress)
-		///fmt.Println("accumulateRewards coinbase, balance", coinbase, balance)
-
-		if balance.Cmp(common.Big0) <= 0 {
-			return nil
-		}
-		state.SetBalance(consensus.SystemAddress, big.NewInt(0))
-		state.AddBalance(coinbase, balance)
-		///fmt.Println("accumulateRewards coinbase, balance ...", coinbase, balance)
-
-		////doDistributeSysReward := state.GetBalance(common.HexToAddress(systemcontracts.GetStakingContract_Address_String())).Cmp(maxSystemBalance) < 0
-		////if doDistributeSysReward {
-		var rewards = new(big.Int)
-		rewards = rewards.Rsh(balance, systemRewardPercent)
-		if rewards.Cmp(common.Big0) > 0 {
-			log.Trace("accumulateRewards to system reward pool", "block number", header.Number, "amount", rewards)
-			balance = balance.Sub(balance, rewards)
-		}
-		///}
-		log.Trace("accumulateRewards to validator contract", "block hash", header.Number, "amount", balance)
-
-		///fmt.Println("accumulateRewards coinbase, rewards, balance", coinbase, rewards, balance)
-	*/
-	// Skip block reward in catalyst mode
-
-	////if config.IsCatalyst(header.Number) {
-	////	return
-	////}
 	// Select the correct block reward based on chain progression
 	blockReward := FrontierBlockReward
 	// Accumulate the rewards for the miner and any included uncles
@@ -1055,13 +892,8 @@ func (c *ProofOfStake) accumulateRewards(state *state.StateDB, header *types.Hea
 	r.Div(r, big8)
 	r.Div(blockReward, big32)
 	reward.Add(reward, r)
-	///fmt.Println("accumulateRewards .... header.Number, validator, reward", header.Number, validator, reward)
+	state.AddBalance(validator, reward)
 
-	number := header.Number.Uint64()
-	if int64(number) >= (shiftBlockNumber + 300) {
-		state.AddBalance(validator, reward)
-		///fmt.Println("accumulateRewards .... OK")
-	}
 	return nil
 }
 

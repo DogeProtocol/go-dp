@@ -18,8 +18,8 @@ package node
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -350,14 +350,14 @@ func (c *Config) instanceDir() string {
 // NodeKey retrieves the currently configured private key of the node, checking
 // first any manually set key, falling back to the one found in the configured
 // data folder. If no key can be found, a new one is generated.
-func (c *Config) NodeKey() *oqs.PrivateKey {
+func (c *Config) NodeKey() *signaturealgorithm.PrivateKey {
 	// Use any specifically configured key.
 	if c.P2P.PrivateKey != nil {
 		return c.P2P.PrivateKey
 	}
 	// Generate ephemeral key if no datadir is being used.
 	if c.DataDir == "" {
-		key, err := cryptopq.GenerateKey()
+		key, err := cryptobase.SigAlg.GenerateKey()
 		if err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
@@ -365,11 +365,11 @@ func (c *Config) NodeKey() *oqs.PrivateKey {
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, err := cryptopq.LoadOQS(keyfile); err == nil {
+	if key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(keyfile); err == nil {
 		return key
 	}
 	// No persistent key found, generate and store a new one.
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
 	}
@@ -379,7 +379,7 @@ func (c *Config) NodeKey() *oqs.PrivateKey {
 		return key
 	}
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := cryptopq.SaveOQS(keyfile, key); err != nil {
+	if err := cryptobase.SigAlg.SavePrivateKeyToFile(keyfile, key); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
 	return key

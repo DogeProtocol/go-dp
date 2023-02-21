@@ -17,9 +17,8 @@
 package tracers
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"math/big"
 	"path/filepath"
@@ -123,7 +122,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
 		new(big.Int), 5000000, big.NewInt(1), []byte{})
 
-	privateKeyOQS, err := cryptopq.GenerateKey()
+	privateKeyOQS, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}
@@ -300,10 +299,10 @@ func jsonEqual(x, y interface{}) bool {
 }
 
 func BenchmarkTransactionTrace(b *testing.B) {
-	privtestkey, _ := cryptopq.GenerateKey()
-	hextestkey := hex.EncodeToString(privtestkey.D.Bytes())
-	key, _ := cryptopq.HexToOQS(hextestkey)
-	from, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	privtestkey, _ := cryptobase.SigAlg.GenerateKey()
+	hextestkey, _ := cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	key, _ := cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	from, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		b.Fatal(err)
 	}

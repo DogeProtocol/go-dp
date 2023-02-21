@@ -18,27 +18,25 @@ package enode
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"golang.org/x/crypto/sha3"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/cryptopq"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 )
 
-
-var(
-	h = sha3.NewLegacyKeccak256()
-	keyTest1, _  = cryptopq.GenerateKey()
-	hexprvkeytest1 = hex.EncodeToString(keyTest1.D.Bytes())
-	hexpubkeytest1 = hex.EncodeToString(keyTest1.N.Bytes())
-	signTest1, _ = cryptopq.Sign(h.Sum(nil), keyTest1)
-	hexsigntest1 = base64.RawURLEncoding.EncodeToString(signTest1)
+var (
+	h                 = sha3.NewLegacyKeccak256()
+	keyTest1, _       = cryptobase.SigAlg.GenerateKey()
+	hexprvkeytest1, _ = cryptobase.SigAlg.PrivateKeyToHex(keyTest1)
+	hexpubkeytest1, _ = cryptobase.SigAlg.PublicKeyToHex(&keyTest1.PublicKey)
+	signTest1, _      = cryptobase.SigAlg.Sign(h.Sum(nil), keyTest1)
+	hexsigntest1      = base64.RawURLEncoding.EncodeToString(signTest1)
 )
 
 func init() {
@@ -58,9 +56,9 @@ var parseNodeTests = []struct {
 	// Records
 	{
 
-		input : "dynamic1",
+		input: "dynamic1",
 		wantResult: func() *Node {
-			testKey, _ := cryptopq.HexToOQS(hexprvkeytest1)
+			testKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexprvkeytest1)
 			var r enr.Record
 			r.Set(enr.IP{127, 0, 0, 1})
 			r.Set(enr.UDP(30303))
@@ -80,8 +78,8 @@ var parseNodeTests = []struct {
 		wantError: "illegal base64 data at input byte 0",
 	},
 	{
-		input:     "dynamic2",
-	
+		input: "dynamic2",
+
 		wantError: enr.ErrInvalidSig.Error(),
 	},
 	// Complete node URLs with IP address and ports
@@ -90,15 +88,15 @@ var parseNodeTests = []struct {
 		wantError: `no such host`,
 	},
 	{
-		input:     "enode://" + hexpubkeytest1 +"@127.0.0.1:foo",
+		input:     "enode://" + hexpubkeytest1 + "@127.0.0.1:foo",
 		wantError: `invalid port`,
 	},
 	{
-		input:     "enode://" + hexpubkeytest1 +"@127.0.0.1:3?discport=foo",
+		input:     "enode://" + hexpubkeytest1 + "@127.0.0.1:3?discport=foo",
 		wantError: `invalid discport in query`,
 	},
 	{
-		input: "enode://" +  hexpubkeytest1 +"@127.0.0.1:52150",
+		input: "enode://" + hexpubkeytest1 + "@127.0.0.1:52150",
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
 			net.IP{127, 0, 0, 1},
@@ -107,7 +105,7 @@ var parseNodeTests = []struct {
 		),
 	},
 	{
-		input: "enode://"+ hexpubkeytest1 +"@[::]:52150",
+		input: "enode://" + hexpubkeytest1 + "@[::]:52150",
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
 			net.ParseIP("::"),
@@ -116,7 +114,7 @@ var parseNodeTests = []struct {
 		),
 	},
 	{
-		input: "enode://"+ hexpubkeytest1 +"@[2001:db8:3c4d:15::abcd:ef12]:52150",
+		input: "enode://" + hexpubkeytest1 + "@[2001:db8:3c4d:15::abcd:ef12]:52150",
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
 			net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
@@ -125,7 +123,7 @@ var parseNodeTests = []struct {
 		),
 	},
 	{
-		input: "enode://"+ hexpubkeytest1 +"@127.0.0.1:52150?discport=22334",
+		input: "enode://" + hexpubkeytest1 + "@127.0.0.1:52150?discport=22334",
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
 			net.IP{0x7f, 0x0, 0x0, 0x1},
@@ -172,7 +170,7 @@ var parseNodeTests = []struct {
 	},
 }
 
-func hexPubkey(h string) *oqs.PublicKey {
+func hexPubkey(h string) *signaturealgorithm.PublicKey {
 	k, err := parsePubkey(h)
 	if err != nil {
 		panic(err)
@@ -181,7 +179,7 @@ func hexPubkey(h string) *oqs.PublicKey {
 }
 
 func TestParseNode(t *testing.T) {
-	testKey, _ := cryptopq.HexToOQS(hexprvkeytest1)
+	testKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexprvkeytest1)
 
 	var r enr.Record
 	r.Set(enr.IP{127, 0, 0, 1})
@@ -196,10 +194,10 @@ func TestParseNode(t *testing.T) {
 	result2, _ := New(ValidSchemes, &r1)
 
 	for _, test := range parseNodeTests {
-		if test.input == "dynamic1"{
+		if test.input == "dynamic1" {
 			test.input = result1.String()
 		}
-		if test.input == "dynamic2"{
+		if test.input == "dynamic2" {
 			test.input = result2.String()
 		}
 		_, err := Parse(ValidSchemes, test.input)
@@ -217,7 +215,7 @@ func TestParseNode(t *testing.T) {
 				t.Errorf("test %q:\n  unexpected error: %v", test.input, err)
 				continue
 			}
-		
+
 		}
 	}
 }
@@ -226,8 +224,8 @@ func TestNodeString(t *testing.T) {
 	for i, test := range parseNodeTests {
 		if test.wantError == "" && strings.HasPrefix(test.input, "enode://") {
 			n, _ := Parse(ValidSchemes, test.input)
-			if !reflect.DeepEqual(n, test.wantResult)  {
-				t.Errorf("test %d:\n  result mismatch:\ngot:  %#v\nwant: %#v", i,  n, test.wantResult)
+			if !reflect.DeepEqual(n, test.wantResult) {
+				t.Errorf("test %d:\n  result mismatch:\ngot:  %#v\nwant: %#v", i, n, test.wantResult)
 			}
 		}
 	}

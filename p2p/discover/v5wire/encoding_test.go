@@ -19,9 +19,11 @@ package v5wire
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"net"
 	"os"
@@ -33,7 +35,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/cryptopq"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
@@ -43,9 +44,9 @@ import (
 var writeTestVectorsFlag = flag.Bool("write-test-vectors", false, "Overwrite discv5 test vectors in testdata/")
 
 var (
-	testKeyA, _   = cryptopq.HexToOQS("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
-	testKeyB, _   = cryptopq.HexToOQS("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
-	testEphKey, _ = cryptopq.HexToOQS("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
+	testKeyA, _   = cryptobase.SigAlg.HexToPrivateKey("eef77acb6c6a6eebc5b363a475ac583ec7eccdb42b6481424c60f59aa326547f")
+	testKeyB, _   = cryptobase.SigAlg.HexToPrivateKey("66fb62bfbd66b9177a138c1e5cddbe4f7c30c343e94e68df8769459cb1cde628")
+	testEphKey, _ = cryptobase.SigAlg.HexToPrivateKey("0288ef00023598499cb6c940146d050d2b1fb914198c327f76aad590bead68b6")
 	testIDnonce   = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 )
 
@@ -69,7 +70,11 @@ func TestMinSizes(t *testing.T) {
 // This test checks the basic handshake flow where A talks to B and A has no secrets.
 func TestHandshake(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	defer net.close()
 
 	// A -> B   RANDOM PACKET
@@ -100,7 +105,10 @@ func TestHandshake(t *testing.T) {
 // This test checks that handshake attempts are removed within the timeout.
 func TestHandshake_timeout(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	// A -> B   RANDOM PACKET
@@ -125,7 +133,10 @@ func TestHandshake_timeout(t *testing.T) {
 // This test checks handshake behavior when no record is sent in the auth response.
 func TestHandshake_norecord(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	// A -> B   RANDOM PACKET
@@ -159,7 +170,10 @@ func TestHandshake_norecord(t *testing.T) {
 // anything about A.
 func TestHandshake_rekey(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	session := &session{
@@ -198,7 +212,10 @@ func TestHandshake_rekey(t *testing.T) {
 // In this test A and B have different keys before the handshake.
 func TestHandshake_rekey2(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	initKeysA := &session{
@@ -232,7 +249,10 @@ func TestHandshake_rekey2(t *testing.T) {
 
 func TestHandshake_BadHandshakeAttack(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	// A -> B   RANDOM PACKET
@@ -272,7 +292,10 @@ func TestHandshake_BadHandshakeAttack(t *testing.T) {
 // This test checks some malformed packets.
 func TestDecodeErrorsV5(t *testing.T) {
 	t.Parallel()
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer net.close()
 
 	net.nodeA.expectDecodeErr(t, errTooShort, []byte{})
@@ -283,6 +306,9 @@ func TestDecodeErrorsV5(t *testing.T) {
 
 // This test checks that all test vectors can be decoded.
 func TestTestVectorsV5(t *testing.T) {
+	if testKeyA == nil || testKeyB == nil {
+		t.Fatal("keys are nil")
+	}
 	var (
 		idA     = enode.PubkeyToIDV4(&testKeyA.PublicKey)
 		idB     = enode.PubkeyToIDV4(&testKeyB.PublicKey)
@@ -301,7 +327,10 @@ func TestTestVectorsV5(t *testing.T) {
 	}
 	challenge0A, challenge1A, challenge0B = c, c, c
 	challenge1A.RecordSeq = 1
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	challenge0A.Node = net.nodeA.n()
 	challenge0B.Node = net.nodeB.n()
 	challenge1A.Node = net.nodeA.n()
@@ -360,7 +389,10 @@ func TestTestVectorsV5(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			net := newHandshakeTest()
+			net, err := newHandshakeTest()
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer net.close()
 
 			// Override all random inputs.
@@ -370,7 +402,7 @@ func TestTestVectorsV5(t *testing.T) {
 			net.nodeA.c.sc.maskingIVGen = func(buf []byte) error {
 				return nil // all zero
 			}
-			net.nodeA.c.sc.ephemeralKeyGen = func() (*oqs.PrivateKey, error) {
+			net.nodeA.c.sc.ephemeralKeyGen = func() (*signaturealgorithm.PrivateKey, error) {
 				return testEphKey, nil
 			}
 
@@ -417,8 +449,8 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 			// Handshake message packet.
 			fmt.Fprint(o, "\nhandshake inputs:\n\n")
 			printWhoareyou(challenge)
-			fmt.Fprintf(o, "ephemeral-key = %#x\n", testEphKey.D.Bytes())
-			fmt.Fprintf(o, "ephemeral-pubkey = %#x\n", cryptopq.CompressPubkey(&testEphKey.PublicKey))
+			//fmt.Fprintf(o, "ephemeral-key = %#x\n", cryptobase.SigAlg.PrivateKeyAsBigInt(testEphKey))
+
 		}
 	default:
 		panic(fmt.Errorf("unhandled packet type %T", p))
@@ -428,7 +460,10 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 
 // This benchmark checks performance of handshake packet decoding.
 func BenchmarkV5_DecodeHandshakePingSecp256k1(b *testing.B) {
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer net.close()
 
 	var (
@@ -456,7 +491,10 @@ func BenchmarkV5_DecodeHandshakePingSecp256k1(b *testing.B) {
 
 // This benchmark checks how long it takes to decode an encrypted ping packet.
 func BenchmarkV5_DecodePing(b *testing.B) {
-	net := newHandshakeTest()
+	net, err := newHandshakeTest()
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer net.close()
 
 	session := &session{
@@ -495,11 +533,15 @@ type handshakeTestNode struct {
 	c  *Codec
 }
 
-func newHandshakeTest() *handshakeTest {
+func newHandshakeTest() (*handshakeTest, error) {
 	t := new(handshakeTest)
+	if testKeyA == nil || testKeyB == nil {
+		return nil, errors.New("keys are nil")
+	}
+
 	t.nodeA.init(testKeyA, net.IP{127, 0, 0, 1}, &t.clock)
 	t.nodeB.init(testKeyB, net.IP{127, 0, 0, 1}, &t.clock)
-	return t
+	return t, nil
 }
 
 func (t *handshakeTest) close() {
@@ -507,7 +549,7 @@ func (t *handshakeTest) close() {
 	t.nodeB.ln.Database().Close()
 }
 
-func (n *handshakeTestNode) init(key *oqs.PrivateKey, ip net.IP, clock mclock.Clock) {
+func (n *handshakeTestNode) init(key *signaturealgorithm.PrivateKey, ip net.IP, clock mclock.Clock) {
 	db, _ := enode.OpenDB("")
 	n.ln = enode.NewLocalNode(db, key)
 	n.ln.SetStaticIP(ip)

@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"mime"
 	"reflect"
@@ -655,11 +655,11 @@ func (api *SignerAPI) EcRecover(ctx context.Context, data hexutil.Bytes, sig hex
 	// https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_ecRecover
 
 	hash := accounts.TextHash(data)
-	rpk, err := cryptopq.SigToPub(hash, sig)
+	rpk, err := cryptobase.SigAlg.PublicKeyFromSignature(hash, sig)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return cryptopq.PubkeyToAddress(*rpk)
+	return cryptobase.SigAlg.PublicKeyToAddress(&*rpk)
 }
 
 // UnmarshalValidatorData converts the bytes input to typed data

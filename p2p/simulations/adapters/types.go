@@ -20,8 +20,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"os"
 	"strconv"
@@ -84,7 +84,7 @@ type NodeConfig struct {
 
 	// PrivateKey is the node's private key which is used by the devp2p
 	// stack to encrypt communications
-	PrivateKey *oqs.PrivateKey
+	PrivateKey *signaturealgorithm.PrivateKey
 
 	// Enable peer events for Msgs
 	EnableMsgEvents bool
@@ -160,7 +160,7 @@ func (n *NodeConfig) MarshalJSON() ([]byte, error) {
 		LogVerbosity:    int(n.LogVerbosity),
 	}
 	if n.PrivateKey != nil {
-		priKeyData, err := cryptopq.FromOQS(n.PrivateKey)
+		priKeyData, err := cryptobase.SigAlg.SerializePrivateKey(n.PrivateKey)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +188,7 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		privKey, err := cryptopq.ToOQS(key)
+		privKey, err := cryptobase.SigAlg.DeserializePrivateKey(key)
 		if err != nil {
 			return err
 		}
@@ -214,7 +214,7 @@ func (n *NodeConfig) Node() *enode.Node {
 // RandomNodeConfig returns node configuration with a randomly generated ID and
 // PrivateKey
 func RandomNodeConfig() *NodeConfig {
-	prvkey, err := cryptopq.GenerateKey()
+	prvkey, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic("unable to generate key")
 	}

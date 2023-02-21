@@ -18,7 +18,7 @@ package ethtest
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"net"
 	"reflect"
 	"strings"
@@ -69,7 +69,7 @@ func (s *Suite) dial() (*Conn, error) {
 	}
 	conn := Conn{Conn: rlpx.NewConn(fd, s.Dest.Pubkey(), connDetails)}
 	// do encHandshake
-	conn.ourKey, _ = cryptopq.GenerateKey()
+	conn.ourKey, _ = cryptobase.SigAlg.GenerateKey()
 	_, err = conn.Handshake(conn.ourKey)
 	if err != nil {
 		conn.Close()
@@ -114,7 +114,7 @@ func (c *Conn) handshake() error {
 	defer c.SetDeadline(time.Time{})
 	c.SetDeadline(time.Now().Add(10 * time.Second))
 	// write hello to client
-	pubKey, err := cryptopq.FromOQSPub(&c.ourKey.PublicKey)
+	pubKey, err := cryptobase.SigAlg.SerializePublicKey(&c.ourKey.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -533,7 +533,7 @@ func (s *Suite) maliciousHandshakes(t *utesting.T, isEth66 bool) error {
 	}
 	defer conn.Close()
 	// write hello to client
-	pubKey, err := cryptopq.FromOQSPub(&conn.ourKey.PublicKey)
+	pubKey, err := cryptobase.SigAlg.SerializePublicKey(&conn.ourKey.PublicKey)
 	if err != nil {
 		return err
 	}

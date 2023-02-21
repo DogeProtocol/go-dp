@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -219,7 +219,7 @@ func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected boo
 		// must already be equal to the recovery id.
 		plainV = byte(v.Uint64())
 	}
-	if !cryptopq.ValidateSignatureValues(plainV, r, s, false) {
+	if !cryptobase.SigAlg.ValidateSignatureValues(plainV, r, s, false) {
 		return ErrInvalidSig
 	}
 

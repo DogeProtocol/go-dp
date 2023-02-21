@@ -4,6 +4,9 @@ package oqs
 
 import (
 	"bytes"
+	"crypto/rand"
+	"fmt"
+	"io"
 	"log"
 	"sync"
 	"testing"
@@ -17,6 +20,10 @@ var wgKEMWrongCiphertext sync.WaitGroup
 
 // testKEMCorrectness tests the correctness of a specific KEM.
 func testKEMCorrectness(threading bool, t *testing.T) {
+	InitOqs()
+
+	fmt.Println(EnabledKEMs())
+
 	log.Println("Correctness - ", KemName) // thread-safe
 	if threading == true {
 		defer wgKEMCorrectness.Done()
@@ -117,4 +124,12 @@ func TestUnsupportedKeyEncapsulation(t *testing.T) {
 	if err := client.Init("unsupported_kem", nil); err == nil {
 		t.Errorf("Unsupported KEM should have emitted an error")
 	}
+}
+
+func csprngEntropy(n int) []byte {
+	buf := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		panic("reading from crypto/rand failed: " + err.Error())
+	}
+	return buf
 }

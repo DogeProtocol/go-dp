@@ -19,7 +19,7 @@ package types_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io"
 	"math/big"
 	mrand "math/rand"
@@ -143,11 +143,11 @@ func TestDerivableList(t *testing.T) {
 }
 
 func genTxs(num uint64) (types.Transactions, error) {
-	key, err := cryptopq.HexToOQS("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	key, err := cryptobase.SigAlg.HexToPrivateKey("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 	if err != nil {
 		return nil, err
 	}
-	var addr = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+	var addr = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 	newTx := func(i uint64) (*types.Transaction, error) {
 		signer := types.NewEIP155Signer(big.NewInt(18))
 		utx := types.NewTransaction(i, addr, new(big.Int), 0, new(big.Int).SetUint64(10000000), nil)

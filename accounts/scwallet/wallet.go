@@ -26,7 +26,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"regexp"
 	"sort"
@@ -880,6 +880,7 @@ func (s *Session) walletStatus() (*walletStatus, error) {
 }
 
 // derivationPath fetches the wallet's current derivation path from the card.
+//
 //lint:ignore U1000 needs to be added to the console interface
 func (s *Session) derivationPath() (accounts.DerivationPath, error) {
 	response, err := s.Channel.transmitEncrypted(claSCWallet, insStatus, statusP1Path, 0, nil)
@@ -918,13 +919,13 @@ func (s *Session) initialize(seed []byte) error {
 	mac.Write(seed)
 	seed = mac.Sum(nil)
 
-	key, err := cryptopq.ToOQS(seed[:32])
+	key, err := cryptobase.SigAlg.DeserializePrivateKey(seed[:32])
 	if err != nil {
 		return err
 	}
 
 	id := initializeData{}
-	pubKeyData, err := cryptopq.FromOQSPub(&key.PublicKey)
+	pubKeyData, err := cryptobase.SigAlg.SerializePublicKey(&key.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -992,11 +993,11 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 	if err := confirmPublicKey(sig, sigdata.PublicKey); err != nil {
 		return accounts.Account{}, err
 	}
-	pub, err := cryptopq.UnmarshalPubkey(sigdata.PublicKey)
+	pub, err := cryptobase.SigAlg.DeserializePublicKey(sigdata.PublicKey)
 	if err != nil {
 		return accounts.Account{}, err
 	}
-	pubKeyAddrress, err := cryptopq.PubkeyToAddress(*pub)
+	pubKeyAddrress, err := cryptobase.SigAlg.PublicKeyToAddress(&*pub)
 	if err != nil {
 		return accounts.Account{}, err
 	}
@@ -1004,6 +1005,7 @@ func (s *Session) derive(path accounts.DerivationPath) (accounts.Account, error)
 }
 
 // keyExport contains information on an exported keypair.
+//
 //lint:ignore U1000 needs to be added to the console interface
 type keyExport struct {
 	PublicKey  []byte `asn1:"tag:0"`
@@ -1011,6 +1013,7 @@ type keyExport struct {
 }
 
 // publicKey returns the public key for the current derivation path.
+//
 //lint:ignore U1000 needs to be added to the console interface
 func (s *Session) publicKey() ([]byte, error) {
 	response, err := s.Channel.transmitEncrypted(claSCWallet, insExportKey, exportP1Any, exportP2Pubkey, nil)
@@ -1081,7 +1084,7 @@ func confirmPublicKey(sig, pubkey []byte) error {
 func makeRecoverableSignature(hash, sig, expectedPubkey []byte) ([]byte, error) {
 	var libraryError error
 	for v := 0; v < 2; v++ {
-		if pubkey, err := cryptopq.RecoverPublicKey(hash, sig); err == nil {
+		if pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(hash, sig); err == nil {
 			if bytes.Equal(pubkey, expectedPubkey) {
 				return sig, nil
 			}

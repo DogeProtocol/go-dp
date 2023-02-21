@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -338,9 +338,9 @@ func accountImport(ctx *cli.Context) error {
 	if len(keyfile) == 0 {
 		utils.Fatalf("keyfile must be given as argument")
 	}
-	key, err := cryptopq.LoadOQS(keyfile)
+	key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(keyfile)
 	if err != nil {
-		utils.Fatalf("Failed to load the private key: %v", err)
+		utils.Fatalf("Failed to load the private key from file: %v", err)
 	}
 	stack, _ := makeConfigNode(ctx)
 	passphrase := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))

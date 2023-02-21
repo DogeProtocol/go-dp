@@ -18,6 +18,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -121,6 +122,53 @@ func TestTrimRightZeroes(t *testing.T) {
 		got := TrimRightZeroes(test.arr)
 		if !bytes.Equal(got, test.exp) {
 			t.Errorf("test %d, got %x exp %x", i, got, test.exp)
+		}
+	}
+}
+
+func TestCombineExtractParts(t *testing.T) {
+	part1 := []byte("HELLO ")
+	part2 := []byte("WORLD")
+
+	combined := CombineTwoParts(part1, part2)
+
+	if len(part1) != 6 {
+		t.Fatal("incorrect part1 length")
+	}
+
+	if len(part2) != 5 {
+		t.Fatal("incorrect part1 length")
+	}
+
+	if len(combined) != len(part1)+len(part2)+LengthByteSize+LengthByteSize {
+		t.Errorf("length validation failed")
+	}
+
+	part1Extracted, part2Extracted, err := ExtractTwoParts(combined)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(part1Extracted, part1) {
+		t.Errorf("extract problem")
+	}
+
+	if !bytes.Equal(part2Extracted, part2) {
+		t.Errorf("extract problem")
+	}
+
+	_, _, err = ExtractTwoParts(combined[:2])
+	if err == nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLenConversion(t *testing.T) {
+	for i := 1; i <= MaxLenSize; i++ {
+		b := LenToBytes(i)
+		len := BytesToLen(b[:])
+		if i != len {
+			fmt.Println(i, len)
+			t.Fatalf("TestLenConversionFailed")
 		}
 	}
 }

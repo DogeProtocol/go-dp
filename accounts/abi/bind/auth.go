@@ -20,8 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -84,9 +84,9 @@ func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account
 // from a single private key.
 //
 // Deprecated: Use NewKeyedTransactorWithChainID instead.
-func NewKeyedTransactor(key *oqs.PrivateKey) *TransactOpts {
+func NewKeyedTransactor(key *signaturealgorithm.PrivateKey) *TransactOpts {
 	log.Warn("WARNING: NewKeyedTransactor has been deprecated in favour of NewKeyedTransactorWithChainID")
-	keyAddr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	keyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		fmt.Errorf("error in PubkeyToAddress")
 		return nil
@@ -98,7 +98,8 @@ func NewKeyedTransactor(key *oqs.PrivateKey) *TransactOpts {
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
-			signature, err := cryptopq.Sign(signer.Hash(tx).Bytes(), key)
+			digestHash := signer.Hash(tx).Bytes()
+			signature, err := cryptobase.SigAlg.Sign(digestHash, key)
 			if err != nil {
 				return nil, err
 			}
@@ -147,8 +148,8 @@ func NewKeyStoreTransactorWithChainID(keystore *keystore.KeyStore, account accou
 
 // NewKeyedTransactorWithChainID is a utility method to easily create a transaction signer
 // from a single private key.
-func NewKeyedTransactorWithChainID(key *oqs.PrivateKey, chainID *big.Int) (*TransactOpts, error) {
-	keyAddr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+func NewKeyedTransactorWithChainID(key *signaturealgorithm.PrivateKey, chainID *big.Int) (*TransactOpts, error) {
+	keyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func NewKeyedTransactorWithChainID(key *oqs.PrivateKey, chainID *big.Int) (*Tran
 			if address != keyAddr {
 				return nil, ErrNotAuthorized
 			}
-			signature, err := cryptopq.Sign(signer.Hash(tx).Bytes(), key)
+			signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), key)
 			if err != nil {
 				return nil, err
 			}

@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"io/ioutil"
@@ -112,7 +112,7 @@ func deposit(contractAddress string,
 				log.Println(e + " GETH_STAKING_VALIDATOR_PASS")
 				return
 			}
-			_, err := cryptopq.FromOQSPub(&validatorKey.PrivateKey.PublicKey)
+			_, err := cryptobase.SigAlg.SerializePublicKey(&validatorKey.PrivateKey.PublicKey)
 			if err != nil {
 				panic(err)
 			}
@@ -124,8 +124,13 @@ func deposit(contractAddress string,
 		return
 	}
 
-	if len(pubKey) >= oqs.PublicKeyLen {
-		if depositorKey != nil && len(depositorKey.PrivateKey.D.Bytes()) >= oqs.PrivateKeyLen {
+	if len(pubKey) >= cryptobase.SigAlg.PublicKeyLength() {
+		priBytes, err := cryptobase.SigAlg.SerializePrivateKey(depositorKey.PrivateKey)
+		if err != nil {
+			panic(err)
+		}
+
+		if depositorKey != nil && len(priBytes) >= cryptobase.SigAlg.PrivateKeyLength() {
 			tx, err := depositContract(depositorAddress, contractAddress, pubKey,
 				depositorKey.PrivateKey, depositAmount)
 			if err != nil {
@@ -143,7 +148,7 @@ func deposit(contractAddress string,
 }
 
 func depositContract(fromaddress string, contractaddress string, pubKey []byte,
-	key *oqs.PrivateKey, depositAmount string) (string, error) {
+	key *signaturealgorithm.PrivateKey, depositAmount string) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {

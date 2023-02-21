@@ -17,9 +17,8 @@
 package ethtest
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"strings"
 	"time"
@@ -32,9 +31,9 @@ import (
 
 //var faucetAddr = common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7")
 
-var key, _  = cryptopq.GenerateKey()
-var hexkey = hex.EncodeToString(key.D.Bytes())
-var faucetKey, _ = cryptopq.HexToOQS(hexkey)
+var key, _ = cryptobase.SigAlg.GenerateKey()
+var hexkey, _ = cryptobase.SigAlg.PrivateKeyToHex(key)
+var faucetKey, _ = cryptobase.SigAlg.HexToPrivateKey(hexkey)
 
 func (s *Suite) sendSuccessfulTxs(t *utesting.T, isEth66 bool) error {
 	tests := []*types.Transaction{

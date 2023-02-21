@@ -33,7 +33,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io"
 	"io/ioutil"
 	"os"
@@ -41,7 +41,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
@@ -185,7 +184,13 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 // EncryptKey encrypts a key using the specified scrypt parameters into a json
 // blob that can be decrypted later on.
 func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
-	keyBytes := math.PaddedBigBytes(key.PrivateKey.D, 32)
+
+	//keyBytes := math.PaddedBigBytes(cryptobase.SigAlg.PrivateKeyAsBigInt(key.PrivateKey), 32)
+	keyBytes, err := cryptobase.SigAlg.SerializePrivateKey(key.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
 	cryptoStruct, err := EncryptDataV3(keyBytes, []byte(auth), scryptN, scryptP)
 	if err != nil {
 		return nil, err
@@ -228,13 +233,16 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := cryptopq.ToOQSUnsafe(keyBytes)
+	key, err := cryptobase.SigAlg.DeserializePrivateKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
 	id, err := uuid.FromBytes(keyId)
 	if err != nil {
 		return nil, err
 	}
 
-	pubKeyAddress, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		return nil, err
 	}

@@ -17,9 +17,8 @@
 package core
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -31,19 +30,19 @@ import (
 
 func ExampleGenerateChain() {
 	var (
-		privtestkey1, _ = cryptopq.GenerateKey()
-		hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
-		privtestkey2, _ = cryptopq.GenerateKey()
-		hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
-		privtestkey3, _ = cryptopq.GenerateKey()
-		hextestkey3     = hex.EncodeToString(privtestkey3.D.Bytes())
+		privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
+		privtestkey2, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey2, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey2)
+		privtestkey3, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey3, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey3)
 
-		key1, _ = cryptopq.HexToOQS(hextestkey1)
-		key2, _ = cryptopq.HexToOQS(hextestkey2)
-		key3, _ = cryptopq.HexToOQS(hextestkey3)
-		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
-		addr2   = cryptopq.PubkeyToAddressNoError(key2.PublicKey)
-		addr3   = cryptopq.PubkeyToAddressNoError(key3.PublicKey)
+		key1, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey1)
+		key2, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey2)
+		key3, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey3)
+		addr1   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
+		addr2   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key2.PublicKey)
+		addr3   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key3.PublicKey)
 		db      = rawdb.NewMemoryDatabase()
 	)
 

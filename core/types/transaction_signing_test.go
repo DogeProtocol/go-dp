@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -26,8 +26,8 @@ import (
 )
 
 func TestEIP155Signing(t *testing.T) {
-	key, _ := cryptopq.GenerateKey()
-	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptobase.SigAlg.GenerateKey()
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,8 +48,8 @@ func TestEIP155Signing(t *testing.T) {
 }
 
 func TestEIP155ChainId(t *testing.T) {
-	key, _ := cryptopq.GenerateKey()
-	addr, err := cryptopq.PubkeyToAddress(key.PublicKey)
+	key, _ := cryptobase.SigAlg.GenerateKey()
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}

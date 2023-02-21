@@ -19,17 +19,14 @@ package v4wire
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
-	"math/big"
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -129,11 +126,34 @@ const MaxNeighbors = 1
 // }
 
 // Pubkey represents an encoded 64-byte secp256k1 public key.
-type Pubkey [oqs.PublicKeyLen]byte
+
+type Pubkey struct {
+	PubBytes []byte
+}
+
+func WirePubKeyEquals(pub1 Pubkey, pub2 Pubkey) bool {
+	if bytes.Compare(pub1.PubBytes, pub2.PubBytes) == 0 {
+		return true
+	}
+
+	return false
+}
+
+func CreateWirePubKey(pubBytes []byte) Pubkey {
+	return Pubkey{PubBytes: pubBytes}
+}
+
+func CreateWirePubKeyFromSigAlg(pubKey *signaturealgorithm.PublicKey) Pubkey {
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+	return Pubkey{PubBytes: pubBytes}
+}
 
 // ID returns the node ID corresponding to the public key.
 func (e Pubkey) ID() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+	return enode.ID(crypto.Keccak256Hash(e.PubBytes))
 }
 
 // Node represents information about a node.
@@ -207,18 +227,18 @@ var (
 func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 
 	inputSize := len(input)
-	if inputSize < macSize+oqs.SignerLength {
+	if inputSize < macSize {
 
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
 
-	sigSize := int(binary.LittleEndian.Uint64(input[macSize : macSize+oqs.SignerLength]))
-	if sigSize < oqs.SignatureLen || sigSize > inputSize {
-
+	//sigSize := int(binary.LittleEndian.Uint64(input[macSize : macSize+common.LengthByteSize]))
+	sigSize := cryptobase.SigAlg.SignatureWithPublicKeyLength() //todo: make this dynamic
+	if sigSize > inputSize {
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
 
-	headSize := inputSize - sigSize - oqs.SignerLength - macSize
+	headSize := inputSize - sigSize - macSize
 	if headSize < 0 || headSize > inputSize {
 
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
@@ -244,7 +264,6 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 
 	fromKey, err := recoverNodeKey(digest, sig)
 	if err != nil {
-
 		return nil, fromKey, hash, err
 	}
 
@@ -274,7 +293,7 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 }
 
 // Encode encodes a discovery packet.
-func Encode(priv *oqs.PrivateKey, req Packet) (packet, hash []byte, err error) {
+func Encode(priv *signaturealgorithm.PrivateKey, req Packet) (packet, hash []byte, err error) {
 	b := new(bytes.Buffer)
 
 	b.WriteByte(req.Kind())
@@ -286,7 +305,7 @@ func Encode(priv *oqs.PrivateKey, req Packet) (packet, hash []byte, err error) {
 
 	digest := crypto.Keccak256(packetreq[:])
 
-	sig, err := cryptopq.Sign(digest, priv)
+	sig, err := cryptobase.SigAlg.Sign(digest, priv)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -302,26 +321,32 @@ func Encode(priv *oqs.PrivateKey, req Packet) (packet, hash []byte, err error) {
 
 // recoverNodeKey computes the public key used to sign the given hash from the signature.
 func recoverNodeKey(hash, sig []byte) (key Pubkey, err error) {
-	pubkey, err := cryptopq.RecoverPublicKey(hash, sig)
+	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(hash, sig)
 	if err != nil {
 		return key, err
 	}
-	copy(key[:], pubkey[:])
+	key.PubBytes = make([]byte, len(pubkey))
+	copy(key.PubBytes, pubkey[:])
 	return key, nil
 }
 
 // EncodePubkey encodes a secp256k1 public key.
-func EncodePubkey(key *oqs.PublicKey) Pubkey {
+func EncodePubkey(key *signaturealgorithm.PublicKey) Pubkey {
 	var e Pubkey
-	math.ReadBits(key.N, e[:])
+	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(key)
+	if err != nil {
+		return e
+	}
+	e.PubBytes = make([]byte, len(pubBytes))
+	copy(e.PubBytes, pubBytes[:])
 	return e
 }
 
 // DecodePubkey reads an encoded secp256k1 public key.
 
-func DecodePubkey(e Pubkey) (*oqs.PublicKey, error) {
+func DecodePubkey(e Pubkey) (*signaturealgorithm.PublicKey, error) {
 
-	keyBytes := e[:] //todo: fix
+	keyBytes := e.PubBytes //todo: fix
 	count := 0
 	for _, v := range keyBytes {
 		if v == 0 {
@@ -329,11 +354,8 @@ func DecodePubkey(e Pubkey) (*oqs.PublicKey, error) {
 		}
 	}
 	if count == len(keyBytes) {
-
 		return nil, errors.New("all zero public key")
 	}
 
-	p := &oqs.PublicKey{N: new(big.Int)}
-	p.N.SetBytes(e[:])
-	return p, nil
+	return cryptobase.SigAlg.DecodePublicKey(keyBytes)
 }

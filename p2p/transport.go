@@ -19,8 +19,9 @@ package p2p
 import (
 	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
 	"io"
 	"net"
 	"sync"
@@ -52,7 +53,7 @@ type rlpxTransport struct {
 	conn     *rlpx.Conn
 }
 
-func newRLPX(conn net.Conn, dialDest *oqs.PublicKey, context string) transport {
+func newRLPX(conn net.Conn, dialDest *signaturealgorithm.PublicKey, context string) transport {
 	return &rlpxTransport{conn: rlpx.NewConn(conn, dialDest, context)}
 }
 
@@ -127,7 +128,7 @@ func (t *rlpxTransport) close(err error) {
 	t.conn.Close()
 }
 
-func (t *rlpxTransport) doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error) {
+func (t *rlpxTransport) doEncHandshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error) {
 
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
 
@@ -183,7 +184,7 @@ func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 		return nil, err
 	}
 
-	if len(hs.ID) != oqs.PublicKeyLen || !bitutil.TestBytes(hs.ID) {
+	if len(hs.ID) != cryptobase.SigAlg.PublicKeyLength() || !bitutil.TestBytes(hs.ID) {
 		return nil, DiscInvalidIdentity
 	}
 	return &hs, nil

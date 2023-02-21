@@ -17,7 +17,7 @@
 package keystore
 
 import (
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -347,7 +347,7 @@ func TestWalletNotifications(t *testing.T) {
 func TestImportKey(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
 	defer os.RemoveAll(dir)
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", key)
 	}

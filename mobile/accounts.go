@@ -21,7 +21,7 @@ package geth
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -199,7 +199,7 @@ func (ks *KeyStore) ImportKey(keyJSON []byte, passphrase, newPassphrase string) 
 
 // ImportAssymetricKey stores the given encrypted JSON key into the key directory.
 func (ks *KeyStore) ImportAssymetricKey(key []byte, passphrase string) (account *Account, _ error) {
-	privkey, err := cryptopq.ToOQS(common.CopyBytes(key))
+	privkey, err := cryptobase.SigAlg.DeserializePrivateKey(common.CopyBytes(key))
 	if err != nil {
 		return nil, err
 	}

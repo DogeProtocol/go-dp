@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"math/bits"
 	"net"
 	"strings"
@@ -129,8 +129,8 @@ func (n *Node) TCP() int {
 }
 
 // Pubkey returns the secp256k1 public key of the node, if present.
-func (n *Node) Pubkey() *oqs.PublicKey {
-	var key oqs.PublicKey
+func (n *Node) Pubkey() *signaturealgorithm.PublicKey {
+	var key signaturealgorithm.PublicKey
 	if n.Load((*PqPubKey)(&key)) != nil {
 		return nil
 	}

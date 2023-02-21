@@ -17,9 +17,8 @@
 package fetcher
 
 import (
-	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -38,10 +37,10 @@ import (
 var (
 	testdb = rawdb.NewMemoryDatabase()
 
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
-	testAddress    = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	testAddress    = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 	genesis        = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000000000))
 	unknownBlock   = types.NewBlock(&types.Header{GasLimit: params.GenesisGasLimit, BaseFee: big.NewInt(params.InitialBaseFee)}, nil, nil, nil, trie.NewStackTrie(nil))
 )

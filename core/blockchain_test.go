@@ -17,10 +17,9 @@
 package core
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -597,12 +596,12 @@ func testInsertNonceError(t *testing.T, full bool) {
 func TestFastVsFullChains(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -718,12 +717,12 @@ func TestFastVsFullChains(t *testing.T) {
 func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -839,19 +838,19 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 // Tests that chain reorganisations handle transaction removals and reinsertions.
 func TestChainTxReorgs(t *testing.T) {
 	var (
-		privtestkey1, _ = cryptopq.GenerateKey()
-		hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
-		privtestkey2, _ = cryptopq.GenerateKey()
-		hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
-		privtestkey3, _ = cryptopq.GenerateKey()
-		hextestkey3     = hex.EncodeToString(privtestkey3.D.Bytes())
+		privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
+		privtestkey2, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey2, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey2)
+		privtestkey3, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey3, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey3)
 
-		key1, _ = cryptopq.HexToOQS(hextestkey1)
-		key2, _ = cryptopq.HexToOQS(hextestkey2)
-		key3, _ = cryptopq.HexToOQS(hextestkey3)
-		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
-		addr2   = cryptopq.PubkeyToAddressNoError(key2.PublicKey)
-		addr3   = cryptopq.PubkeyToAddressNoError(key3.PublicKey)
+		key1, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey1)
+		key2, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey2)
+		key3, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey3)
+		addr1   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
+		addr2   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key2.PublicKey)
+		addr3   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key3.PublicKey)
 		db      = rawdb.NewMemoryDatabase()
 		gspec   = &Genesis{
 			Config:   params.TestChainConfig,
@@ -961,11 +960,11 @@ func TestChainTxReorgs(t *testing.T) {
 
 func TestLogReorgs(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
-		key1, _ = cryptopq.HexToOQS(hextestkey)
-		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		key1, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr1   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
 		db      = rawdb.NewMemoryDatabase()
 		// this code generates a log
 		code    = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
@@ -1020,11 +1019,11 @@ var logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd
 // when the chain reorganizes.
 func TestLogRebirth(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
-		key1, _       = cryptopq.HexToOQS(hextestkey)
-		addr1         = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		key1, _       = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr1         = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
 		db            = rawdb.NewMemoryDatabase()
 		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
 		genesis       = gspec.MustCommit(db)
@@ -1087,10 +1086,10 @@ func TestLogRebirth(t *testing.T) {
 // when a side chain containing log events overtakes the canonical chain.
 func TestSideLogRebirth(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-		key1, _        = cryptopq.HexToOQS(hextestkey)
-		addr1          = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+		key1, _        = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr1          = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
 		db             = rawdb.NewMemoryDatabase()
 		gspec          = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}}}
 		genesis        = gspec.MustCommit(db)
@@ -1159,11 +1158,11 @@ func checkLogEvents(t *testing.T, logsCh <-chan []*types.Log, rmLogsCh <-chan Re
 
 func TestReorgSideEvent(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		db             = rawdb.NewMemoryDatabase()
-		key1, _        = cryptopq.HexToOQS(hextestkey)
-		addr1          = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
+		key1, _        = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr1          = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
 		gspec          = &Genesis{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000000)}},
@@ -1292,11 +1291,11 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 func TestEIP155Transition(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		db             = rawdb.NewMemoryDatabase()
-		key, _         = cryptopq.HexToOQS(hextestkey)
-		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _         = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address        = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds          = big.NewInt(1000000000)
 		deleteAddr     = common.Address{1}
 		gspec          = &Genesis{
@@ -1397,11 +1396,11 @@ func TestEIP155Transition(t *testing.T) {
 func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		db             = rawdb.NewMemoryDatabase()
-		key, _         = cryptopq.HexToOQS(hextestkey)
-		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _         = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address        = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds          = big.NewInt(1000000000)
 		theAddr        = common.Address{1}
 		gspec          = &Genesis{
@@ -1613,12 +1612,12 @@ func TestLargeReorgTrieGC(t *testing.T) {
 func TestBlockchainRecovery(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
@@ -1674,12 +1673,12 @@ func TestBlockchainRecovery(t *testing.T) {
 func TestIncompleteAncientReceiptChainInsertion(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis = gspec.MustCommit(gendb)
@@ -1857,7 +1856,7 @@ func testSideImport(t *testing.T, numCanonBlocksInSidechain, blocksBetweenCommon
 // So the blocks are
 // [ Cn, Cn+1, Cc, Sn+3 ... Sm]
 
-//	^    ^    ^  pruned
+// ^    ^    ^  pruned
 func TestPrunedImportSide(t *testing.T) {
 	//glogger := log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(false)))
 	//glogger.Verbosity(3)
@@ -2117,12 +2116,12 @@ func TestReorgToShorterRemovesCanonMappingHeaderChain(t *testing.T) {
 func TestTransactionIndices(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		gendb   = rawdb.NewMemoryDatabase()
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(100000000000000000)
 		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
@@ -2251,11 +2250,11 @@ func TestTransactionIndices(t *testing.T) {
 func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		gendb          = rawdb.NewMemoryDatabase()
-		key, _         = cryptopq.HexToOQS(hextestkey)
-		address        = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _         = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address        = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds          = big.NewInt(100000000000000000)
 		gspec          = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 		genesis        = gspec.MustCommit(gendb)
@@ -2339,11 +2338,11 @@ func TestSkipStaleTxIndicesInFastSync(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
-		privtestkey, _  = cryptopq.GenerateKey()
-		hextestkey      = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _  = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _   = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		signer          = types.HomesteadSigner{}
-		testBankKey, _  = cryptopq.HexToOQS(hextestkey)
-		testBankAddress = cryptopq.PubkeyToAddressNoError(testBankKey.PublicKey)
+		testBankKey, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		testBankAddress = cryptobase.SigAlg.PublicKeyToAddressNoError(&testBankKey.PublicKey)
 		bankFunds       = big.NewInt(100000000000000000)
 		gspec           = Genesis{
 			Config: params.TestChainConfig,
@@ -2503,8 +2502,8 @@ func TestSideImportPrunedBlocks(t *testing.T) {
 // first, but the journal wiped the entire state object on create-revert.
 func TestDeleteCreateRevert(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		bb = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
@@ -2513,8 +2512,8 @@ func TestDeleteCreateRevert(t *testing.T) {
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(100000000000000000)
 		gspec   = &Genesis{
 			Config: params.TestChainConfig,
@@ -2580,15 +2579,15 @@ func TestDeleteCreateRevert(t *testing.T) {
 // and then the new slots exist
 func TestDeleteRecreateSlots(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = cryptopq.HexToOQS(hextestkey)
-		address   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _    = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds     = big.NewInt(1000000000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2710,14 +2709,14 @@ func TestDeleteRecreateSlots(t *testing.T) {
 // Expected outcome is that _all_ slots are cleared from A
 func TestDeleteRecreateAccount(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 
 		aa        = common.HexToAddress("0x7217d81b76bdd8707601e959454e3d776aee5f43")
@@ -2788,14 +2787,14 @@ func TestDeleteRecreateAccount(t *testing.T) {
 // and then the new slots exist
 func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _    = cryptopq.HexToOQS(hextestkey)
-		address   = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _    = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds     = big.NewInt(1000000000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -2991,14 +2990,14 @@ func TestDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 // in the first place.
 func TestInitThenFailCreateContract(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		// Generate a canonical chain to act as the main dataset
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		// A sender who makes transactions, has some funds
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		bb      = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 	)
@@ -3105,8 +3104,8 @@ func TestInitThenFailCreateContract(t *testing.T) {
 // correctly.
 func TestEIP2718Transition(t *testing.T) {
 	var (
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
 		aa             = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 
 		// Generate a canonical chain to act as the main dataset
@@ -3114,8 +3113,8 @@ func TestEIP2718Transition(t *testing.T) {
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key, _  = cryptopq.HexToOQS(hextestkey)
-		address = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		address = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		funds   = big.NewInt(1000000000000000)
 		gspec   = &Genesis{
 			Config: params.TestChainConfig,
@@ -3190,10 +3189,10 @@ func TestEIP2718Transition(t *testing.T) {
 //  6. Legacy transaction behave as expected (e.g. gasPrice = gasFeeCap = gasTipCap).
 func TestEIP1559Transition(t *testing.T) {
 	var (
-		privtestkey1, _ = cryptopq.GenerateKey()
-		hextestkey1     = hex.EncodeToString(privtestkey1.D.Bytes())
-		privtestkey2, _ = cryptopq.GenerateKey()
-		hextestkey2     = hex.EncodeToString(privtestkey2.D.Bytes())
+		privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
+		privtestkey2, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey2, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey2)
 
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 
@@ -3202,10 +3201,10 @@ func TestEIP1559Transition(t *testing.T) {
 		db     = rawdb.NewMemoryDatabase()
 
 		// A sender who makes transactions, has some funds
-		key1, _ = cryptopq.HexToOQS(hextestkey1)
-		key2, _ = cryptopq.HexToOQS(hextestkey2)
-		addr1   = cryptopq.PubkeyToAddressNoError(key1.PublicKey)
-		addr2   = cryptopq.PubkeyToAddressNoError(key2.PublicKey)
+		key1, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey1)
+		key2, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey2)
+		addr1   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key1.PublicKey)
+		addr2   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key2.PublicKey)
 		funds   = new(big.Int).Mul(common.Big1, big.NewInt(params.Ether))
 		gspec   = &Genesis{
 			Config: params.AllEthashProtocolChanges,

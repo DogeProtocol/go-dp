@@ -21,13 +21,12 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"sort"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -41,9 +40,9 @@ type Tree struct {
 }
 
 // Sign signs the tree with the given private key and sets the sequence number.
-func (t *Tree) Sign(key *oqs.PrivateKey, domain string) (url string, err error) {
+func (t *Tree) Sign(key *signaturealgorithm.PrivateKey, domain string) (url string, err error) {
 	root := *t.root
-	sig, err := cryptopq.Sign(root.sigHash(), key)
+	sig, err := cryptobase.SigAlg.Sign(root.sigHash(), key)
 	if err != nil {
 		return "", err
 	}
@@ -55,10 +54,10 @@ func (t *Tree) Sign(key *oqs.PrivateKey, domain string) (url string, err error) 
 
 // SetSignature verifies the given signature and assigns it as the tree's current
 // signature if valid.
-func (t *Tree) SetSignature(pubkey *oqs.PublicKey, signature string) error {
+func (t *Tree) SetSignature(pubkey *signaturealgorithm.PublicKey, signature string) error {
 	sig, err := b64format.DecodeString(signature)
 
-	if err != nil || len(sig) > oqs.SignPublicKeyLen {
+	if err != nil || len(sig) > cryptobase.SigAlg.SignatureWithPublicKeyLength() {
 		return errInvalidSig
 	}
 	root := *t.root
@@ -244,7 +243,7 @@ type (
 	linkEntry struct {
 		str    string
 		domain string
-		pubkey *oqs.PublicKey
+		pubkey *signaturealgorithm.PublicKey
 	}
 )
 
@@ -278,14 +277,14 @@ func (e *rootEntry) sigHash() []byte {
 	return h.Sum(nil)
 }
 
-func (e *rootEntry) verifySignature(pubkey *oqs.PublicKey) bool {
+func (e *rootEntry) verifySignature(pubkey *signaturealgorithm.PublicKey) bool {
 
 	sig := e.sig[:] // remove recovery id
-	enckey, err := cryptopq.FromOQSPub(pubkey)
+	enckey, err := cryptobase.SigAlg.SerializePublicKey(pubkey)
 	if err != nil {
 		return false
 	}
-	return cryptopq.VerifySignature(enckey, e.sigHash(), sig)
+	return cryptobase.SigAlg.Verify(enckey, e.sigHash(), sig)
 }
 
 func (e *branchEntry) String() string {
@@ -300,8 +299,12 @@ func (e *linkEntry) String() string {
 	return linkPrefix + e.str
 }
 
-func newLinkEntry(domain string, pubkey *oqs.PublicKey) *linkEntry {
-	key := b32format.EncodeToString(cryptopq.CompressPubkey(pubkey))
+func newLinkEntry(domain string, pubkey *signaturealgorithm.PublicKey) *linkEntry {
+	pubData, err := cryptobase.SigAlg.SerializePublicKey(pubkey)
+	if err != nil {
+		panic("invalid pubkey")
+	}
+	key := b32format.EncodeToString(pubData)
 	str := key + "@" + domain
 	return &linkEntry{str, domain, pubkey}
 }
@@ -331,7 +334,7 @@ func parseRoot(e string) (rootEntry, error) {
 		return rootEntry{}, entryError{"root", errInvalidChild}
 	}
 	sigb, err := b64format.DecodeString(sig)
-	if err != nil || len(sigb) != crypto.SignatureLength {
+	if err != nil || len(sigb) != cryptobase.SigAlg.SignatureWithPublicKeyLength() {
 		return rootEntry{}, entryError{"root", errInvalidSig}
 	}
 	return rootEntry{eroot, lroot, seq, sigb}, nil
@@ -359,7 +362,8 @@ func parseLink(e string) (*linkEntry, error) {
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
-	key, err := cryptopq.DecompressPubkey(keybytes)
+
+	key, err := cryptobase.SigAlg.DeserializePublicKey(keybytes)
 	if err != nil {
 		return nil, entryError{"link", errBadPubkey}
 	}
@@ -420,7 +424,7 @@ func truncateHash(hash string) string {
 // URL encoding
 
 // ParseURL parses an enrtree:// URL and returns its components.
-func ParseURL(url string) (domain string, pubkey *oqs.PublicKey, err error) {
+func ParseURL(url string) (domain string, pubkey *signaturealgorithm.PublicKey, err error) {
 	le, err := parseLink(url)
 	if err != nil {
 		return "", nil, err

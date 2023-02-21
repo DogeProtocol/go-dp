@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"strconv"
 	"strings"
@@ -283,11 +283,11 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Messa
 	// Derive sender from private key if present.
 	var from common.Address
 	if len(tx.PrivateKey) > 0 {
-		key, err := cryptopq.ToOQS(tx.PrivateKey)
+		key, err := cryptobase.SigAlg.DeserializePrivateKey(tx.PrivateKey)
 		if err != nil {
 			return nil, fmt.Errorf("invalid private key: %v", err)
 		}
-		from, err = cryptopq.PubkeyToAddress(key.PublicKey)
+		from, err = cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 		if err != nil {
 			return nil, err
 		}

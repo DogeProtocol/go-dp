@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -232,7 +232,7 @@ func Main(ctx *cli.Context) error {
 // txWithKey is a helper-struct, to allow us to use the types.Transaction along with
 // a `secretKey`-field, for input
 type txWithKey struct {
-	key *oqs.PrivateKey
+	key *signaturealgorithm.PrivateKey
 	tx  *types.Transaction
 }
 
@@ -247,7 +247,7 @@ func (t *txWithKey) UnmarshalJSON(input []byte) error {
 	}
 	if key.Key != nil {
 		k := key.Key.Hex()[2:]
-		if oqsKey, err := cryptopq.HexToOQS(k); err != nil {
+		if oqsKey, err := cryptobase.SigAlg.HexToPrivateKey(k); err != nil {
 			return err
 		} else {
 			t.key = oqsKey

@@ -17,9 +17,8 @@
 package downloader
 
 import (
-	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"sync"
 
@@ -33,11 +32,10 @@ import (
 
 // Test chain parameters.
 var (
-
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
-	testAddress    = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	testAddress    = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 	testDB         = rawdb.NewMemoryDatabase()
 	testGenesis    = core.GenesisBlockForTesting(testDB, testAddress, big.NewInt(1000000000000000))
 )

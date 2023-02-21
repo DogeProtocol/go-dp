@@ -19,7 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io"
 	"io/ioutil"
 	"net"
@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	testNodeKey, _ = cryptopq.GenerateKey()
+	testNodeKey, _ = cryptobase.SigAlg.GenerateKey()
 )
 
 func testNodeConfig() *Config {

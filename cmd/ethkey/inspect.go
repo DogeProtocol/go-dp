@@ -19,7 +19,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -68,7 +68,7 @@ make sure to use this feature with great caution!`,
 
 		// Output all relevant information we can retrieve.
 		showPrivate := ctx.Bool("private")
-		pubKey, err := cryptopq.FromOQSPub(&key.PrivateKey.PublicKey)
+		pubKey, err := cryptobase.SigAlg.SerializePublicKey(&key.PrivateKey.PublicKey)
 		if err != nil {
 			utils.Fatalf("FromOQSPub", err)
 		}
@@ -77,7 +77,7 @@ make sure to use this feature with great caution!`,
 			PublicKey: hex.EncodeToString(pubKey),
 		}
 		if showPrivate {
-			priKey, err := cryptopq.FromOQS(key.PrivateKey)
+			priKey, err := cryptobase.SigAlg.SerializePrivateKey(key.PrivateKey)
 			if err != nil {
 				utils.Fatalf("FromOQS", err)
 			}

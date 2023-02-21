@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"net"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -73,11 +73,11 @@ func genkey(ctx *cli.Context) error {
 	}
 	file := ctx.Args().Get(0)
 
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("could not generate key: %v", err)
 	}
-	return cryptopq.SaveOQS(file, key)
+	return cryptobase.SigAlg.SavePrivateKeyToFile(file, key)
 }
 
 func keyToURL(ctx *cli.Context) error {
@@ -91,7 +91,7 @@ func keyToURL(ctx *cli.Context) error {
 		tcp  = ctx.Int(tcpPortFlag.Name)
 		udp  = ctx.Int(udpPortFlag.Name)
 	)
-	key, err := cryptopq.LoadOQS(file)
+	key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(file)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io"
 	"math/big"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/cryptopq"
 	l "github.com/ethereum/go-ethereum/les"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -37,8 +37,8 @@ import (
 )
 
 var (
-	bankKey   = cryptopq.HexToOQSNoError("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	bankAddr  = cryptopq.PubkeyToAddressNoError(bankKey.PublicKey)
+	bankKey   = cryptobase.SigAlg.HexToPrivateKeyNoError("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	bankAddr  = cryptobase.SigAlg.PublicKeyToAddressNoError(&bankKey.PublicKey)
 	bankFunds = new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether))
 
 	testChainLen     = 256

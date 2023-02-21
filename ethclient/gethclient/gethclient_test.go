@@ -19,8 +19,7 @@ package gethclient
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math/big"
 	"testing"
 
@@ -39,11 +38,10 @@ import (
 )
 
 var (
-
-	privtestkey, _ = cryptopq.GenerateKey()
-	hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-	testKey, _     = cryptopq.HexToOQS(hextestkey)
-	testAddr       = cryptopq.PubkeyToAddressNoError(testKey.PublicKey)
+	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+	testAddr       = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 	testBalance    = big.NewInt(2e15)
 )
 
@@ -264,7 +262,7 @@ func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 	// Create transaction
 	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := cryptopq.Sign(signer.Hash(tx).Bytes(), testKey)
+	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {
 		t.Fatal(err)
 	}

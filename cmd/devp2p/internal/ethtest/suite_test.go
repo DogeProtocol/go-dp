@@ -33,6 +33,7 @@ var (
 	fullchainFile = "./testdata/chain.rlp"
 )
 
+// todo: recreate test data
 func TestEthSuite(t *testing.T) {
 	geth, err := runGeth()
 	if err != nil {

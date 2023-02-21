@@ -18,8 +18,7 @@ package gasprice
 
 import (
 	"context"
-	"encoding/hex"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"math"
 	"math/big"
 	"testing"
@@ -93,11 +92,10 @@ func (b *testBackend) ChainConfig() *params.ChainConfig {
 
 func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBackend {
 	var (
-
-		privtestkey, _ = cryptopq.GenerateKey()
-		hextestkey     = hex.EncodeToString(privtestkey.D.Bytes())
-		key, _         = cryptopq.HexToOQS(hextestkey)
-		addr           = cryptopq.PubkeyToAddressNoError(key.PublicKey)
+		privtestkey, _ = cryptobase.SigAlg.GenerateKey()
+		hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
+		key, _         = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
+		addr           = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		gspec          = &core.Genesis{
 			Config: params.TestChainConfig,
 			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},

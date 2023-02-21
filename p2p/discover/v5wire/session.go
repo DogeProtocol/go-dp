@@ -19,8 +19,8 @@ package v5wire
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -40,7 +40,7 @@ type SessionCache struct {
 	// hooks for overriding randomness.
 	nonceGen        func(uint32) (Nonce, error)
 	maskingIVGen    func([]byte) error
-	ephemeralKeyGen func() (*oqs.PrivateKey, error)
+	ephemeralKeyGen func() (*signaturealgorithm.PrivateKey, error)
 }
 
 // sessionID identifies a session or handshake.
@@ -72,7 +72,7 @@ func NewSessionCache(maxItems int, clock mclock.Clock) *SessionCache {
 		clock:           clock,
 		nonceGen:        generateNonce,
 		maskingIVGen:    generateMaskingIV,
-		ephemeralKeyGen: cryptopq.GenerateKey,
+		ephemeralKeyGen: cryptobase.SigAlg.GenerateKey,
 	}
 }
 

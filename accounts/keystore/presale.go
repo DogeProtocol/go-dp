@@ -24,10 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -87,9 +86,12 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 		return nil, err
 	}
 	ethPriv := crypto.Keccak256(plainText)
-	ecKey := cryptopq.ToOQSUnsafe(ethPriv)
+	ecKey, err := cryptobase.SigAlg.DeserializePrivateKey(ethPriv)
+	if err != nil {
+		return nil, err
+	}
 
-	pubKeyAddress, err := cryptopq.PubkeyToAddress(ecKey.PublicKey)
+	pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&ecKey.PublicKey)
 	if err != nil {
 		return nil, err
 	}

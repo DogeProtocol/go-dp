@@ -19,37 +19,36 @@ package v4wire
 import (
 	"encoding/hex"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/rlp"
 	"net"
 	"reflect"
 	"testing"
 )
 
-const(
+const (
 	WirePublicKeyLen = 241
 )
 
-var(
-	key1, _ = cryptopq.GenerateKey()
-	key2, _ = cryptopq.GenerateKey()
-	key3, _ = cryptopq.GenerateKey()
-	key4, _ = cryptopq.GenerateKey()
+var (
+	key1, _ = cryptobase.SigAlg.GenerateKey()
+	key2, _ = cryptobase.SigAlg.GenerateKey()
+	key3, _ = cryptobase.SigAlg.GenerateKey()
+	key4, _ = cryptobase.SigAlg.GenerateKey()
 
-	hexpubkey = hex.EncodeToString(key1.N.Bytes())
-	hexpubkey1 = hex.EncodeToString(key1.N.Bytes())
-	hexpubkey2 = hex.EncodeToString(key2.N.Bytes())
-	hexpubkey3 = hex.EncodeToString(key3.N.Bytes())
-	hexpubkey4 = hex.EncodeToString(key4.N.Bytes())
+	hexpubkey  = hex.EncodeToString(key1.PriData)
+	hexpubkey1 = hex.EncodeToString(key1.PriData)
+	hexpubkey2 = hex.EncodeToString(key2.PriData)
+	hexpubkey3 = hex.EncodeToString(key3.PriData)
+	hexpubkey4 = hex.EncodeToString(key4.PriData)
 
-	hexPrivatekey = hex.EncodeToString(key1.D.Bytes())
+	hexPrivatekey, _ = cryptobase.SigAlg.PrivateKeyToHex(key1)
 )
-
 
 // EIP-8 test vectors.
 var testPackets = []struct {
 	input      string
-	wantPacket  Packet ///interface{}
+	wantPacket Packet ///interface{}
 }{
 	{
 
@@ -120,32 +119,31 @@ var testPackets = []struct {
 
 // This test checks that the decoder accepts packets according to EIP-8.
 func TestForwardCompatibility(t *testing.T) {
-	testkey, _ := cryptopq.HexToOQS(hexPrivatekey)
+	testkey, _ := cryptobase.SigAlg.HexToPrivateKey(hexPrivatekey)
 	wantNodeKey := EncodePubkey(&testkey.PublicKey)
-
 
 	for _, test := range testPackets {
 
-			req :=  test.wantPacket
-			packet1, _, _ := Encode(testkey, req)
-			test.input = hex.EncodeToString(packet1)
+		req := test.wantPacket
+		packet1, _, _ := Encode(testkey, req)
+		test.input = hex.EncodeToString(packet1)
 
-			input, err := hex.DecodeString(test.input)
-			if err != nil {
-				t.Fatalf("invalid hex: %s", test.input)
-			}
-			packet, nodekey, _, err := Decode(input)
-			if err != nil {
-				t.Errorf("did not accept packet %s\n%v", test.input, err)
-				continue
-			}
-			if !reflect.DeepEqual(packet, test.wantPacket) {
-				t.Errorf("got %s\nwant %s", spew.Sdump(packet), spew.Sdump(test.wantPacket))
-			}
-			if nodekey != wantNodeKey {
-				t.Errorf("got id %v\nwant id %v", nodekey, wantNodeKey)
-			}
+		input, err := hex.DecodeString(test.input)
+		if err != nil {
+			t.Fatalf("invalid hex: %s", test.input)
 		}
+		packet, nodekey, _, err := Decode(input)
+		if err != nil {
+			t.Errorf("did not accept packet %s\n%v", test.input, err)
+			continue
+		}
+		if !reflect.DeepEqual(packet, test.wantPacket) {
+			t.Errorf("got %s\nwant %s", spew.Sdump(packet), spew.Sdump(test.wantPacket))
+		}
+		if WirePubKeyEquals(nodekey, wantNodeKey) == false {
+			t.Errorf("got id %v\nwant id %v", nodekey, wantNodeKey)
+		}
+	}
 
 }
 
@@ -154,11 +152,5 @@ func hexPubkey(h string) (ret Pubkey) {
 	if err != nil {
 		panic(err)
 	}
-	if len(b) != len(ret) {
-		panic("invalid length")
-	}
-	copy(ret[:], b)
-	return ret
+	return CreateWirePubKey(b)
 }
-
-

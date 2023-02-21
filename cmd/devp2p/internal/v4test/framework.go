@@ -18,11 +18,10 @@ package v4test
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"time"
-
 
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -32,7 +31,7 @@ const waitTime = 300 * time.Millisecond
 
 type testenv struct {
 	l1, l2     net.PacketConn
-	key        *oqs.PrivateKey
+	key        *signaturealgorithm.PrivateKey
 	remote     *enode.Node
 	remoteAddr *net.UDPAddr
 }
@@ -46,7 +45,7 @@ func newTestEnv(remote string, listen1, listen2 string) *testenv {
 	if err != nil {
 		panic(err)
 	}
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +115,7 @@ func (te *testenv) remoteEndpoint() v4wire.Endpoint {
 
 func contains(ns []v4wire.Node, key v4wire.Pubkey) bool {
 	for _, n := range ns {
-		if n.ID == key {
+		if v4wire.WirePubKeyEquals(n.ID, key) {
 			return true
 		}
 	}

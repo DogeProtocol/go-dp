@@ -19,7 +19,7 @@ package les
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"net"
 	"testing"
 	"time"
@@ -132,7 +132,7 @@ func newTestServerPeer(t *testing.T, blocks int, protocol int) (*testServer, *en
 		nopruning: true,
 	}
 	s, _, teardown := newClientServerEnv(t, netconfig)
-	key, err := cryptopq.GenerateKey()
+	key, err := cryptobase.SigAlg.GenerateKey()
 	if err != nil {
 		t.Fatal("generate key err:", err)
 	}

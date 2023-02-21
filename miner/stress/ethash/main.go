@@ -18,8 +18,8 @@
 package main
 
 import (
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -49,9 +49,9 @@ func main() {
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
-	faucets := make([]*oqs.PrivateKey, 128)
+	faucets := make([]*signaturealgorithm.PrivateKey, 128)
 	for i := 0; i < len(faucets); i++ {
-		faucets[i], _ = cryptopq.GenerateKey()
+		faucets[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
 	// Pre-generate the ethash mining DAG so we don't race
 	ethash.MakeDataset(1, filepath.Join(os.Getenv("HOME"), ".ethash"))
@@ -106,7 +106,7 @@ func main() {
 		backend := nodes[index%len(nodes)]
 
 		// Create a self transaction and inject into the pool
-		pubKeyAddress, err := cryptopq.PubkeyToAddress(faucets[index].PublicKey)
+		pubKeyAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&faucets[index].PublicKey)
 		if err != nil {
 			panic(err)
 		}
@@ -128,7 +128,7 @@ func main() {
 
 // makeGenesis creates a custom Ethash genesis block based on some pre-defined
 // faucet accounts.
-func makeGenesis(faucets []*oqs.PrivateKey) *core.Genesis {
+func makeGenesis(faucets []*signaturealgorithm.PrivateKey) *core.Genesis {
 	genesis := core.DefaultRopstenGenesisBlock()
 	genesis.Difficulty = params.MinimumDifficulty
 	genesis.GasLimit = 25000000
@@ -138,7 +138,7 @@ func makeGenesis(faucets []*oqs.PrivateKey) *core.Genesis {
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
-		pubKeyAddr, err := cryptopq.PubkeyToAddress(faucet.PublicKey)
+		pubKeyAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&faucet.PublicKey)
 		if err != nil {
 			panic(err)
 		}

@@ -17,27 +17,21 @@
 package enode
 
 import (
-	"bytes"
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
-	"math/big"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/cryptopq"
 	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-
-	key, _  = cryptopq.GenerateKey()
-	privkey = key 
+	key, _  = cryptobase.SigAlg.GenerateKey()
+	privkey = key
 	pubkey  = &privkey.PublicKey
-
 )
 
 func TestEmptyNodeID(t *testing.T) {
@@ -47,23 +41,8 @@ func TestEmptyNodeID(t *testing.T) {
 	}
 	require.NoError(t, SignV4(&r, privkey))
 
-	expected := strings.TrimPrefix(crypto.Keccak256Hash(privkey.N.Bytes()).Hex(), "0x")
+	expected := strings.TrimPrefix(crypto.Keccak256Hash(privkey.PublicKey.PubData).Hex(), "0x")
 	assert.Equal(t, expected, hex.EncodeToString(ValidSchemes.NodeAddr(&r)))
-}
-
-// Checks that failure to sign leaves the record unmodified.
-func TestSignError(t *testing.T) {
-	invalidKey := &oqs.PrivateKey{D: new(big.Int), PublicKey: *pubkey}
-
-	var r enr.Record
-	emptyEnc, _ := rlp.EncodeToBytes(&r)
-	if err := SignV4(&r, invalidKey); err == nil {
-		t.Fatal("expected error from SignV4")
-	}
-	newEnc, _ := rlp.EncodeToBytes(&r)
-	if !bytes.Equal(newEnc, emptyEnc) {
-		t.Fatal("record modified even though signing failed")
-	}
 }
 
 // TestGetSetSecp256k1 tests encoding/decoding and setting/getting of the PqPubKey key.

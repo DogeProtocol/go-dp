@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"net"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/internal/ethtest"
@@ -63,7 +63,7 @@ func rlpxPing(ctx *cli.Context) error {
 		return err
 	}
 	conn := rlpx.NewConn(fd, n.Pubkey(), connDetails)
-	ourKey, _ := cryptopq.GenerateKey()
+	ourKey, _ := cryptobase.SigAlg.GenerateKey()
 	_, err = conn.Handshake(ourKey)
 	if err != nil {
 		return err

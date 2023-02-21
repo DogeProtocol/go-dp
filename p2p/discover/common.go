@@ -17,9 +17,7 @@
 package discover
 
 import (
-
-
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
@@ -41,7 +39,7 @@ type UdpSession interface {
 // Config holds settings for the discovery listener.
 type Config struct {
 	// These settings are required and configure the UDP listener:
-	PrivateKey *oqs.PrivateKey
+	PrivateKey *signaturealgorithm.PrivateKey
 
 	// These settings are optional:
 	NetRestrict  *netutil.Netlist   // network whitelist

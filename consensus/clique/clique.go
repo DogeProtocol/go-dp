@@ -19,12 +19,10 @@ package clique
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
@@ -60,8 +58,8 @@ const (
 var (
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 
-	extraVanity = 32                     // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal   = crypto.SignatureLength // Fixed number of extra-data suffix bytes reserved for signer seal
+	extraVanity = 32                                               // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal   = cryptobase.SigAlg.SignatureWithPublicKeyLength() // Fixed number of extra-data suffix bytes reserved for signer seal
 
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new signer
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a signer.
@@ -157,12 +155,13 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 		return common.Address{}, errMissingSignature
 	}
 
-	//Dynamic size fixed
-	sigSize := int(binary.LittleEndian.Uint64(header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+oqs.SignerLength]))
-	signature := header.Extra[len(header.Extra)-extraSeal : (len(header.Extra)-extraSeal)+sigSize+oqs.SignerLength]
+	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
-	pubkey, err := cryptopq.RecoverPublicKey(SealHash(header).Bytes(), signature)
+	if len(signature) == 0 {
+		panic("signature is empty")
+	}
+	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -556,11 +555,8 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	if len(header.Extra) < extraVanity {
 		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
 
-
 	}
 	header.Extra = header.Extra[:extraVanity]
-
-
 
 	if number%c.config.Epoch == 0 {
 
@@ -571,8 +567,6 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 
 	}
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-
-
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
@@ -588,7 +582,6 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	}
 	return nil
 }
-
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
@@ -761,7 +754,6 @@ func CliqueRLP(header *types.Header) []byte {
 
 func encodeSigHeader(w io.Writer, header *types.Header) {
 
-
 	enc := []interface{}{
 		header.ParentHash,
 		header.UncleHash,
@@ -775,7 +767,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 		header.GasLimit,
 		header.GasUsed,
 		header.Time,
-		header.Extra[:len(header.Extra)-crypto.SignatureLength], // Yes, this will panic if extra is too short
+		header.Extra[:len(header.Extra)-cryptobase.SigAlg.SignatureWithPublicKeyLength()], // Yes, this will panic if extra is too short
 		header.MixDigest,
 		header.Nonce,
 	}

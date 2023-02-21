@@ -22,7 +22,7 @@ import (
 	crand "crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"math"
 	"net"
@@ -65,7 +65,7 @@ type UDPv5 struct {
 	conn         UdpSession
 	tab          *Table
 	netrestrict  *netutil.Netlist
-	priv         *oqs.PrivateKey
+	priv         *signaturealgorithm.PrivateKey
 	localNode    *enode.LocalNode
 	db           *enode.DB
 	log          log.Logger

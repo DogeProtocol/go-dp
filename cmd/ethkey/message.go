@@ -19,7 +19,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -68,7 +68,7 @@ To sign a message contained in a file, use the --msgfile flag.
 			utils.Fatalf("Error decrypting key: %v", err)
 		}
 
-		signature, err := cryptopq.Sign(signHash(message), key.PrivateKey)
+		signature, err := cryptobase.SigAlg.Sign(signHash(message), key.PrivateKey)
 		if err != nil {
 			utils.Fatalf("Failed to sign message: %v", err)
 		}
@@ -113,15 +113,15 @@ It is possible to refer to a file containing the message.`,
 			utils.Fatalf("Signature encoding is not hexadecimal: %v", err)
 		}
 
-		recoveredPubkey, err := cryptopq.SigToPub(signHash(message), signature)
+		recoveredPubkey, err := cryptobase.SigAlg.PublicKeyFromSignature(signHash(message), signature)
 		if err != nil || recoveredPubkey == nil {
 			utils.Fatalf("Signature verification failed: %v", err)
 		}
-		recoveredPubkeyBytes, err := cryptopq.FromOQSPub(recoveredPubkey)
+		recoveredPubkeyBytes, err := cryptobase.SigAlg.SerializePublicKey(recoveredPubkey)
 		if err != nil {
 			utils.Fatalf("FromOQSPub", err)
 		}
-		recoveredAddress, err := cryptopq.PubkeyToAddress(*recoveredPubkey)
+		recoveredAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&*recoveredPubkey)
 		if err != nil {
 			utils.Fatalf("recoveredAddress", err)
 		}

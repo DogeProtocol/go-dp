@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"io"
@@ -384,7 +384,7 @@ func startTestCoinAccountByAccount() {
 }
 
 func transferCoinToAccount(fromaddress string, toaddress string, amount int64,
-	key *oqs.PrivateKey) (string, error) {
+	key *signaturealgorithm.PrivateKey) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -867,7 +867,7 @@ func startTestNewContractByAccount() {
 }
 
 func DeployTestTokenContractDynamicAccount(address string,
-	key *oqs.PrivateKey) (string, string, error) {
+	key *signaturealgorithm.PrivateKey) (string, string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 
@@ -955,7 +955,7 @@ func DeployTestTokenContractDynamicAccount(address string,
 }
 
 func DeployTestOtherContractDynamicAccount(address string,
-	key *oqs.PrivateKey) (string, string, error) {
+	key *signaturealgorithm.PrivateKey) (string, string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 
@@ -1016,7 +1016,7 @@ func DeployTestOtherContractDynamicAccount(address string,
 }
 
 func transferTokenToAccount(fromaddress string, toaddress string, tokenaddress string,
-	amount int64, key *oqs.PrivateKey) (string, error) {
+	amount int64, key *signaturealgorithm.PrivateKey) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -1085,7 +1085,7 @@ func transferTokenToAccount(fromaddress string, toaddress string, tokenaddress s
 }
 
 func setContractDataToAccount(fromaddress string, contractaddress string,
-	key *oqs.PrivateKey) (string, string, error) {
+	key *signaturealgorithm.PrivateKey) (string, string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {

@@ -11,13 +11,12 @@ import "C"
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/crypto/keyestablishmentalgorithm"
 	"math/big"
 	"unsafe"
 )
 
-const KemName = "NTRU-HRSS-701"
-
-const ()
+const KemName = "Kyber512" //sntrup761
 
 var (
 	ErrKemInitial              = errors.New("kem is not supported by OQS")
@@ -40,7 +39,7 @@ func IsKEMEnabled(algName string) bool {
 type KeyEncapsulation struct {
 	kem        *C.OQS_KEM
 	secretKey  []byte
-	algDetails KeyEncapsulationDetails
+	AlgDetails KeyEncapsulationDetails
 }
 
 // KeyEncapsulationDetails defines the KEM algorithm details.
@@ -61,23 +60,23 @@ func (kem *KeyEncapsulation) Init(algName string, secretKey []byte) error {
 	}
 	kem.kem = C.OQS_KEM_new(C.CString(algName))
 	kem.secretKey = secretKey
-	kem.algDetails.Name = C.GoString(kem.kem.method_name)
-	kem.algDetails.Version = C.GoString(kem.kem.alg_version)
-	kem.algDetails.ClaimedNISTLevel = int(kem.kem.claimed_nist_level)
-	kem.algDetails.IsINDCCA = bool(kem.kem.ind_cca)
-	kem.algDetails.LengthPublicKey = int(kem.kem.length_public_key)
-	kem.algDetails.LengthSecretKey = int(kem.kem.length_secret_key)
-	kem.algDetails.LengthCiphertext = int(kem.kem.length_ciphertext)
-	kem.algDetails.LengthSharedSecret = int(kem.kem.length_shared_secret)
+	kem.AlgDetails.Name = C.GoString(kem.kem.method_name)
+	kem.AlgDetails.Version = C.GoString(kem.kem.alg_version)
+	kem.AlgDetails.ClaimedNISTLevel = int(kem.kem.claimed_nist_level)
+	kem.AlgDetails.IsINDCCA = bool(kem.kem.ind_cca)
+	kem.AlgDetails.LengthPublicKey = int(kem.kem.length_public_key)
+	kem.AlgDetails.LengthSecretKey = int(kem.kem.length_secret_key)
+	kem.AlgDetails.LengthCiphertext = int(kem.kem.length_ciphertext)
+	kem.AlgDetails.LengthSharedSecret = int(kem.kem.length_shared_secret)
 	return nil
 }
 
 // Details returns the KEM algorithm details.
 func (kem *KeyEncapsulation) Details() KeyEncapsulationDetails {
-	return kem.algDetails
+	return kem.AlgDetails
 }
 
-func GenerateKemKeyPair() (*PrivateKey, error) {
+func GenerateKemKeyPair() (*keyestablishmentalgorithm.PrivateKey, error) {
 	kem := KeyEncapsulation{}
 	defer kem.Clean() // clean up even in case of panic
 	err := kem.Init(KemName, nil)
@@ -110,9 +109,9 @@ func DecapSecret(seckey, ciphertext []byte) ([]byte, error) {
 	return sharedSecret, err
 }
 
-func (kem *KeyEncapsulation) GenerateKemKeyPair() (*PrivateKey, error) {
-	publicKey := make([]byte, kem.algDetails.LengthPublicKey)
-	kem.secretKey = make([]byte, kem.algDetails.LengthSecretKey)
+func (kem *KeyEncapsulation) GenerateKemKeyPair() (*keyestablishmentalgorithm.PrivateKey, error) {
+	publicKey := make([]byte, kem.AlgDetails.LengthPublicKey)
+	kem.secretKey = make([]byte, kem.AlgDetails.LengthSecretKey)
 
 	rv := C.OQS_KEM_keypair(kem.kem,
 		(*C.uint8_t)(unsafe.Pointer(&publicKey[0])),
@@ -122,7 +121,7 @@ func (kem *KeyEncapsulation) GenerateKemKeyPair() (*PrivateKey, error) {
 		return nil, ErrKemKeypairFailed
 	}
 
-	privy := new(PrivateKey)
+	privy := new(keyestablishmentalgorithm.PrivateKey)
 	privy.D = new(big.Int).SetBytes(kem.secretKey)
 	privy.PublicKey.N = new(big.Int).SetBytes(publicKey)
 
@@ -133,12 +132,12 @@ func (kem *KeyEncapsulation) GenerateKemKeyPair() (*PrivateKey, error) {
 // corresponding ciphertext and shared secret.
 func (kem *KeyEncapsulation) EncapsulateSecret(publicKey []byte) (ciphertext,
 	sharedSecret []byte, err error) {
-	if len(publicKey) != kem.algDetails.LengthPublicKey {
+	if len(publicKey) != kem.AlgDetails.LengthPublicKey {
 		return nil, nil, ErrInvalidKemPublicKeyLen
 	}
 
-	ciphertext = make([]byte, kem.algDetails.LengthCiphertext)
-	sharedSecret = make([]byte, kem.algDetails.LengthSharedSecret)
+	ciphertext = make([]byte, kem.AlgDetails.LengthCiphertext)
+	sharedSecret = make([]byte, kem.AlgDetails.LengthSharedSecret)
 
 	rv := C.OQS_KEM_encaps(kem.kem,
 		(*C.uint8_t)(unsafe.Pointer(&ciphertext[0])),
@@ -154,14 +153,14 @@ func (kem *KeyEncapsulation) EncapsulateSecret(publicKey []byte) (ciphertext,
 // decapSecret decapsulates a ciphertexts and returns the corresponding shared
 // secret.
 func (kem *KeyEncapsulation) DecapsulateSecret(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) != kem.algDetails.LengthCiphertext {
+	if len(ciphertext) != kem.AlgDetails.LengthCiphertext {
 		return nil, ErrInvalidKemCiphertextLen
 	}
-	if len(kem.secretKey) != kem.algDetails.LengthSecretKey {
+	if len(kem.secretKey) != kem.AlgDetails.LengthSecretKey {
 		return nil, ErrInvalidKemPrivateKeyLen
 	}
 
-	sharedSecret := make([]byte, kem.algDetails.LengthSharedSecret)
+	sharedSecret := make([]byte, kem.AlgDetails.LengthSharedSecret)
 	rv := C.OQS_KEM_decaps(kem.kem,
 		(*C.uint8_t)(unsafe.Pointer(&sharedSecret[0])),
 		(*C.uchar)(unsafe.Pointer(&ciphertext[0])),

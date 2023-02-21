@@ -22,8 +22,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/cryptopq"
-	"github.com/ethereum/go-ethereum/cryptopq/oqs"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"net"
 	"sort"
 	"sync"
@@ -70,7 +70,7 @@ var errServerStopped = errors.New("server stopped")
 // Config holds Server options.
 type Config struct {
 	// This field must be set to a valid secp256k1 private key.
-	PrivateKey *oqs.PrivateKey `toml:"-"`
+	PrivateKey *signaturealgorithm.PrivateKey `toml:"-"`
 
 	// MaxPeers is the maximum number of peers that can be
 	// connected. It must be greater than zero.
@@ -166,7 +166,7 @@ type Server struct {
 
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
-	newTransport func(net.Conn, *oqs.PublicKey, string) transport
+	newTransport func(net.Conn, *signaturealgorithm.PublicKey, string) transport
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
 
@@ -231,7 +231,7 @@ type conn struct {
 
 type transport interface {
 	// The two handshakes.
-	doEncHandshake(prv *oqs.PrivateKey) (*oqs.PublicKey, error)
+	doEncHandshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error)
 	doProtoHandshake(our *protoHandshake) (*protoHandshake, error)
 	// The MsgReadWriter can only be used after the encryption
 	// handshake has completed. The code uses conn.id to track this
@@ -492,11 +492,10 @@ func (srv *Server) Start() (err error) {
 func (srv *Server) setupLocalNode() error {
 	// Create the devp2p handshake.
 
-	pubkey, err := cryptopq.FromOQSPub(&srv.PrivateKey.PublicKey)
+	pubkey, err := cryptobase.SigAlg.SerializePublicKey(&srv.PrivateKey.PublicKey)
 	if err != nil {
 		return err
 	}
-
 
 	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, Name: srv.Name, ID: pubkey[:]}
 
@@ -557,8 +556,6 @@ func (srv *Server) setupDiscovery() error {
 	if srv.NoDiscovery && !srv.DiscoveryV5 {
 		return nil
 	}
-
-
 
 	sessionManager, err := discover.CreateDpUdpSessionManager(srv.ListenAddr)
 	if err != nil {
@@ -947,19 +944,16 @@ func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) 
 		c.transport = srv.newTransport(fd, dialDest.Pubkey(), fd.RemoteAddr().String())
 	}
 
-
 	err := srv.setupConn(c, flags, dialDest)
 	if err != nil {
 
 		c.close(err)
 	}
 
-
 	return err
 }
 
 func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) error {
-
 
 	// Prevent leftover pending conns from entering the handshake.
 	srv.lock.Lock()
@@ -970,10 +964,10 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	}
 
 	// If dialing, figure out the remote public key.
-	var dialPubkey *oqs.PublicKey
+	var dialPubkey *signaturealgorithm.PublicKey
 	if dialDest != nil {
 
-		dialPubkey = new(oqs.PublicKey)
+		dialPubkey = new(signaturealgorithm.PublicKey)
 		if err := dialDest.Load((*enode.PqPubKey)(dialPubkey)); err != nil {
 
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
@@ -1013,8 +1007,6 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
-
-
 	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
 
 		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID))
@@ -1029,11 +1021,10 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
-
 	return nil
 }
 
-func nodeFromConn(pubkey *oqs.PublicKey, conn net.Conn) *enode.Node {
+func nodeFromConn(pubkey *signaturealgorithm.PublicKey, conn net.Conn) *enode.Node {
 	var ip net.IP
 	var port int
 	if tcp, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
