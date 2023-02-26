@@ -166,7 +166,7 @@ func (c *ecrecover) RequiredGas(input []byte) uint64 {
 }
 
 func (c *ecrecover) Run(input []byte) ([]byte, error) {
-
+	panic("error fix")
 	// "input" is (hash, v, r, s), each 32 bytes
 	// but for ecrecover we want (r, s, v)
 
@@ -189,13 +189,14 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 	copy(sig, input[ecRecoverInputLength:])
 
 	// v needs to be at the end for libsecp256k1
+	panic("fix here")
 	pubKey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(input[:32], sig)
 	// make sure the public key is a valid one
 	if err != nil {
 		return nil, nil
 	}
 	// the first byte of pubkey is bitcoin heritage
-	return common.LeftPadBytes(crypto.Keccak256(pubKey[1:])[12:], 32), nil
+	return common.LeftPadBytes(crypto.Keccak256(pubKey[:])[12:], 32), nil
 }
 
 // SHA256 implemented as a native contract.

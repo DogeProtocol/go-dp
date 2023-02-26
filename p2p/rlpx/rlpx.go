@@ -68,11 +68,11 @@ func NewConn(conn net.Conn, dialDest *signaturealgorithm.PublicKey, context stri
 // compression is available on both ends of the connection.
 func (c *Conn) SetSnappy(snappy bool) {
 	if snappy {
-		//fmt.PrintLn("Snappy enable", c.context)
+
 		c.snappyReadBuffer = []byte{}
 		c.snappyWriteBuffer = []byte{}
 	} else {
-		//fmt.PrintLn("Snappy disable", c.context)
+
 		c.snappyReadBuffer = nil
 		c.snappyWriteBuffer = nil
 	}

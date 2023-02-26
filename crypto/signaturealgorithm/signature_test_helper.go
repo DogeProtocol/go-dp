@@ -54,6 +54,11 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("Issue in serialize / deserialize privateKey")
 	}
 
+	addr1, err := sig.PublicKeyToAddress(&key1.PublicKey)
+	if err != nil {
+		t.Fatal("SerializePublicKey failed")
+	}
+
 	pubBytes1, err := sig.SerializePublicKey(&key1.PublicKey)
 	if err != nil {
 		t.Fatal("SerializePublicKey failed")
@@ -62,6 +67,44 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	pubKey1, err := sig.DeserializePublicKey(pubBytes1)
 	if err != nil {
 		t.Fatal("DeserializePublicKey failed")
+	}
+
+	addr2, err := sig.PublicKeyToAddress(pubKey1)
+	if err != nil {
+		t.Fatal("PublicKeyToAddress failed")
+	}
+
+	if addr1 != addr2 {
+		t.Fatal("address mismatch")
+	}
+
+	pubKeyDirect1 := PublicKey{PubData: pubBytes1}
+	addr3, err := sig.PublicKeyToAddress(&pubKeyDirect1)
+	if err != nil {
+		t.Fatal("PublicKeyToAddress failed")
+	}
+
+	if addr1 != addr3 {
+		t.Fatal("address mismatch")
+	}
+
+	addr4, err := sig.PublicKeyToAddress(&key2.PublicKey)
+	if err != nil {
+		t.Fatal("PublicKeyToAddress failed")
+	}
+
+	if addr1 != addr4 {
+		t.Fatal("address mismatch")
+	}
+
+	pubKeyDirect2 := PublicKey{PubData: key2.PubData}
+	addr5, err := sig.PublicKeyToAddress(&pubKeyDirect2)
+	if err != nil {
+		t.Fatal("PublicKeyToAddress failed")
+	}
+
+	if addr1 != addr5 {
+		t.Fatal("address mismatch")
 	}
 
 	pubBytes2, err := sig.SerializePublicKey(pubKey1)
@@ -221,7 +264,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("address compare failed")
 	}
 
-	addr := common.BytesToAddress(crypto.Keccak256(pubBytes1[1:])[12:])
+	addr := common.BytesToAddress(crypto.Keccak256(pubBytes1[:])[12:])
 
 	if generatedAddress != addr {
 		t.Fatal(err)

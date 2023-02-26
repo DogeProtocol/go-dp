@@ -54,7 +54,6 @@ func SignV4(r *enr.Record, privkey *signaturealgorithm.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	////sig = sig[:len(sig)-1] // remove v
 	if err = cpy.SetSig(V4ID{}, sig); err == nil {
 		*r = cpy
 	}
@@ -83,9 +82,9 @@ func (V4ID) NodeAddr(r *enr.Record) []byte {
 	if err != nil {
 		return nil
 	}
-	buf := make([]byte, cryptobase.SigAlg.PublicKeyLength())
 	pk := signaturealgorithm.PublicKey(pubkey)
 	pubBytes, err := cryptobase.SigAlg.SerializePublicKey(&pk)
+	buf := make([]byte, cryptobase.SigAlg.PublicKeyLength())
 	copy(buf, pubBytes)
 	if err != nil {
 		panic(err)

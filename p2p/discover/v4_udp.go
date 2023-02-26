@@ -23,6 +23,7 @@ import (
 	crand "crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto/cryptobase"
 	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
 	"io"
 	"net"
@@ -188,7 +189,7 @@ func (t *UDPv4) Resolve(n *enode.Node) *enode.Node {
 	// Otherwise perform a network lookup.
 	var key enode.PqPubKey
 	if n.Load(&key) != nil {
-		return n // no secp256k1 key
+		return n 
 	}
 	result := t.LookupPubkey((*signaturealgorithm.PublicKey)(&key))
 	for _, rn := range result {
@@ -291,7 +292,14 @@ func (t *UDPv4) lookupSelf() []*enode.Node {
 
 func (t *UDPv4) newRandomLookup(ctx context.Context) *lookup {
 	var target encPubkey
-	crand.Read(target.PubBytes)
+	target.PubBytes = make([]byte, cryptobase.SigAlg.PublicKeyLength())
+	n, err := crand.Read(target.PubBytes)
+	if err != nil {
+		panic(err)
+	}
+	if n != cryptobase.SigAlg.PublicKeyLength() {
+		panic("newRandomLookup")
+	}
 	return t.newLookup(ctx, target)
 }
 
@@ -594,8 +602,8 @@ func (t *UDPv4) handleSession(session DpUdpSession) {
 			continue
 		}
 
-		if t.handlePacket(session.addr, buf[:nbytes]) != nil {
-
+		err = t.handlePacket(session.addr, buf[:nbytes])
+		if err != nil {
 			return
 		} else {
 

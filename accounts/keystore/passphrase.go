@@ -185,7 +185,6 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 // blob that can be decrypted later on.
 func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
 
-	//keyBytes := math.PaddedBigBytes(cryptobase.SigAlg.PrivateKeyAsBigInt(key.PrivateKey), 32)
 	keyBytes, err := cryptobase.SigAlg.SerializePrivateKey(key.PrivateKey)
 	if err != nil {
 		return nil, err

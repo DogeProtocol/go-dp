@@ -231,7 +231,7 @@ func (s FalconSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[s.publicKeyBytesIndexStart:]), nil
+	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
 }
 
 func (s FalconSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {

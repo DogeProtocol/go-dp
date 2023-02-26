@@ -70,7 +70,7 @@ make sure to use this feature with great caution!`,
 		showPrivate := ctx.Bool("private")
 		pubKey, err := cryptobase.SigAlg.SerializePublicKey(&key.PrivateKey.PublicKey)
 		if err != nil {
-			utils.Fatalf("FromOQSPub", err)
+			utils.Fatalf("SerializePublicKey", err)
 		}
 		out := outputInspect{
 			Address:   key.Address.Hex(),
@@ -79,7 +79,7 @@ make sure to use this feature with great caution!`,
 		if showPrivate {
 			priKey, err := cryptobase.SigAlg.SerializePrivateKey(key.PrivateKey)
 			if err != nil {
-				utils.Fatalf("FromOQS", err)
+				utils.Fatalf("SerializePrivateKey", err)
 			}
 			out.PrivateKey = hex.EncodeToString(priKey)
 		}

@@ -19,7 +19,7 @@
 // stored in key/value pairs. To store and retrieve key/values in a record, use the Entry
 // interface.
 //
-// Signature Handling
+// # Signature Handling
 //
 // Records must be signed before transmitting them to another node.
 //
@@ -42,7 +42,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 )
-const SizeLimit = 3000 // maximum encoded size of a node record in bytes (oqssignpubliclen)
+
+const SizeLimit = 3000 // maximum encoded size of a node record in bytes //todo: signature
 
 var (
 	ErrInvalidSig     = errors.New("invalid signature on node record")

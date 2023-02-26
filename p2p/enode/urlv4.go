@@ -206,6 +206,5 @@ func PubkeyToIDV4(key *signaturealgorithm.PublicKey) ID {
 		panic(err)
 	}
 	copy(e, pubBytes)
-	//math.ReadBits(cryptobase.SigAlg.PublicKeyAsBigInt(key), e)
 	return ID(crypto.Keccak256Hash(e))
 }

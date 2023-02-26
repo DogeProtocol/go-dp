@@ -118,7 +118,7 @@ func (c *Conn) handshake() error {
 	if err != nil {
 		return err
 	}
-	pub0 := pubKey[1:]
+	pub0 := pubKey[:]
 	ourHandshake := &Hello{
 		Version: 5,
 		Caps:    c.caps,
@@ -537,7 +537,7 @@ func (s *Suite) maliciousHandshakes(t *utesting.T, isEth66 bool) error {
 	if err != nil {
 		return err
 	}
-	pub0 := pubKey[1:]
+	pub0 := pubKey
 	handshakes := []*Hello{
 		{
 			Version: 5,

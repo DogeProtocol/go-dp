@@ -188,10 +188,10 @@ func (ec *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.H
 
 type rpcTransaction struct {
 	tx *types.Transaction
-	txExtraInfo
+	TxExtraInfo
 }
 
-type txExtraInfo struct {
+type TxExtraInfo struct {
 	BlockNumber *string         `json:"blockNumber,omitempty"`
 	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
 	From        *common.Address `json:"from,omitempty"`
@@ -201,7 +201,7 @@ func (tx *rpcTransaction) UnmarshalJSON(msg []byte) error {
 	if err := json.Unmarshal(msg, &tx.tx); err != nil {
 		return err
 	}
-	return json.Unmarshal(msg, &tx.txExtraInfo)
+	return json.Unmarshal(msg, &tx.TxExtraInfo)
 }
 
 // TransactionByHash returns the transaction with the given hash.
@@ -219,6 +219,18 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 		setSenderFromServer(json.tx, *json.From, *json.BlockHash)
 	}
 	return json.tx, json.BlockNumber == nil, nil
+}
+
+// RawTransactionByHash returns the transaction with the given hash.
+func (ec *Client) RawTransactionByHash(ctx context.Context, hash common.Hash) (string, error) {
+	var json json.RawMessage
+	err := ec.c.CallContext(ctx, &json, "eth_getTransactionByHash", hash)
+	if err != nil {
+		return "", err
+	} else if json == nil {
+		return "", ethereum.NotFound
+	}
+	return string(json), nil
 }
 
 // TransactionSender returns the sender address of the given transaction. The transaction

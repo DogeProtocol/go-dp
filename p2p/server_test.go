@@ -432,7 +432,7 @@ func TestServerSetupConn(t *testing.T) {
 			wantCloseErr: errors.New("foo"),
 		},
 		{
-			tt:           &setupTransport{pubkey: srvpub, phs: protoHandshake{ID: srvPub[1:]}},
+			tt:           &setupTransport{pubkey: srvpub, phs: protoHandshake{ID: srvPub[:]}},
 			flags:        inboundConn,
 			wantCalls:    "doEncHandshake,close,",
 			wantCloseErr: DiscSelf,

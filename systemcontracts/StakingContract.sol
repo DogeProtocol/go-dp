@@ -45,7 +45,7 @@ contract StakingContract is IStakingContract {
         _totalDepositBalance = _totalDepositBalance.add(msg.value);
         _balances[msg.sender] = _balances[msg.sender].add(msg.value);
 
-         bytes32 keyhash = keccak256(pubkey[1:]);  
+         bytes32 keyhash = keccak256(pubkey[:]);
          address validatorAddress = bytes32toaddress(keyhash);
          bytes32 validatorId = addresstobytes32(validatorAddress);
 

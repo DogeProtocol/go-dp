@@ -30,11 +30,11 @@ import (
 func TestProtocolHandshake(t *testing.T) {
 	var (
 		prv0, _ = cryptobase.SigAlg.GenerateKey()
-		pub0, _ = cryptobase.SigAlg.SerializePublicKey(&prv0.PublicKey) ////[1:]
+		pub0, _ = cryptobase.SigAlg.SerializePublicKey(&prv0.PublicKey)
 		hs0     = &protoHandshake{Version: 3, ID: pub0, Caps: []Cap{{"a", 0}, {"b", 2}}}
 
 		prv1, _ = cryptobase.SigAlg.GenerateKey()
-		pub1, _ = cryptobase.SigAlg.SerializePublicKey(&prv1.PublicKey) ////[1:]
+		pub1, _ = cryptobase.SigAlg.SerializePublicKey(&prv1.PublicKey)
 		hs1     = &protoHandshake{Version: 3, ID: pub1, Caps: []Cap{{"c", 1}, {"d", 3}}}
 
 		wg sync.WaitGroup
