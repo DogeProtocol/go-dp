@@ -364,6 +364,15 @@ func (ks *KeyStore) TimedUnlock(a accounts.Account, passphrase string, timeout t
 		u = &unlocked{Key: key}
 	}
 	ks.unlocked[a.Address] = u
+	pubAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PrivateKey.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	if pubAddr != a.Address {
+		return accounts.ErrUnknownWallet
+	}
+
 	return nil
 }
 

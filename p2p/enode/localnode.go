@@ -77,6 +77,11 @@ func NewLocalNode(db *DB, key *signaturealgorithm.PrivateKey) *LocalNode {
 	}
 	ln.seq = db.localSeq(ln.id)
 	ln.invalidate()
+	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		panic("NewLocalNode")
+	}
+
 	return ln
 }
 
