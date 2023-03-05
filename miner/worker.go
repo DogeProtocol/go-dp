@@ -24,17 +24,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/consensus/misc"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/event"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/trie"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/trie"
 )
 
 const (

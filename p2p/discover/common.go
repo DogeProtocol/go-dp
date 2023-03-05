@@ -17,14 +17,14 @@
 package discover
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"net"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/netutil"
 )
 
 // UdpSession is a network connection on which discovery can operate.
@@ -33,7 +33,6 @@ type UdpSession interface {
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
 	Close() error
 	LocalAddr() net.Addr
-
 }
 
 // Config holds settings for the discovery listener.

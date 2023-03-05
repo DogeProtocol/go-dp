@@ -18,10 +18,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"net"
 
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enode"
 	"gopkg.in/urfave/cli.v1"
 )
 

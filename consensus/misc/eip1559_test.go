@@ -20,9 +20,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/params"
 )
 
 // copyConfig does a _shallow_ copy of a given config. Safe to set new values, but

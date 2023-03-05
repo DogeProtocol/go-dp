@@ -2,8 +2,8 @@ package systemcontracts1
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/accounts/abi"
+	"github.com/DogeProtocol/dp/common"
 	"os"
 	"strings"
 )

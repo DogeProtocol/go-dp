@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"testing"
 )
 

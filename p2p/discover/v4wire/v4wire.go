@@ -21,16 +21,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 // RPC packet types

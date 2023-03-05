@@ -21,11 +21,11 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/rlp"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (

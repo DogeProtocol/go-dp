@@ -11,8 +11,8 @@ import "C"
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"unsafe"
 )
 

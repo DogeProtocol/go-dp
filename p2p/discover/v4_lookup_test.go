@@ -19,15 +19,15 @@ package discover
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"net"
 	"sort"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/discover/v4wire"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
 )
 
 func TestUDPv4_Lookup(t *testing.T) {

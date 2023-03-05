@@ -20,14 +20,14 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 
 	"errors"
 
 	"hash"
 
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enode"
 	"golang.org/x/crypto/hkdf"
 )
 

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 	"os"
 )
 

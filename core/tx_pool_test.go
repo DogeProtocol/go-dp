@@ -19,8 +19,8 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -28,13 +28,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/event"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/trie"
 )
 
 var (

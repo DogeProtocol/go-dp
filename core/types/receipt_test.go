@@ -23,10 +23,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 func TestDecodeEmptyTypedReceipt(t *testing.T) {

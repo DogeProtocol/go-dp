@@ -26,17 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/math"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/core/vm"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/light"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 type odrTestFn func(ctx context.Context, db ethdb.Database, config *params.ChainConfig, bc *core.BlockChain, lc *light.LightChain, bhash common.Hash) []byte

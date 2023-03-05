@@ -27,15 +27,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/light"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/rlp"
+	"github.com/DogeProtocol/dp/trie"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -367,7 +367,8 @@ func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []comm
 	return hashes, slots, proofs
 }
 
-//  the createStorageRequestResponseAlwaysProve tests a cornercase, where it always
+//	the createStorageRequestResponseAlwaysProve tests a cornercase, where it always
+//
 // supplies the proof for the last account, even if it is 'complete'.h
 func createStorageRequestResponseAlwaysProve(t *testPeer, root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
 	var size uint64

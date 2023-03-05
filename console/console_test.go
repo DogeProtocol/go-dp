@@ -26,15 +26,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/console/prompt"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/internal/jsre"
-	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/consensus/ethash"
+	"github.com/DogeProtocol/dp/console/prompt"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/eth"
+	"github.com/DogeProtocol/dp/eth/ethconfig"
+	"github.com/DogeProtocol/dp/internal/jsre"
+	"github.com/DogeProtocol/dp/miner"
+	"github.com/DogeProtocol/dp/node"
 )
 
 const (

@@ -32,8 +32,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DogeProtocol/dp/log"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 func TestClientRequest(t *testing.T) {

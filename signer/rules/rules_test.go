@@ -22,14 +22,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/signer/core"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/ethereum/go-ethereum/signer/storage"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/signer/core"
+	"github.com/DogeProtocol/dp/signer/core/apitypes"
+	"github.com/DogeProtocol/dp/signer/storage"
 )
 
 const JS = `
@@ -243,7 +243,7 @@ func (d *dummyUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
 func (d *dummyUI) OnSignerStartup(info core.StartupInfo) {
 }
 
-//TestForwarding tests that the rule-engine correctly dispatches requests to the next caller
+// TestForwarding tests that the rule-engine correctly dispatches requests to the next caller
 func TestForwarding(t *testing.T) {
 
 	js := ""
@@ -544,7 +544,7 @@ func (d *dontCallMe) OnApprovedTx(tx ethapi.SignTransactionResult) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-//TestContextIsCleared tests that the rule-engine does not retain variables over several requests.
+// TestContextIsCleared tests that the rule-engine does not retain variables over several requests.
 // if it does, that would be bad since developers may rely on that to store data,
 // instead of using the disk-based data storage
 func TestContextIsCleared(t *testing.T) {

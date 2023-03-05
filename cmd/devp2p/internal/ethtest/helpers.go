@@ -18,19 +18,19 @@ package ethtest
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"net"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/eth/protocols/eth"
+	"github.com/DogeProtocol/dp/internal/utesting"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/rlpx"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/protocols/eth"
-	"github.com/ethereum/go-ethereum/internal/utesting"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
 )
 
 var (

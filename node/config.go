@@ -18,8 +18,8 @@ package node
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,16 +27,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/external"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/accounts/scwallet"
-	"github.com/ethereum/go-ethereum/accounts/usbwallet"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/accounts/external"
+	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/accounts/scwallet"
+	"github.com/DogeProtocol/dp/accounts/usbwallet"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/rpc"
 )
 
 const (

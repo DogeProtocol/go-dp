@@ -2,12 +2,12 @@ package proofofstake
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/systemcontracts1"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/rpc"
+	"github.com/DogeProtocol/dp/systemcontracts1"
 )
 
 func (p *ProofOfStake) GetValidatorsAddress1(number uint64, blockHash common.Hash) ([]common.Address, error) {

@@ -20,12 +20,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

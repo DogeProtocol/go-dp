@@ -21,12 +21,12 @@ package geth
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/common"
 )
 
 const (

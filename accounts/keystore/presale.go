@@ -24,9 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )

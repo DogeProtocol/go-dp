@@ -17,19 +17,19 @@
 package core
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/consensus/ethash"
+	"github.com/DogeProtocol/dp/consensus/misc"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/core/vm"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/trie"
 	"golang.org/x/crypto/sha3"
 )
 

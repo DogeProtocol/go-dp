@@ -18,11 +18,11 @@ package ethtest
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
-	"github.com/ethereum/go-ethereum/eth/protocols/eth"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/eth/protocols/eth"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/rlpx"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 type Message interface {

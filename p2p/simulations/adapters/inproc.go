@@ -24,13 +24,13 @@ import (
 	"net"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/DogeProtocol/dp/event"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/node"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/simulations/pipes"
+	"github.com/DogeProtocol/dp/rpc"
 	"github.com/gorilla/websocket"
 )
 

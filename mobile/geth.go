@@ -24,17 +24,17 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/ethstats"
-	"github.com/ethereum/go-ethereum/internal/debug"
-	"github.com/ethereum/go-ethereum/les"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/nat"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/eth/downloader"
+	"github.com/DogeProtocol/dp/eth/ethconfig"
+	"github.com/DogeProtocol/dp/ethclient"
+	"github.com/DogeProtocol/dp/ethstats"
+	"github.com/DogeProtocol/dp/internal/debug"
+	"github.com/DogeProtocol/dp/les"
+	"github.com/DogeProtocol/dp/node"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/nat"
+	"github.com/DogeProtocol/dp/params"
 )
 
 // NodeConfig represents the collection of configuration values to fine tune the Geth

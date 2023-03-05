@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 )
 
 const testSectionSize = 4096

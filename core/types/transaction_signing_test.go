@@ -17,12 +17,12 @@
 package types
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 func TestEIP155Signing(t *testing.T) {

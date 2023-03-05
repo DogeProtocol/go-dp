@@ -18,10 +18,10 @@ package p2p
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
+	"github.com/DogeProtocol/dp/p2p/rlpx"
 	"io"
 	"math/rand"
 	"net"
@@ -29,10 +29,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/internal/testlog"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/DogeProtocol/dp/internal/testlog"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
 )
 
 type testTransport struct {

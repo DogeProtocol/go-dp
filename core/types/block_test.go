@@ -19,16 +19,16 @@ package types
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"hash"
 	"math/big"
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/math"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/rlp"
 	"golang.org/x/crypto/sha3"
 )
 

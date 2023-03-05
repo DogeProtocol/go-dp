@@ -40,7 +40,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/rlp"
 )
 
 const SizeLimit = 3000 // maximum encoded size of a node record in bytes //todo: signature

@@ -25,17 +25,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/bitutil"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/rlp"
+	"github.com/DogeProtocol/dp/trie"
 	mapset "github.com/deckarep/golang-set"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
 )
 
 // IndexerConfig includes a set of configs for chain indexers.

@@ -17,7 +17,7 @@
 package main
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"

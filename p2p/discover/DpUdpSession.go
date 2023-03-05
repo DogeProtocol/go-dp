@@ -3,7 +3,7 @@ package discover
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/DogeProtocol/dp/crypto"
 	"net"
 	"sync"
 )

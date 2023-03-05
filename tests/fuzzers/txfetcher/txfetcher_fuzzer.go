@@ -23,10 +23,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/fetcher"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/eth/fetcher"
 )
 
 var (

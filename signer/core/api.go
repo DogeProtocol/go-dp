@@ -25,16 +25,16 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/accounts/scwallet"
-	"github.com/ethereum/go-ethereum/accounts/usbwallet"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/ethereum/go-ethereum/signer/storage"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/accounts/scwallet"
+	"github.com/DogeProtocol/dp/accounts/usbwallet"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/signer/core/apitypes"
+	"github.com/DogeProtocol/dp/signer/storage"
 )
 
 const (

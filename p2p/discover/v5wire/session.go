@@ -19,12 +19,12 @@ package v5wire
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/p2p/enode"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 

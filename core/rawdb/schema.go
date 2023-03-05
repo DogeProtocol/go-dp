@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/metrics"
 )
 
 // The fields below define the low level database schema prefixing.

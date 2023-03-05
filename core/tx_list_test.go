@@ -17,12 +17,12 @@
 package core
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/DogeProtocol/dp/core/types"
 )
 
 // Tests that transactions can be added to strict lists and list contents and

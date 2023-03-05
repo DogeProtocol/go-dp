@@ -1,6 +1,6 @@
 package cryptobase
 
-import "github.com/ethereum/go-ethereum/crypto/hybrid"
+import "github.com/DogeProtocol/dp/crypto/hybrid"
 
 var SigAlg = hybrid.CreateHybridSig()
 

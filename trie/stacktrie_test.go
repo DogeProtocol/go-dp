@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/ethdb/memorydb"
 )
 
 func TestSizeBug(t *testing.T) {

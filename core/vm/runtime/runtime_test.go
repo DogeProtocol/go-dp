@@ -24,16 +24,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/asm"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/accounts/abi"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/asm"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/core/vm"
+	"github.com/DogeProtocol/dp/params"
 )
 
 func TestDefaults(t *testing.T) {

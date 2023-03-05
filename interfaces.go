@@ -15,15 +15,15 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package ethereum defines interfaces for interacting with Ethereum.
-package ethereum
+package dp
 
 import (
 	"context"
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.

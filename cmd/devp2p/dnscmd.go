@@ -19,17 +19,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/console/prompt"
-	"github.com/ethereum/go-ethereum/p2p/dnsdisc"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/console/prompt"
+	"github.com/DogeProtocol/dp/p2p/dnsdisc"
+	"github.com/DogeProtocol/dp/p2p/enode"
 	"gopkg.in/urfave/cli.v1"
 )
 

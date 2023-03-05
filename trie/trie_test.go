@@ -30,13 +30,13 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/ethdb/leveldb"
+	"github.com/DogeProtocol/dp/ethdb/memorydb"
+	"github.com/DogeProtocol/dp/rlp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/ethdb/leveldb"
-	"github.com/ethereum/go-ethereum/ethdb/memorydb"
-	"github.com/ethereum/go-ethereum/rlp"
 	"golang.org/x/crypto/sha3"
 )
 

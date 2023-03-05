@@ -18,8 +18,8 @@ package discover
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"math/rand"
 
 	"net"
@@ -28,9 +28,9 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/netutil"
 )
 
 func TestTable_pingReplace(t *testing.T) {

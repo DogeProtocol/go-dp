@@ -19,15 +19,15 @@ package enode
 import (
 	"encoding/base64"
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"golang.org/x/crypto/sha3"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/enr"
 )
 
 var (

@@ -23,11 +23,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/metrics"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 

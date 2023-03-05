@@ -18,8 +18,8 @@
 package ethconfig
 
 import (
-	"github.com/ethereum/go-ethereum/consensus/proofofstake"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
+	"github.com/DogeProtocol/dp/consensus/proofofstake"
+	"github.com/DogeProtocol/dp/internal/ethapi"
 	"math/big"
 	"os"
 	"os/user"
@@ -27,18 +27,18 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/clique"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/eth/gasprice"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/consensus/clique"
+	"github.com/DogeProtocol/dp/consensus/ethash"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/eth/downloader"
+	"github.com/DogeProtocol/dp/eth/gasprice"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/miner"
+	"github.com/DogeProtocol/dp/node"
+	"github.com/DogeProtocol/dp/params"
 )
 
 // FullNodeGPO contains default gasprice oracle settings for full node.

@@ -2,8 +2,8 @@ package systemcontracts_test
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/systemcontracts"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/systemcontracts"
 	"testing"
 )
 

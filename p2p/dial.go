@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/netutil"
 )
 
 const (
@@ -84,13 +84,12 @@ var (
 // dialer creates outbound connections and submits them into Server.
 // Two types of peer connections can be created:
 //
-//  - static dials are pre-configured connections. The dialer attempts
-//    keep these nodes connected at all times.
+//   - static dials are pre-configured connections. The dialer attempts
+//     keep these nodes connected at all times.
 //
-//  - dynamic dials are created from node discovery results. The dialer
-//    continuously reads candidate nodes from its input iterator and attempts
-//    to create peer connections to nodes arriving through the iterator.
-//
+//   - dynamic dials are created from node discovery results. The dialer
+//     continuously reads candidate nodes from its input iterator and attempts
+//     to create peer connections to nodes arriving through the iterator.
 type dialScheduler struct {
 	dialConfig
 	setupFunc   dialSetupFunc
@@ -244,7 +243,6 @@ loop:
 		d.rearmHistoryTimer(historyExp)
 		d.logStats()
 
-
 		select {
 		case node := <-nodesCh:
 
@@ -254,14 +252,12 @@ loop:
 				d.startDial(newDialTask(node, dynDialedConn))
 			}
 
-
 		case task := <-d.doneCh:
 
 			id := task.dest.ID()
 			delete(d.dialing, id)
 			d.updateStaticPool(id)
 			d.doneSinceLastLog++
-
 
 		case c := <-d.addPeerCh:
 
@@ -286,7 +282,6 @@ loop:
 			delete(d.peers, c.node.ID())
 			d.updateStaticPool(c.node.ID())
 
-
 		case node := <-d.addStaticCh:
 
 			id := node.ID()
@@ -301,7 +296,6 @@ loop:
 				d.addToStaticPool(task)
 			}
 
-
 		case node := <-d.remStaticCh:
 
 			id := node.ID()
@@ -314,11 +308,9 @@ loop:
 				}
 			}
 
-
 		case <-historyExp:
 
 			d.expireHistory()
-
 
 		case <-d.ctx.Done():
 
@@ -327,7 +319,6 @@ loop:
 			break loop
 		}
 	}
-
 
 	d.stopHistoryTimer(historyExp)
 
@@ -346,7 +337,6 @@ loop:
 func (d *dialScheduler) readNodes(it enode.Iterator) {
 	defer d.wg.Done()
 
-
 	for it.Next() {
 
 		select {
@@ -354,7 +344,6 @@ func (d *dialScheduler) readNodes(it enode.Iterator) {
 		case <-d.ctx.Done():
 		}
 	}
-
 
 }
 

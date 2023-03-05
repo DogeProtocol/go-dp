@@ -20,12 +20,12 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/internal/utesting"
-	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
+	"github.com/DogeProtocol/dp/internal/utesting"
+	"github.com/DogeProtocol/dp/p2p/discover/v4wire"
 )
 
 const (

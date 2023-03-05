@@ -1,7 +1,7 @@
 package hybrid
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"testing"
 )
 

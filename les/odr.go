@@ -22,10 +22,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/light"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/light"
 )
 
 // LesOdr implements light.OdrBackend

@@ -22,12 +22,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/signer/core"
+	"github.com/DogeProtocol/dp/signer/rules/deps"
+	"github.com/DogeProtocol/dp/signer/storage"
 	"github.com/dop251/goja"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/signer/core"
-	"github.com/ethereum/go-ethereum/signer/rules/deps"
-	"github.com/ethereum/go-ethereum/signer/storage"
 )
 
 var (

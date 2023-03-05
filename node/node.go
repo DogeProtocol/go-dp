@@ -26,13 +26,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/core/rawdb"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/event"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/rpc"
 	"github.com/prometheus/tsdb/fileutil"
 )
 

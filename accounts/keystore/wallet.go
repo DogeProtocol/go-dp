@@ -17,12 +17,11 @@
 package keystore
 
 import (
+	"github.com/DogeProtocol/dp"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/crypto"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original
@@ -77,7 +76,7 @@ func (w *keystoreWallet) Derive(path accounts.DerivationPath, pin bool) (account
 
 // SelfDerive implements accounts.Wallet, but is a noop for plain wallets since
 // there is no notion of hierarchical account derivation for plain keystore accounts.
-func (w *keystoreWallet) SelfDerive(bases []accounts.DerivationPath, chain ethereum.ChainStateReader) {
+func (w *keystoreWallet) SelfDerive(bases []accounts.DerivationPath, chain dp.ChainStateReader) {
 }
 
 // signHash attempts to sign the given hash with

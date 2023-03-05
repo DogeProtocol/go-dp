@@ -6,7 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/sha3"
 )

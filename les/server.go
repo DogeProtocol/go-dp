@@ -17,23 +17,23 @@
 package les
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/les/flowcontrol"
-	vfs "github.com/ethereum/go-ethereum/les/vflux/server"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/DogeProtocol/dp/common/mclock"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/eth/ethconfig"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/les/flowcontrol"
+	vfs "github.com/DogeProtocol/dp/les/vflux/server"
+	"github.com/DogeProtocol/dp/light"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/node"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/enr"
+	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/rpc"
 )
 
 var (

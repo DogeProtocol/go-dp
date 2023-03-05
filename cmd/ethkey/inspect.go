@@ -19,11 +19,11 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io/ioutil"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 
