@@ -18,17 +18,17 @@ package les
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/light"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/accounts/abi/bind"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/light"
+	"github.com/DogeProtocol/dp/params"
 )
 
 // Test light syncing which will download all headers from genesis.

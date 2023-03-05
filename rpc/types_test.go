@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

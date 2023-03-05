@@ -18,7 +18,8 @@ package enode
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"net"
 	"reflect"
 	"strconv"
@@ -26,9 +27,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/netutil"
 )
 
 const (
@@ -77,7 +78,7 @@ func NewLocalNode(db *DB, key *signaturealgorithm.PrivateKey) *LocalNode {
 	}
 	ln.seq = db.localSeq(ln.id)
 	ln.invalidate()
-	addr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	_, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
 	if err != nil {
 		panic("NewLocalNode")
 	}

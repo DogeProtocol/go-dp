@@ -23,18 +23,18 @@ import (
 	crand "crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io"
 	"net"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/netutil"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/p2p/discover/v4wire"
+	"github.com/DogeProtocol/dp/p2p/enode"
+	"github.com/DogeProtocol/dp/p2p/netutil"
 )
 
 // Errors
@@ -189,7 +189,7 @@ func (t *UDPv4) Resolve(n *enode.Node) *enode.Node {
 	// Otherwise perform a network lookup.
 	var key enode.PqPubKey
 	if n.Load(&key) != nil {
-		return n 
+		return n
 	}
 	result := t.LookupPubkey((*signaturealgorithm.PublicKey)(&key))
 	for _, rn := range result {

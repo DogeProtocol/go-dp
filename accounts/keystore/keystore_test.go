@@ -17,7 +17,7 @@
 package keystore
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/event"
+	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/event"
 )
 
 var testSigData = make([]byte, 32)

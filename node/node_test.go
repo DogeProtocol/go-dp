@@ -19,7 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io"
 	"io/ioutil"
 	"net"
@@ -29,9 +29,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/DogeProtocol/dp/ethdb"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/rpc"
 
 	"github.com/stretchr/testify/assert"
 )

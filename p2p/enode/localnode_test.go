@@ -17,12 +17,12 @@
 package enode
 
 import (
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/rand"
 	"net"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/DogeProtocol/dp/p2p/enr"
 	"github.com/stretchr/testify/assert"
 )
 

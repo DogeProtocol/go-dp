@@ -17,11 +17,11 @@
 package ethtest
 
 import (
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/internal/utesting"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/DogeProtocol/dp/eth"
+	"github.com/DogeProtocol/dp/eth/ethconfig"
+	"github.com/DogeProtocol/dp/internal/utesting"
+	"github.com/DogeProtocol/dp/node"
+	"github.com/DogeProtocol/dp/p2p"
 	"os"
 	"testing"
 	"time"

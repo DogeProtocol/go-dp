@@ -8,7 +8,7 @@ import "C"
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 	"unsafe"
 )
 

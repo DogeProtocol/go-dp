@@ -19,16 +19,16 @@ package bind_test
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/DogeProtocol/dp/accounts/abi/bind"
+	"github.com/DogeProtocol/dp/accounts/abi/bind/backends"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core"
+	"github.com/DogeProtocol/dp/core/types"
 )
 
 var (

@@ -11,7 +11,7 @@ import "C"
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/keyestablishmentalgorithm"
+	"github.com/DogeProtocol/dp/crypto/keyestablishmentalgorithm"
 	"math/big"
 	"unsafe"
 )

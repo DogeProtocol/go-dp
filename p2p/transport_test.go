@@ -18,13 +18,13 @@ package p2p
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"reflect"
 	"sync"
 	"testing"
 
+	"github.com/DogeProtocol/dp/p2p/simulations/pipes"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
 )
 
 func TestProtocolHandshake(t *testing.T) {

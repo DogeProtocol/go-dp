@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/rlp"
 	"io"
 	mrand "math/rand"
 	"sync"

@@ -21,17 +21,17 @@ package checkpointoracle
 
 import (
 	"encoding/binary"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/contracts/checkpointoracle"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/accounts/abi/bind"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/contracts/checkpointoracle"
+	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/params"
 )
 
 // CheckpointOracle is responsible for offering the latest stable checkpoint

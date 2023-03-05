@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/DogeProtocol/dp/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

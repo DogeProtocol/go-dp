@@ -3,8 +3,8 @@ package rlpx
 import (
 	"crypto/cipher"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/rlp"
 	"time"
 )
 

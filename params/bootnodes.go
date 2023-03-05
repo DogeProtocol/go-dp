@@ -17,7 +17,7 @@
 package params
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 )
 
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on

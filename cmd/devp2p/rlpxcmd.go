@@ -18,14 +18,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"net"
 
-	"github.com/ethereum/go-ethereum/cmd/devp2p/internal/ethtest"
-	"github.com/ethereum/go-ethereum/internal/utesting"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/DogeProtocol/dp/cmd/devp2p/internal/ethtest"
+	"github.com/DogeProtocol/dp/internal/utesting"
+	"github.com/DogeProtocol/dp/p2p"
+	"github.com/DogeProtocol/dp/p2p/rlpx"
+	"github.com/DogeProtocol/dp/rlp"
 	"gopkg.in/urfave/cli.v1"
 )
 

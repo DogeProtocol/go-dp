@@ -17,29 +17,26 @@
 package keystore
 
 import (
-	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/DogeProtocol/dp/accounts"
 	"os"
 	"strconv"
 	"testing"
 )
-
 
 const (
 	veryLightScryptN = 2
 	veryLightScryptP = 1
 )
 
-
 // Tests that a json key file can be decrypted and encrypted in multiple rounds.
 func TestKeyEncryptDecrypt(t *testing.T) {
-
 
 	// Do a few rounds of decryption and encryption
 	for i := 0; i < 3; i++ {
 		dir, ks := tmpKeyStore(t, true)
 		defer os.RemoveAll(dir)
 
-		pass :=  strconv.Itoa(i)
+		pass := strconv.Itoa(i)
 		a1, err := ks.NewAccount(pass)
 		if err != nil {
 			t.Fatal(err)

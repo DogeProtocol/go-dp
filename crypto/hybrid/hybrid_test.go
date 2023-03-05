@@ -2,7 +2,7 @@ package hybrid
 
 import (
 	"bytes"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"math/rand"
 	"testing"
 )

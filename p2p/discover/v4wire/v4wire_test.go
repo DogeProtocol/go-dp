@@ -18,9 +18,9 @@ package v4wire
 
 import (
 	"encoding/hex"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/rlp"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/crypto/cryptobase"
-	"github.com/ethereum/go-ethereum/rlp"
 	"net"
 	"reflect"
 	"testing"

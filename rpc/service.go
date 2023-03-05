@@ -26,7 +26,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/DogeProtocol/dp/log"
 )
 
 var (
@@ -184,7 +184,6 @@ func (c *callback) makeArgTypes() {
 func (c *callback) call(ctx context.Context, method string, args []reflect.Value) (res interface{}, errRes error) {
 	// Create the argument slice.
 
-
 	fullargs := make([]reflect.Value, 0, 2+len(args))
 	if c.rcvr.IsValid() {
 		fullargs = append(fullargs, c.rcvr)
@@ -194,19 +193,13 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	}
 	fullargs = append(fullargs, args...)
 
-
-
 	// Catch panic while running the callback.
 	defer func() {
 		if err := recover(); err != nil {
 			const size = 64 << 10
 
-
-
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-
-
 
 			log.Error("RPC method " + method + " crashed: " + fmt.Sprintf("%v\n%s", err, buf))
 			errRes = errors.New("method handler crashed")

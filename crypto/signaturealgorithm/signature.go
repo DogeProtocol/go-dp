@@ -1,7 +1,7 @@
 package signaturealgorithm
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/DogeProtocol/dp/common"
 	"math/big"
 )
 

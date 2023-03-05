@@ -1,7 +1,7 @@
 package falcon
 
 import (
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"math/rand"
 	"testing"
 )
