@@ -14,7 +14,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"runtime/debug"
 )
 
 type MockSig struct {
@@ -340,13 +339,11 @@ func (osig MockSig) ValidateSignatureValues(v byte, r, s *big.Int, homestead boo
 
 		if len(R) != osig.PublicKeyLength() {
 			fmt.Println("ValidateSignatureValues r public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
-			debug.PrintStack()
 			return false
 		}
 
 		if len(S) < osig.SignatureLength() {
 			fmt.Println("ValidateSignatureValues s public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
-			debug.PrintStack()
 			return false
 		}
 
@@ -444,7 +441,6 @@ func (s MockSig) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicKey
 // exportPrivateKey exports a private key into a binary dump.
 func (s MockSig) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byte, error) {
 	if privy.PriData == nil {
-		debug.PrintStack()
 	}
 	if len(privy.PriData) != s.privateKeyLength {
 		return nil, ErrInvalidPrivateKeyLen

@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"runtime/debug"
 )
 
 const (
@@ -152,7 +151,6 @@ func TrimRightZeroes(s []byte) []byte {
 
 func CombineTwoParts(part1 []byte, part2 []byte) []byte {
 	if len(part1) == 0 || len(part2) == 0 {
-		debug.PrintStack()
 		panic("CombineTwoParts nil")
 	}
 

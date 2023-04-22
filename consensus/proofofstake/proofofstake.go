@@ -24,6 +24,7 @@ import (
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/systemcontracts"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -48,13 +49,10 @@ import (
 )
 
 const (
-	checkpointInterval = 1024 // Number of blocks after which to save the vote snapshot to the database
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
-
-	wiggleTime = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
-
-	shiftBlockNumber = 100 // proofofstake contract switches
+	checkpointInterval = 1024                   // Number of blocks after which to save the vote snapshot to the database
+	inmemorySnapshots  = 128                    // Number of recent vote snapshots to keep in memory
+	inmemorySignatures = 4096                   // Number of recent block signatures to keep in memory
+	wiggleTime         = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
 )
@@ -173,6 +171,9 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
+	if len(signature) == 0 {
+		panic("signature is empty")
+	}
 	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
@@ -421,7 +422,7 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 		// If we're at the genesis, snapshot the initial state. Alternatively if we're
 		// at a checkpoint block without a parent (light client CHT), or we have piled
 		// up more headers than allowed to be reorged (chain reinit from a freezer),
-		// consider the checkpoint trusted and snapshot it. 	if number > 10 {
+		// consider the checkpoint trusted and snapshot it.
 		if number == 0 || (number%c.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold || chain.GetHeaderByNumber(number-1) == nil)) {
 			checkpoint := chain.GetHeaderByNumber(number)
 			if checkpoint != nil {
@@ -615,13 +616,17 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	number := header.Number.Uint64()
 
-	if number >= shiftBlockNumber {
+	code := state.GetCode(systemcontracts.GetStakingContract_Address())
+	if code == nil || len(code) == 0 {
+		log.Info("contract code is nil")
+	} else {
 		//Depositor reward
-		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
+		validators, err := c.GetValidatorsAddress(header.ParentHash)
 		if err != nil {
-			return err
-		}
-		if len(validators) > 0 {
+			fmt.Println("GetValidatorsAddress err", err)
+			//return nil
+		} else if validators != nil && len(validators) >= 3 {
+			fmt.Println("Found validators: ", len(validators))
 			index := number % uint64(len(validators))
 			validator := validators[index]
 			depositor, err := c.GetDepositor(validator, header.ParentHash)
@@ -632,7 +637,17 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			if err != nil {
 				return err
 			}
+		} else {
+			fmt.Println("no validators found or len < 3")
 		}
+	}
+	if txs == nil {
+		txs = make([]*types.Transaction, 0)
+	}
+
+	// should not happen. Once happen, stop the node is better than broadcast the block
+	if header.GasLimit < header.GasUsed {
+		return errors.New("gas consumption of system txs exceed the gas limit")
 	}
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -644,53 +659,15 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
 func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	number := header.Number.Uint64()
 
-	if number >= shiftBlockNumber {
-		//Depositor reward
-		validators, err := c.GetValidatorsAddress1(number, header.ParentHash)
-		if err != nil {
-			return nil, err
-		}
-		if len(validators) > 0 {
-			index := number % uint64(len(validators))
-			validator := validators[index]
-			depositor, err := c.GetDepositor(validator, header.ParentHash)
-			if err != nil {
-				return nil, err
-			}
-			err = c.accumulateRewards(state, header, uncles, depositor)
-			if err != nil {
-				return nil, err
-			}
-		}
+	err := c.Finalize(chain, header, state, txs, uncles)
+	if err != nil {
+		return nil, err
 	}
 
-	if txs == nil {
-		txs = make([]*types.Transaction, 0)
-	}
-
-	// should not happen. Once happen, stop the node is better than broadcast the block
-	if header.GasLimit < header.GasUsed {
-		return nil, errors.New("gas consumption of system txs exceed the gas limit")
-	}
-	header.UncleHash = types.CalcUncleHash(nil)
-	var blk *types.Block
-	var rootHash common.Hash
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		rootHash = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-		wg.Done()
-	}()
-	go func() {
-		blk = types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil))
-		wg.Done()
-	}()
-	wg.Wait()
-	blk.SetRoot(rootHash)
 	// Assemble and return the final block for sealing
-	return blk, nil
+	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil
+
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks

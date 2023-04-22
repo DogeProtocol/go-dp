@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
-	"runtime/debug"
 )
 
 type HybridSig struct {
@@ -312,13 +311,11 @@ func (osig HybridSig) ValidateSignatureValues(v byte, r, s *big.Int, homestead b
 
 		if len(R) != osig.PublicKeyLength() {
 			fmt.Println("ValidateSignatureValues r public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
-			debug.PrintStack()
 			return false
 		}
 
 		if len(S) < osig.SignatureLength() {
 			fmt.Println("ValidateSignatureValues s public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
-			debug.PrintStack()
 			return false
 		}
 

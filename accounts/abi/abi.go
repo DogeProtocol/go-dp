@@ -21,10 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
+	"io"
 )
 
 // The ABI holds information about a contract's context and available
@@ -86,7 +85,7 @@ func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
 	var args Arguments
 	if method, ok := abi.Methods[name]; ok {
 		if len(data)%32 != 0 {
-			return nil, fmt.Errorf("abi: improperly formatted output: %s - Bytes: [%+v]", string(data), data)
+			return nil, fmt.Errorf("abi: improperly formatted output: %d", len(data))
 		}
 		args = method.Outputs
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 func printHelp() {
-	fmt.Println("Set the environment variable GETH_URL")
+	fmt.Println("Set the environment variable GETH_RAW_URL")
 	fmt.Println("dputil balance ACCOUNT_ADDRESS")
 	fmt.Println("dputil send FROM_ADDRESS TO_ADDRESS QUANTITY")
 }
@@ -21,7 +21,7 @@ func main() {
 		printHelp()
 		return
 	}
-	rawURL = os.Getenv("GETH_URL")
+	rawURL = os.Getenv("GETH_RAW_URL")
 	if os.Args[1] == "balance" {
 		balance()
 	} else if os.Args[1] == "send" {
@@ -46,11 +46,11 @@ func balance() {
 		return
 	}
 
-	balance, err := getBalance(addr)
+	ethBalance, weiBalance, err := getBalance(addr)
 	if err != nil {
 		fmt.Println("Error", err)
 	}
-	fmt.Println("Address", addr, balance)
+	fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance)
 
 }
 
