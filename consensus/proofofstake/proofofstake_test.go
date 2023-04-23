@@ -45,7 +45,6 @@ func TestReimportMirroredState(t *testing.T) {
 		key, _ = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
 		addr   = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
 		engine = New(params.AllProofOfStakeProtocolChanges, db, nil, common.Hash{})
-		signer = new(types.HomesteadSigner)
 	)
 	genspec := &core.Genesis{
 		ExtraData: make([]byte, extraVanity+common.AddressLength+extraSeal),
@@ -60,6 +59,7 @@ func TestReimportMirroredState(t *testing.T) {
 	// Generate a batch of blocks, each properly signed
 	chain, _ := core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil)
 	defer chain.Stop()
+	signer := types.NewLondonSigner(chain.Config().ChainID)
 
 	blocks, _ := core.GenerateChain(params.AllCliqueProtocolChanges, genesis, engine, db, 3, func(i int, block *core.BlockGen) {
 		// The chain maker doesn't have access to a chain, so the difficulty will be

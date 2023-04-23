@@ -207,7 +207,6 @@ func (sig *Signature) sign(message []byte) ([]byte, error) {
 		C.size_t(len(message)), (*C.uint8_t)(unsafe.Pointer(&sig.secretKey[0])))
 
 	if rv != C.OQS_SUCCESS {
-		//debug.PrintStack()
 		return nil, ErrSignFailed
 	}
 
@@ -244,7 +243,6 @@ func (sig *Signature) verify(message []byte, signature []byte,
 		C.size_t(len(sigExtracted)), (*C.uint8_t)(unsafe.Pointer(&publicKey[0])))
 
 	if rv != C.OQS_SUCCESS {
-		//debug.PrintStack()
 		return false, ErrVerifyFailed
 	}
 

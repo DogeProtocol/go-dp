@@ -1,22 +1,28 @@
 package systemcontracts
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
-	"os"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/log"
 	"strings"
 )
 
-var (
-	testContract    = "0x0000000000000000000000000000000000000000"
-	stakingContract = os.Getenv("GETH_STAKING_CONTRACT")
+const STAKING_CONTRACT = "0x0000000000000000000000000000000000001000"
 
-	stakingContractABI = "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"validatorId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validatorAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"pubkey\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockTime\",\"type\":\"uint256\"}],\"name\":\"OnNewDeposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"validatorId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"reward\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockTime\",\"type\":\"uint256\"}],\"name\":\"OnRewardDepositKey\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockTime\",\"type\":\"uint256\"}],\"name\":\"OnWithdrawKey\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"depositBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"depositCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"listValidator\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"pubkey\",\"type\":\"bytes\"}],\"name\":\"newDeposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"rewardDeposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalDepositBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]"
-	stakingContractBIN = "0x608060405234801561001057600080fd5b506000808190555060006001819055506111ba8061002f6000396000f3fe6080604052600436106100705760003560e01c806375697e661161004e57806375697e66146100b4578063dfcd068f146100df578063e8c0a0df146100fb578063fba13bd01461012657610070565b8063116b5e47146100755780632dfdf0b51461007f5780633ccfd60b146100aa575b600080fd5b61007d610163565b005b34801561008b57600080fd5b506100946102da565b6040516100a19190610fec565b60405180910390f35b6100b26102e3565b005b3480156100c057600080fd5b506100c961049b565b6040516100d69190610edc565b60405180910390f35b6100f960048036038101906100f49190610ae1565b610529565b005b34801561010757600080fd5b506101106108f4565b60405161011d9190610fec565b60405180910390f35b34801561013257600080fd5b5061014d60048036038101906101489190610ab8565b6108fe565b60405161015a9190610fec565b60405180910390f35b600034116101a6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161019d90610f4c565b60405180910390fd5b60006101b133610947565b905060006004600083815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff169050600a816040516020016101fe9190610e02565b604051602081830303815290604052511161024e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161024590610fac565b60405180910390fd5b8073ffffffffffffffffffffffffffffffffffffffff166108fc349081150290604051600060405180830381858888f19350505050158015610294573d6000803e3d6000fd5b507fe0b518260035297556cfeb160ef4b66aed5ba1606403b996e4102fdd87e133663383833443426040516102ce96959493929190610e36565b60405180910390a15050565b60008054905090565b34600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020541015610365576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161035c90610fcc565b60405180910390fd5b61037a3460015461096e90919063ffffffff16565b6001819055506103d234600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205461096e90919063ffffffff16565b600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055503373ffffffffffffffffffffffffffffffffffffffff166108fc349081150290604051600060405180830381858888f1935050505015801561045b573d6000803e3d6000fd5b507f4d4666331ec61727075c5624fde25f5510c566e528d0565f2a2263a23b70d81a333443426040516104919493929190610e97565b60405180910390a1565b6060600680548060200260200160405190810160405280929190818152602001828054801561051f57602002820191906000526020600020905b8160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190600101908083116104d5575b5050505050905090565b6000828290501161056f576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161056690610f6c565b60405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff1660046000600560003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054815260200190815260200160002060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff161415610650576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161064790610f8c565b60405180910390fd5b610666600160005461098590919063ffffffff16565b6000819055506106813460015461098590919063ffffffff16565b6001819055506106d934600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205461098590919063ffffffff16565b600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055506000828260019080926107319392919061106d565b60405161073f929190610e1d565b604051809103902090506000610754826109a1565b9050600061076182610947565b905084846003600084815260200190815260200160002091906107859291906109ae565b50336004600083815260200190815260200160002060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555080600560003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055506006829080600181540180825580915050600190039060005260206000200160009091909190916101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508173ffffffffffffffffffffffffffffffffffffffff16813373ffffffffffffffffffffffffffffffffffffffff167f9a1f4f083763f8508b19d4301c0110d2b47d99a8c5cf52c825c9e8cfea17f89c88883443426040516108e5959493929190610efe565b60405180910390a45050505050565b6000600154905090565b6000600260008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b600060608273ffffffffffffffffffffffffffffffffffffffff16901b60001b9050919050565b60008282111561097a57fe5b818303905092915050565b60008082840190508381101561099757fe5b8091505092915050565b60008160001c9050919050565b828054600181600116156101000203166002900490600052602060002090601f0160209004810192826109e45760008555610a2b565b82601f106109fd57803560ff1916838001178555610a2b565b82800160010185558215610a2b579182015b82811115610a2a578235825591602001919060010190610a0f565b5b509050610a389190610a3c565b5090565b5b80821115610a55576000816000905550600101610a3d565b5090565b600081359050610a688161116d565b92915050565b60008083601f840112610a8057600080fd5b8235905067ffffffffffffffff811115610a9957600080fd5b602083019150836001820283011115610ab157600080fd5b9250929050565b600060208284031215610aca57600080fd5b6000610ad884828501610a59565b91505092915050565b60008060208385031215610af457600080fd5b600083013567ffffffffffffffff811115610b0e57600080fd5b610b1a85828601610a6e565b92509250509250929050565b6000610b328383610b4d565b60208301905092915050565b610b47816110e6565b82525050565b610b56816110a0565b82525050565b610b65816110a0565b82525050565b610b7c610b77826110a0565b61112b565b82525050565b6000610b8d82611017565b610b97818561102f565b9350610ba283611007565b8060005b83811015610bd3578151610bba8882610b26565b9750610bc583611022565b925050600181019050610ba6565b5085935050505092915050565b610be9816110b2565b82525050565b6000610bfb8385611040565b9350610c0883858461111c565b610c118361114f565b840190509392505050565b6000610c288385611051565b9350610c3583858461111c565b82840190509392505050565b6000610c4e60258361105c565b91507f5374616b696e67436f6e74726163743a207265776172642076616c756520746f60008301527f6f206c6f770000000000000000000000000000000000000000000000000000006020830152604082019050919050565b6000610cb460168361105c565b91507f5075626c69636b6579206973206e6f742076616c6964000000000000000000006000830152602082019050919050565b6000610cf460128361105c565b91507f53656e64657220686176652065786973747300000000000000000000000000006000830152602082019050919050565b6000610d3460238361105c565b91507f5374616b696e67436f6e74726163743a2076616c696461746f7220697320656d60008301527f70747900000000000000000000000000000000000000000000000000000000006020830152604082019050919050565b6000610d9a60218361105c565b91507f5374616b696e67436f6e74726163743a20696e737566666963656e742066756e60008301527f64000000000000000000000000000000000000000000000000000000000000006020830152604082019050919050565b610dfc816110dc565b82525050565b6000610e0e8284610b6b565b60148201915081905092915050565b6000610e2a828486610c1c565b91508190509392505050565b600060c082019050610e4b6000830189610b3e565b610e586020830188610be0565b610e656040830187610b5c565b610e726060830186610df3565b610e7f6080830185610df3565b610e8c60a0830184610df3565b979650505050505050565b6000608082019050610eac6000830187610b3e565b610eb96020830186610df3565b610ec66040830185610df3565b610ed36060830184610df3565b95945050505050565b60006020820190508181036000830152610ef68184610b82565b905092915050565b60006080820190508181036000830152610f19818789610bef565b9050610f286020830186610df3565b610f356040830185610df3565b610f426060830184610df3565b9695505050505050565b60006020820190508181036000830152610f6581610c41565b9050919050565b60006020820190508181036000830152610f8581610ca7565b9050919050565b60006020820190508181036000830152610fa581610ce7565b9050919050565b60006020820190508181036000830152610fc581610d27565b9050919050565b60006020820190508181036000830152610fe581610d8d565b9050919050565b60006020820190506110016000830184610df3565b92915050565b6000819050602082019050919050565b600081519050919050565b6000602082019050919050565b600082825260208201905092915050565b600082825260208201905092915050565b600081905092915050565b600082825260208201905092915050565b6000808585111561107d57600080fd5b8386111561108a57600080fd5b6001850283019150848603905094509492505050565b60006110ab826110bc565b9050919050565b6000819050919050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000819050919050565b60006110f1826110f8565b9050919050565b60006111038261110a565b9050919050565b6000611115826110bc565b9050919050565b82818337600083830152505050565b60006111368261113d565b9050919050565b600061114882611160565b9050919050565b6000601f19601f8301169050919050565b60008160601b9050919050565b611176816110a0565b811461118157600080fd5b5056fea26469706673582212209ee10c0da0938c488ad04180d56697c45357d5ac690edbd051ae5fce27c3767664736f6c63430007060033"
+//var STAKING_CONTRACT = os.Getenv("STAKING_CONTRACT_ADDRESS")
+
+const PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER = 1
+
+var (
+	stakingContract    = STAKING_CONTRACT
+	stakingContractABI = STAKING_ABI
+	stakingContractBIN = STAKING_BIN
 
 	systemContracts      []string
-	systemContractsData  = make(map[string]*Contracts)
+	SystemContractsData  = make(map[string]*Contracts)
 	systemContractVerify map[common.Address]bool
 )
 
@@ -30,6 +36,7 @@ type Contract struct {
 	ABI             string         `json:"ABI"`
 	BIN             string         `json:"BIN"`
 	Methods         *Method        `json:"Methods"`
+	CallerAddress   common.Address `json:"CallerAddress"`
 }
 
 type Method struct {
@@ -40,12 +47,12 @@ type Method struct {
 type Deposit struct {
 	GetDepositCount        string `json:"GetDepositCount"`
 	GetTotalDepositBalance string `json:"GetTotalDepositBalance"`
-	RewardDeposit          string `json:"RewardDeposit"`
 }
 
 type Validator struct {
 	GetDepositBalanceOf string `json:"GetDepositBalanceOf"`
-	ListValidator       string `json:"ListValidator"`
+	ListValidator       string `json:"listValidator"`
+	GetDepositor        string `json:"GetDepositor"`
 }
 
 var (
@@ -53,21 +60,24 @@ var (
 		Deposits: &Deposit{
 			GetDepositCount:        "depositCount",
 			GetTotalDepositBalance: "totalDepositBalance",
-			RewardDeposit:          "rewardDeposit",
 		},
 		Validators: &Validator{
 			GetDepositBalanceOf: "depositBalanceOf",
 			ListValidator:       "listValidator",
+			GetDepositor:        "getDepositor",
 		},
 	}
 )
 
 func init() {
+	if len(systemContracts) > 0 {
+		return
+	}
 	systemContracts = []string{
 		stakingContract,
 	}
 
-	systemContractsData[stakingContract] = &Contracts{
+	SystemContractsData[stakingContract] = &Contracts{
 		ContractAddressString: stakingContract,
 		Contracts: &Contract{
 			ContractAddress: common.HexToAddress(stakingContract),
@@ -87,7 +97,7 @@ func GetContracts() []string {
 }
 
 func GetContract_Data(contract string) *Contract {
-	return systemContractsData[contract].Contracts
+	return SystemContractsData[contract].Contracts
 }
 
 func GetContractVerify(address common.Address) bool {
@@ -102,25 +112,79 @@ func IsStakingContract() error {
 }
 
 func GetStakingContract_Address_String() string {
-	return systemContractsData[stakingContract].ContractAddressString
+	return SystemContractsData[stakingContract].ContractAddressString
 }
 
 func GetStakingContract_Address() common.Address {
-	return systemContractsData[stakingContract].Contracts.ContractAddress
+	return SystemContractsData[stakingContract].Contracts.ContractAddress
 }
 
-func GetStakingContract_ABI() abi.ABI {
-	s := systemContractsData[stakingContract].Contracts.ABI
-	abi, _ := abi.JSON(strings.NewReader(s))
-	return abi
+func GetStakingContract_ABI() (abi.ABI, error) {
+	s := SystemContractsData[stakingContract].Contracts.ABI
+	abi, err := abi.JSON(strings.NewReader(s))
+	return abi, err
 }
 
 // Validators method
+
 func GetContract_Method_ListValidator() string {
-	return systemContractsData[stakingContract].Contracts.Methods.Validators.ListValidator
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.ListValidator
 }
 
-// Deposit method
-func GetContract_Method_RewardDeposit() string {
-	return systemContractsData[stakingContract].Contracts.Methods.Deposits.RewardDeposit
+func GetContract_Method_GetDepositor() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetDepositor
+}
+
+func IsStakingContractCreated(currentBlockNumber uint64) bool {
+	if currentBlockNumber > PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
+		return true
+	}
+
+	return false
+}
+
+func shouldCreateContract(currentBlockNumber uint64, contractAddress string) bool {
+	if strings.Compare(contractAddress, STAKING_CONTRACT) == 0 && currentBlockNumber == PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
+		return true
+	}
+
+	return false
+}
+
+func CreateGenesisContracts(statedb *state.StateDB) {
+	for _, contract := range SystemContractsData {
+		log.Info("Creating system contract", contract.Contracts.ContractAddress)
+
+		newContractCode, err := hex.DecodeString(strings.TrimPrefix(contract.Contracts.BIN, "0x"))
+		fmt.Println("CreateGenesisContracts : ", "contract", contract.Contracts.ContractAddress, "len", len(newContractCode))
+		if err != nil {
+			panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
+		}
+		statedb.CreateAccount(contract.Contracts.ContractAddress)
+		statedb.SetCode(contract.Contracts.ContractAddress, newContractCode)
+		if err != nil {
+			fmt.Println("CreateGenesisContracts error", "error", err)
+		} else {
+			hash, err := statedb.Commit(false)
+			if err != nil {
+				fmt.Println("CreateGenesisContracts commit2", hash, err)
+			} else {
+				fmt.Println("CreateGenesisContracts commit3", hash)
+			}
+
+			code := statedb.GetCode(contract.Contracts.ContractAddress)
+			if code == nil || len(code) == 0 {
+				log.Info("CreateGenesisContracts contract code is nil")
+			} else {
+				log.Info("CreateGenesisContracts code is not nil", "len", len(code))
+			}
+
+			fmt.Println("CreateGenesisContracts ok")
+		}
+
+	}
+}
+
+func (sf Contract) Address() common.Address {
+	return sf.CallerAddress
 }

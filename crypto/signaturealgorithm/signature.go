@@ -52,10 +52,6 @@ type SignatureAlgorithm interface {
 
 	Zeroize(prv *PrivateKey)
 
-	//PrivateKeyAsBigInt(prv *PrivateKey) *big.Int
-
-	//PublicKeyAsBigInt(pub *PublicKey) *big.Int
-
 	PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error)
 
 	CombinePublicKeySignature(sigBytes []byte, pubKeyBytes []byte) (combinedSignature []byte, err error)
@@ -64,6 +60,5 @@ type SignatureAlgorithm interface {
 
 	PublicKeyFromSignature(digestHash []byte, sig []byte) (*PublicKey, error)
 
-	//what is this? todo
-	ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool
+	ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool
 }

@@ -236,7 +236,7 @@ func (api *API) GetValidators() ([]common.Address, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	validators, err := api.proofofstake.GetValidators1(header.ParentHash)
+	validators, err := api.proofofstake.GetValidators(header.ParentHash)
 	if err != nil {
 		return nil, err
 	}

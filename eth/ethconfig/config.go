@@ -80,7 +80,7 @@ var Defaults = Config{
 	DatabaseCache:           512,
 	TrieCleanCache:          154,
 	TrieCleanCacheJournal:   "triecache",
-	TrieCleanCacheRejournal: 60 * time.Minute,
+	TrieCleanCacheRejournal: 30 * time.Second,
 	TrieDirtyCache:          256,
 	TrieTimeout:             60 * time.Minute,
 	SnapshotCache:           102,

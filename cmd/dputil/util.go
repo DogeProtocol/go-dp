@@ -38,17 +38,17 @@ func etherToWeiFloat(eth *big.Float) *big.Int {
 	return wei
 }
 
-func getBalance(address string) (string, error) {
+func getBalance(address string) (ethBalance string, weiBalance string, err error) {
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	balance, err := client.BalanceAt(context.Background(), common.HexToAddress(address), nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return weiToEther(balance).String(), nil
+	return weiToEther(balance).String(), balance.String(), nil
 }
 
 func send(from string, to string, quantity string) (string, error) {

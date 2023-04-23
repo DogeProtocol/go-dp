@@ -263,10 +263,8 @@ func (s OqsSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, si
 		return nil, nil, err
 	}
 
-	if digestHash != nil {
-		if VerifySignature(s.sigName, pubKey, digestHash, signature) == false {
-			return nil, nil, errors.New("verify failed")
-		}
+	if VerifySignature(s.sigName, pubKey, digestHash, signature) == false {
+		return nil, nil, errors.New("verify failed")
 	}
 
 	return signature, pubKey, nil
@@ -307,16 +305,21 @@ func (s OqsSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signatur
 
 // ValidateSignatureValues verifies whether the signature values are valid with
 // the given chain rules. The v value is assumed to be either 0 or 1.
-func (osig OqsSig) ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
+func (osig OqsSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool {
 	if v == 0 || v == 1 {
 		// encode the signature in uncompressed format
-		R, S := r.Bytes(), s.Bytes()
+		pubKey, signature := r.Bytes(), s.Bytes()
 
-		if len(R) != osig.PublicKeyLength() {
+		if len(pubKey) != osig.PublicKeyLength() {
 			return false
 		}
 
-		if len(S) != osig.SignatureLength() {
+		if len(signature) != osig.SignatureLength() {
+			return false
+		}
+
+		combinedSignature := common.CombineTwoParts(signature, pubKey)
+		if !osig.Verify(pubKey, digestHash, combinedSignature) {
 			return false
 		}
 

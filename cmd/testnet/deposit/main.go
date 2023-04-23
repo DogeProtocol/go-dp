@@ -7,6 +7,7 @@ import (
 	"github.com/DogeProtocol/dp/accounts/abi/bind"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/ethclient"
@@ -15,6 +16,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -70,8 +72,6 @@ func deposit(contractAddress string,
 	var validatorSecretKey []byte
 	var validatorKey *keystore.Key
 
-	var pubKey []byte
-
 	ks := SetUpKeyStore("./data/keystore")
 	if len(depositorPath) > 0 {
 		path := strings.ReplaceAll(depositorPath, "\\", "/")
@@ -124,14 +124,14 @@ func deposit(contractAddress string,
 		return
 	}
 
-	if len(pubKey) >= cryptobase.SigAlg.PublicKeyLength() {
+	if len(depositorKey.PrivateKey.PublicKey.PubData) >= cryptobase.SigAlg.PublicKeyLength() {
 		priBytes, err := cryptobase.SigAlg.SerializePrivateKey(depositorKey.PrivateKey)
 		if err != nil {
 			panic(err)
 		}
 
 		if depositorKey != nil && len(priBytes) >= cryptobase.SigAlg.PrivateKeyLength() {
-			tx, err := depositContract(depositorAddress, contractAddress, pubKey,
+			tx, err := depositContract(depositorAddress, contractAddress, depositorKey.PrivateKey.PublicKey.PubData,
 				depositorKey.PrivateKey, depositAmount)
 			if err != nil {
 				log.Println("Error occurred." + tx + " : " + err.Error())
@@ -184,13 +184,21 @@ func depositContract(fromaddress string, contractaddress string, pubKey []byte,
 		return "4", err
 	}
 	auth.GasPrice = gasPrice
-	contract, err := NewStakingContractAddress1(contractAddress, client)
+	fmt.Println("gasPrice ", gasPrice)
+	gLimit, err := strconv.Atoi(os.Getenv("GAS_LIMIT"))
+	fmt.Println("gaslimit", gLimit)
 	if err != nil {
-		//log.Println(err.Error())
-		return "5", err
+		return "4.5", err
 	}
 
-	tx, err := contract.NewDeposit(auth, pubKey)
+	contract, err := NewStaking(contractAddress, client)
+	if err != nil {
+		return "5", err
+	}
+	keyhash := crypto.Keccak256(pubKey[:])
+	var keyHashBytes [32]byte
+	copy(keyHashBytes[:], keyhash)
+	tx, err := contract.NewDeposit(auth, keyHashBytes)
 	if err != nil {
 		//log.Println(err.Error())
 		return "6", err
