@@ -200,7 +200,7 @@ func (tx *Transaction) setDecoded(inner TxData, size int) {
 	}
 }
 
-func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
+func sanityCheckSignature(digestHash []byte, v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
 	if isProtectedV(v) && !maybeProtected {
 		return ErrUnexpectedProtection
 	}
@@ -219,7 +219,7 @@ func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected boo
 		// must already be equal to the recovery id.
 		plainV = byte(v.Uint64())
 	}
-	if !cryptobase.SigAlg.ValidateSignatureValues(plainV, r, s, false) {
+	if !cryptobase.SigAlg.ValidateSignatureValues(digestHash, plainV, r, s) {
 		return ErrInvalidSig
 	}
 
@@ -402,6 +402,11 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	cpy := tx.inner.copy()
 	cpy.setSignatureValues(signer.ChainID(), v, r, s)
 	return &Transaction{inner: cpy, time: tx.time}, nil
+}
+
+func (tx *Transaction) Verify(digestHash []byte) bool {
+	_, r, s := tx.RawSignatureValues()
+	return cryptobase.SigAlg.ValidateSignatureValues(digestHash, 1, r, s)
 }
 
 // Transactions implements DerivableList for transactions.

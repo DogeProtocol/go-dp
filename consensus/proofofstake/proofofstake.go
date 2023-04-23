@@ -643,6 +643,16 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
+	} else {
+		for _, tx := range txs {
+			signerHash := c.signer.Hash(tx)
+			if !tx.Verify(signerHash.Bytes()) {
+				fmt.Println("Txn Verify failed", tx.Hash())
+				return errors.New("Transaction verify failed")
+			} else {
+				fmt.Println("Txn Verify ok", tx.Hash())
+			}
+		}
 	}
 
 	// should not happen. Once happen, stop the node is better than broadcast the block

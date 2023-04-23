@@ -48,7 +48,7 @@ func getBalance(address string) (ethBalance string, weiBalance string, err error
 		return "", "", err
 	}
 
-	return weiToEther(balance).String(), nil
+	return weiToEther(balance).String(), balance.String(), nil
 }
 
 func send(from string, to string, quantity string) (string, error) {

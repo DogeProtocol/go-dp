@@ -18,13 +18,12 @@ package types
 
 import (
 	"errors"
-	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
-	"math/big"
-
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
+	"math/big"
 )
 
 var ErrInvalidChainId = errors.New("invalid chain id for signer")
@@ -38,20 +37,26 @@ type sigCache struct {
 
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
-	var signer Signer
+	return NewLondonSigner(config.ChainID)
+	/*var signer Signer
 	switch {
 	case config.IsLondon(blockNumber):
+		fmt.Println("NewLondonSigner")
 		signer = NewLondonSigner(config.ChainID)
 	case config.IsBerlin(blockNumber):
+		fmt.Println("NewEIP2930Signer")
 		signer = NewEIP2930Signer(config.ChainID)
 	case config.IsEIP155(blockNumber):
+		fmt.Println("NewEIP155Signer")
 		signer = NewEIP155Signer(config.ChainID)
 	case config.IsHomestead(blockNumber):
+		fmt.Println("HomesteadSigner")
 		signer = HomesteadSigner{}
 	default:
+		fmt.Println("FrontierSigner")
 		signer = FrontierSigner{}
 	}
-	return signer
+	return signer*/
 }
 
 // LatestSigner returns the 'most permissive' Signer available for the given chain
@@ -191,7 +196,7 @@ func (s londonSigner) Sender(tx *Transaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	return recoverPlain(s.Hash(tx), R, S, V, true)
+	return recoverPlain(s.Hash(tx), R, S, V)
 }
 
 func (s londonSigner) Equal(s2 Signer) bool {
@@ -209,7 +214,8 @@ func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 	if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
 		return nil, nil, nil, ErrInvalidChainId
 	}
-	R, S, _, err = decodeSignature(sig)
+	sigHash := s.Hash(tx)
+	R, S, _, err = decodeSignature(sigHash.Bytes(), sig)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -275,7 +281,7 @@ func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	return recoverPlain(s.Hash(tx), R, S, V, true)
+	return recoverPlain(s.Hash(tx), R, S, V)
 }
 
 func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
@@ -288,7 +294,8 @@ func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *bi
 		if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
 			return nil, nil, nil, ErrInvalidChainId
 		}
-		R, S, _, err = decodeSignature(sig)
+		sigHash := s.Hash(tx)
+		R, S, _, err = decodeSignature(sigHash.Bytes(), sig)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -377,7 +384,7 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	V, R, S := tx.RawSignatureValues()
 	V = new(big.Int).Sub(V, s.chainIdMul)
 	V.Sub(V, big8)
-	return recoverPlain(s.Hash(tx), R, S, V, true)
+	return recoverPlain(s.Hash(tx), R, S, V)
 }
 
 // SignatureValues returns signature values. This signature
@@ -386,7 +393,8 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 	if tx.Type() != LegacyTxType {
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
-	R, S, V, err = decodeSignature(sig)
+	sigHash := s.Hash(tx)
+	R, S, V, err = decodeSignature(sigHash.Bytes(), sig)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -437,7 +445,7 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 		return common.Address{}, ErrTxTypeNotSupported
 	}
 	v, r, s := tx.RawSignatureValues()
-	return recoverPlain(hs.Hash(tx), r, s, v, true)
+	return recoverPlain(hs.Hash(tx), r, s, v)
 }
 
 type FrontierSigner struct{}
@@ -456,7 +464,7 @@ func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 		return common.Address{}, ErrTxTypeNotSupported
 	}
 	v, r, s := tx.RawSignatureValues()
-	return recoverPlain(fs.Hash(tx), r, s, v, false)
+	return recoverPlain(fs.Hash(tx), r, s, v)
 }
 
 // SignatureValues returns signature values. This signature
@@ -465,7 +473,8 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 	if tx.Type() != LegacyTxType {
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
-	r, s, v, err = decodeSignature(sig)
+	sigHash := fs.Hash(tx)
+	r, s, v, err = decodeSignature(sigHash.Bytes(), sig)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -486,9 +495,9 @@ func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 	})
 }
 
-func decodeSignature(sig []byte) (r, s, v *big.Int, err error) {
+func decodeSignature(digestHash []byte, sig []byte) (r, s, v *big.Int, err error) {
 
-	signature, publicKey, err := cryptobase.SigAlg.PublicKeyAndSignatureFromCombinedSignature(nil, sig)
+	signature, publicKey, err := cryptobase.SigAlg.PublicKeyAndSignatureFromCombinedSignature(digestHash, sig)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -500,12 +509,12 @@ func decodeSignature(sig []byte) (r, s, v *big.Int, err error) {
 	return r, s, v, nil
 }
 
-func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
+func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error) {
 	if Vb.BitLen() > 8 {
 		return common.Address{}, ErrInvalidSig
 	}
 	V := byte(Vb.Uint64() - 27)
-	if !cryptobase.SigAlg.ValidateSignatureValues(V, R, S, homestead) {
+	if !cryptobase.SigAlg.ValidateSignatureValues(sighash[:], V, R, S) {
 		return common.Address{}, ErrInvalidSig
 	}
 	// encode the signature in uncompressed format

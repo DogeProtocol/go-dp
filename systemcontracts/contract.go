@@ -161,7 +161,7 @@ func CreateGenesisContracts(statedb *state.StateDB) {
 			panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
 		}
 		statedb.CreateAccount(contract.Contracts.ContractAddress)
-		err = statedb.SetCodeAlt(contract.Contracts.ContractAddress, newContractCode)
+		statedb.SetCode(contract.Contracts.ContractAddress, newContractCode)
 		if err != nil {
 			fmt.Println("CreateGenesisContracts error", "error", err)
 		} else {

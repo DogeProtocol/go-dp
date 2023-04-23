@@ -178,7 +178,7 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 	v := byte(28 - 27)
 
 	// tighter sig s values input homestead only apply to tx sigs
-	if !allZero(input[32:63]) || !cryptobase.SigAlg.ValidateSignatureValues(v, r, s, false) {
+	if !allZero(input[32:63]) || !cryptobase.SigAlg.ValidateSignatureValues(input[:32], v, r, s) {
 		return nil, nil
 	}
 

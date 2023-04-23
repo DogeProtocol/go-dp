@@ -230,7 +230,13 @@ func (s HybridSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (
 		return nil, err
 	}
 
-	return common.CombineTwoParts(sigBytes, pubBytes), nil
+	combinedSignature := common.CombineTwoParts(sigBytes, pubBytes)
+
+	if !s.Verify(pubBytes, digestHash, combinedSignature) {
+		return nil, errors.New("Verify failed after signing")
+	}
+
+	return combinedSignature, nil
 }
 
 func (s HybridSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
@@ -257,12 +263,10 @@ func (s HybridSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte,
 		return nil, nil, err
 	}
 
-	if digestHash != nil {
-		err = Verify(digestHash, signature, pubKey)
+	err = Verify(digestHash, signature, pubKey)
 
-		if err != nil {
-			return nil, nil, err
-		}
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return signature, pubKey, nil
@@ -304,18 +308,20 @@ func (s HybridSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signa
 
 // ValidateSignatureValues verifies whether the signature values are valid with
 // the given chain rules. The v value is assumed to be either 0 or 1.
-func (osig HybridSig) ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
+func (osig HybridSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool {
 	if v == 0 || v == 1 {
-		// encode the signature in uncompressed format
-		R, S := r.Bytes(), s.Bytes()
+		pubKey, signature := r.Bytes(), s.Bytes()
 
-		if len(R) != osig.PublicKeyLength() {
-			fmt.Println("ValidateSignatureValues r public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
+		if len(pubKey) != osig.PublicKeyLength() {
 			return false
 		}
 
-		if len(S) < osig.SignatureLength() {
-			fmt.Println("ValidateSignatureValues s public", len(R), osig.PublicKeyLength(), len(S), osig.SignatureLength())
+		if len(signature) < osig.SignatureLength() {
+			return false
+		}
+
+		combinedSignature := common.CombineTwoParts(signature, pubKey)
+		if !osig.Verify(pubKey, digestHash, combinedSignature) {
 			return false
 		}
 
