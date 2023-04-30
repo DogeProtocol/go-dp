@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"math/rand"
 	"sort"
@@ -2365,7 +2366,7 @@ func (s *Syncer) onByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) error
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
+	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))
@@ -2601,7 +2602,7 @@ func (s *Syncer) OnTrieNodes(peer SyncPeer, id uint64, trienodes [][]byte) error
 
 	// Cross reference the requested trienodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
+	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
 	hash := make([]byte, 32)
 
 	nodes := make([][]byte, len(req.hashes))
@@ -2696,7 +2697,7 @@ func (s *Syncer) onHealByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) e
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
+	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))

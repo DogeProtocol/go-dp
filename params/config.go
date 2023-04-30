@@ -663,7 +663,7 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
-	return Rules{
+	r := Rules{
 		ChainID:          new(big.Int).Set(chainID),
 		IsHomestead:      c.IsHomestead(num),
 		IsEIP150:         c.IsEIP150(num),
@@ -677,4 +677,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsLondon:         c.IsLondon(num),
 		IsCatalyst:       c.IsCatalyst(num),
 	}
+
+	return r
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -742,7 +743,7 @@ func (c *Clique) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 func SealHash(header *types.Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 	encodeSigHeader(hasher, header)
-	hasher.(crypto.KeccakState).Read(hash[:])
+	hasher.(hashingalgorithm.HashState).Read(hash[:])
 	return hash
 }
 

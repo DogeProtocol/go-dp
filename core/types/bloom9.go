@@ -19,10 +19,10 @@ package types
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"github.com/DogeProtocol/dp/crypto"
 )
 
 type bytesBacked interface {
@@ -137,7 +137,7 @@ func Bloom9(data []byte) []byte {
 
 // bloomValues returns the bytes (index-value pairs) to set for the given data
 func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
-	sha := hasherPool.Get().(crypto.KeccakState)
+	sha := hasherPool.Get().(hashingalgorithm.HashState)
 	sha.Reset()
 	sha.Write(data)
 	sha.Read(hashbuf)
