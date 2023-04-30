@@ -125,7 +125,8 @@ func TestSealHash(t *testing.T) {
 		Extra:      make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength()),
 		BaseFee:    new(big.Int),
 	})
-	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f")
+	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f") //sha3
+	//want := common.HexToHash("0xe28be2bd8ff4897d07cd4fbb59b291de87746ac2cf264f57b3b696c3ddf9f99b") //sha3sha256
 	if have != want {
 		t.Errorf("have %x, want %x", have, want)
 	}

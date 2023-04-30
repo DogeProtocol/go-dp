@@ -8,5 +8,5 @@ type HashState interface {
 }
 
 func NewHashState() HashState {
-	return NewSha3Sha256HashState()
+	return NewSha3HashState()
 }

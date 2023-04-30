@@ -232,7 +232,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 		recents:     recents,
 		signatures:  signatures,
 		proposals:   make(map[common.Address]bool),
-		signer:      types.NewEIP155Signer(chainConfig.ChainID),
+		signer:      types.NewLondonSigner(chainConfig.ChainID),
 	}
 }
 
