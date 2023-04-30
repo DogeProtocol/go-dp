@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"hash"
 	"io"
 	"sort"
@@ -28,7 +29,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 type fuzzer struct {
@@ -142,10 +142,10 @@ func (f *fuzzer) fuzz() int {
 
 	// This spongeDb is used to check the sequence of disk-db-writes
 	var (
-		spongeA     = &spongeDb{sponge: sha3.NewLegacyKeccak256()}
+		spongeA     = &spongeDb{sponge: hashingalgorithm.NewHashState()}
 		dbA         = trie.NewDatabase(spongeA)
 		trieA, _    = trie.New(common.Hash{}, dbA)
-		spongeB     = &spongeDb{sponge: sha3.NewLegacyKeccak256()}
+		spongeB     = &spongeDb{sponge: hashingalgorithm.NewHashState()}
 		trieB       = trie.NewStackTrie(spongeB)
 		vals        kvs
 		useful      bool

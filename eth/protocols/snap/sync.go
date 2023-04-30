@@ -41,7 +41,6 @@ import (
 	"github.com/DogeProtocol/dp/p2p/msgrate"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -2366,7 +2365,7 @@ func (s *Syncer) onByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) error
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
+	hasher := hashingalgorithm.NewHashState()
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))
@@ -2602,7 +2601,7 @@ func (s *Syncer) OnTrieNodes(peer SyncPeer, id uint64, trienodes [][]byte) error
 
 	// Cross reference the requested trienodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
+	hasher := hashingalgorithm.NewHashState()
 	hash := make([]byte, 32)
 
 	nodes := make([][]byte, len(req.hashes))
@@ -2697,7 +2696,7 @@ func (s *Syncer) onHealByteCodes(peer SyncPeer, id uint64, bytecodes [][]byte) e
 
 	// Cross reference the requested bytecodes with the response to find gaps
 	// that the serving node is missing
-	hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
+	hasher := hashingalgorithm.NewHashState()
 	hash := make([]byte, 32)
 
 	codes := make([][]byte, len(req.hashes))

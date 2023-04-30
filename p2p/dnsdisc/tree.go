@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io"
 	"sort"
@@ -30,7 +31,6 @@ import (
 	"github.com/DogeProtocol/dp/p2p/enode"
 	"github.com/DogeProtocol/dp/p2p/enr"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // Tree is a merkle tree of node records.
@@ -262,7 +262,7 @@ const (
 )
 
 func subdomain(e entry) string {
-	h := sha3.NewLegacyKeccak256()
+	h := hashingalgorithm.NewHashState()
 	io.WriteString(h, e.String())
 	return b32format.EncodeToString(h.Sum(nil)[:16])
 }
@@ -272,7 +272,7 @@ func (e *rootEntry) String() string {
 }
 
 func (e *rootEntry) sigHash() []byte {
-	h := sha3.NewLegacyKeccak256()
+	h := hashingalgorithm.NewHashState()
 	fmt.Fprintf(h, rootPrefix+" e=%s l=%s seq=%d", e.eroot, e.lroot, e.seq)
 	return h.Sum(nil)
 }

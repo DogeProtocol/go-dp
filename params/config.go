@@ -19,10 +19,10 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
-	"golang.org/x/crypto/sha3"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -291,7 +291,7 @@ func (c *TrustedCheckpoint) Hash() common.Hash {
 	var sectionIndex [8]byte
 	binary.BigEndian.PutUint64(sectionIndex[:], c.SectionIndex)
 
-	w := sha3.NewLegacyKeccak256()
+	w := hashingalgorithm.NewHashState()
 	w.Write(sectionIndex[:])
 	w.Write(c.SectionHead[:])
 	w.Write(c.CHTRoot[:])

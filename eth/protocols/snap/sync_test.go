@@ -60,12 +60,8 @@ func TestHashing(t *testing.T) {
 		}
 	}
 	var new = func() {
-		//hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
 		var hash = make([]byte, 32)
 		for i := 0; i < len(bytecodes); i++ {
-			//hasher.Reset()
-			//hasher.Write(bytecodes[i])
-			//hasher.Read(hash)
 			hashBytes := crypto.HashDataToBytes(bytecodes[i])
 			copy(hash, hashBytes)
 			want = fmt.Sprintf("%v\n%v", want, hash)

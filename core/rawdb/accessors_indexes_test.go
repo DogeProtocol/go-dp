@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"bytes"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"hash"
 	"math/big"
 	"testing"
@@ -27,7 +28,6 @@ import (
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // testHasher is the helper tool for transaction/receipt list hashing.
@@ -38,7 +38,7 @@ type testHasher struct {
 }
 
 func newHasher() *testHasher {
-	return &testHasher{hasher: sha3.NewLegacyKeccak256()}
+	return &testHasher{hasher: hashingalgorithm.NewHashState()}
 }
 
 func (h *testHasher) Reset() {

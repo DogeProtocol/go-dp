@@ -18,6 +18,7 @@ package t8ntool
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"os"
 
@@ -35,7 +36,6 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 type Prestate struct {
@@ -269,7 +269,7 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewLegacyKeccak256()
+	hw := hashingalgorithm.NewHashState()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
