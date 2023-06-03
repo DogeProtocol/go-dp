@@ -22,7 +22,6 @@ import (
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
-	cmath "github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
 	"github.com/DogeProtocol/dp/params"
@@ -48,12 +47,12 @@ The state transitioning model does all the necessary work to work out a valid ne
 6) Derive new state root
 */
 type StateTransition struct {
-	gp         *GasPool
-	msg        Message
-	gas        uint64
-	gasPrice   *big.Int
-	gasFeeCap  *big.Int
-	gasTipCap  *big.Int
+	gp        *GasPool
+	msg       Message
+	gas       uint64
+	gasPrice  *big.Int
+	gasFeeCap *big.Int
+	//gasTipCap  *big.Int
 	initialGas uint64
 	value      *big.Int
 	data       []byte
@@ -68,7 +67,7 @@ type Message interface {
 
 	GasPrice() *big.Int
 	GasFeeCap() *big.Int
-	GasTipCap() *big.Int
+	//GasTipCap() *big.Int
 	Gas() uint64
 	Value() *big.Int
 
@@ -162,10 +161,10 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 		msg:       msg,
 		gasPrice:  msg.GasPrice(),
 		gasFeeCap: msg.GasFeeCap(),
-		gasTipCap: msg.GasTipCap(),
-		value:     msg.Value(),
-		data:      msg.Data(),
-		state:     evm.StateDB,
+		//gasTipCap: msg.GasTipCap(),
+		value: msg.Value(),
+		data:  msg.Data(),
+		state: evm.StateDB,
 	}
 }
 
@@ -225,18 +224,10 @@ func (st *StateTransition) preCheck() error {
 	// Make sure that transaction gasFeeCap is greater than the baseFee (post london)
 	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
 		// Skip the checks if gas fields are zero and baseFee was explicitly disabled (eth_call)
-		if !st.evm.Config.NoBaseFee || st.gasFeeCap.BitLen() > 0 || st.gasTipCap.BitLen() > 0 {
+		if !st.evm.Config.NoBaseFee || st.gasFeeCap.BitLen() > 0 {
 			if l := st.gasFeeCap.BitLen(); l > 256 {
 				return fmt.Errorf("%w: address %v, maxFeePerGas bit length: %d", ErrFeeCapVeryHigh,
 					st.msg.From().Hex(), l)
-			}
-			if l := st.gasTipCap.BitLen(); l > 256 {
-				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas bit length: %d", ErrTipVeryHigh,
-					st.msg.From().Hex(), l)
-			}
-			if st.gasFeeCap.Cmp(st.gasTipCap) < 0 {
-				return fmt.Errorf("%w: address %v, maxPriorityFeePerGas: %s, maxFeePerGas: %s", ErrTipAboveFeeCap,
-					st.msg.From().Hex(), st.gasTipCap, st.gasFeeCap)
 			}
 			// This will panic if baseFee is nil, but basefee presence is verified
 			// as part of header validation.
@@ -320,11 +311,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// After EIP-3529: refunds are capped to gasUsed / 5
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
-	effectiveTip := st.gasPrice
-	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
-		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
-	}
-	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
+
+	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),

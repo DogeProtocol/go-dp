@@ -35,7 +35,7 @@ import (
 var (
 	privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
 	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
-	sigtest1, _     = cryptobase.SigAlg.Sign([]byte("This is test program"), privtestkey)
+	sigtest1, _     = cryptobase.SigAlg.Sign([]byte("This is test programThis is test"), privtestkey)
 	hexsigtest1     = hex.EncodeToString(sigtest)
 )
 

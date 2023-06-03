@@ -213,13 +213,14 @@ func (s *txSorter) Len() int { return len(s.txs) }
 func (s *txSorter) Swap(i, j int) {
 	s.txs[i], s.txs[j] = s.txs[j], s.txs[i]
 }
-func (s *txSorter) Less(i, j int) bool {
+
+/*func (s *txSorter) Less(i, j int) bool {
 	// It's okay to discard the error because a tx would never be
 	// accepted into a block with an invalid effective tip.
 	tip1, _ := s.txs[i].EffectiveGasTip(s.baseFee)
 	tip2, _ := s.txs[j].EffectiveGasTip(s.baseFee)
 	return tip1.Cmp(tip2) < 0
-}
+}*/
 
 // getBlockPrices calculates the lowest transaction gas price in a given block
 // and sends it to the result channel. If the block is empty or all transactions
@@ -237,11 +238,11 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 	// Sort the transaction by effective tip in ascending sort.
 	txs := make([]*types.Transaction, len(block.Transactions()))
 	copy(txs, block.Transactions())
-	sorter := newSorter(txs, block.BaseFee())
-	sort.Sort(sorter)
+	//sorter := newSorter(txs, block.BaseFee())
+	//sort.Sort(sorter)
 
 	var prices []*big.Int
-	for _, tx := range sorter.txs {
+	/*for _, tx := range sorter.txs {
 		tip, _ := tx.EffectiveGasTip(block.BaseFee())
 		if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
 			continue
@@ -253,7 +254,7 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 				break
 			}
 		}
-	}
+	}*/
 	select {
 	case result <- results{prices, nil}:
 	case <-quit:

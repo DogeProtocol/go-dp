@@ -20,9 +20,6 @@ package catalyst
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"time"
-
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus/misc"
 	"github.com/DogeProtocol/dp/core"
@@ -34,6 +31,7 @@ import (
 	chainParams "github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rpc"
 	"github.com/DogeProtocol/dp/trie"
+	"math/big"
 )
 
 // Register adds catalyst APIs to the node.
@@ -105,6 +103,7 @@ func (api *consensusAPI) makeEnv(parent *types.Block, header *types.Header) (*bl
 	return env, nil
 }
 
+/*
 // AssembleBlock creates a new block, inserts it into the chain, and returns the "execution
 // data" required for eth2 clients to process the new block.
 func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableData, error) {
@@ -161,7 +160,7 @@ func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableD
 
 	var (
 		signer       = types.MakeSigner(bc.Config(), header.Number)
-		txHeap       = types.NewTransactionsByPriceAndNonce(signer, pending, nil)
+		txHeap       = types.NewTransactionsByNonce(signer, pending, parent.Hash())
 		transactions []*types.Transaction
 	)
 	for {
@@ -211,7 +210,7 @@ func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableD
 	}
 
 	// Create the block.
-	block, err := api.eth.Engine().FinalizeAndAssemble(bc, header, env.state, transactions, nil /* uncles */, env.receipts)
+	block, err := api.eth.Engine().FinalizeAndAssemble(bc, header, env.state, transactions, nil , env.receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +228,7 @@ func (api *consensusAPI) AssembleBlock(params assembleBlockParams) (*executableD
 		Transactions: encodeTransactions(block.Transactions()),
 	}, nil
 }
+*/
 
 func encodeTransactions(txs []*types.Transaction) [][]byte {
 	var enc = make([][]byte, len(txs))

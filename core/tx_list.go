@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"container/heap"
 	"math"
 	"math/big"
@@ -280,7 +281,10 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
 	if old != nil {
-		if old.GasFeeCapCmp(tx) >= 0 || old.GasTipCapCmp(tx) >= 0 {
+		if bytes.Compare(old.Hash().Bytes(), tx.Hash().Bytes()) > 0 {
+			return false, nil
+		}
+		/*if old.GasFeeCapCmp(tx) >= 0 {
 			return false, nil
 		}
 		// thresholdFeeCap = oldFC  * (100 + priceBump) / 100
@@ -298,7 +302,7 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 		// this is accurate for low (Wei-level) gas price replacements
 		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 || tx.GasTipCapIntCmp(thresholdTip) < 0 {
 			return false, nil
-		}
+		}*/
 	}
 	// Otherwise overwrite the old transaction with the current one
 	l.txs.Put(tx)
@@ -427,16 +431,10 @@ func (h *priceHeap) Len() int      { return len(h.list) }
 func (h *priceHeap) Swap(i, j int) { h.list[i], h.list[j] = h.list[j], h.list[i] }
 
 func (h *priceHeap) Less(i, j int) bool {
-	switch h.cmp(h.list[i], h.list[j]) {
-	case -1:
-		return true
-	case 1:
-		return false
-	default:
-		return h.list[i].Nonce() > h.list[j].Nonce()
-	}
+	return h.list[i].Nonce() > h.list[j].Nonce()
 }
 
+/*
 func (h *priceHeap) cmp(a, b *types.Transaction) int {
 	if h.baseFee != nil {
 		// Compare effective tips if baseFee is specified
@@ -450,7 +448,7 @@ func (h *priceHeap) cmp(a, b *types.Transaction) int {
 	}
 	// Compare tips if effective tips and fee caps are equal
 	return a.GasTipCapCmp(b)
-}
+}*/
 
 func (h *priceHeap) Push(x interface{}) {
 	tx := x.(*types.Transaction)
@@ -518,6 +516,7 @@ func (l *txPricedList) Removed(count int) {
 	l.Reheap()
 }
 
+/*
 // Underpriced checks whether a transaction is cheaper than (or as cheap as) the
 // lowest priced (remote) transaction currently being tracked.
 func (l *txPricedList) Underpriced(tx *types.Transaction) bool {
@@ -549,6 +548,7 @@ func (l *txPricedList) underpricedFor(h *priceHeap, tx *types.Transaction) bool 
 	// cheapest one tracked locally, reject it.
 	return h.cmp(h.list[0], tx) >= 0
 }
+*/
 
 // Discard finds a number of most underpriced transactions, removes them from the
 // priced list and returns them for further removal from the entire pool.

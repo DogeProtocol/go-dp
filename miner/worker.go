@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -456,6 +457,7 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.newWorkCh:
+			fmt.Println("newWorkCh1")
 			w.commitNewWork(req.interrupt, req.noempty, req.timestamp)
 
 		case ev := <-w.chainSideCh:
@@ -498,12 +500,14 @@ func (w *worker) mainLoop() {
 			}
 
 		case ev := <-w.txsCh:
+			continue
 			// Apply transactions to the pending state if we're not mining.
 			//
 			// Note all transactions received may not be continuous with transactions
 			// already included in the current mining block. These transactions will
 			// be automatically eliminated.
 			if !w.isRunning() && w.current != nil {
+				fmt.Println("txsCh2")
 				// If block is already full, abort
 				if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
 					continue
@@ -517,7 +521,8 @@ func (w *worker) mainLoop() {
 					acc, _ := types.Sender(w.current.signer, tx)
 					txs[acc] = append(txs[acc], tx)
 				}
-				txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
+				fmt.Println("txsCh3")
+				txset := types.NewTransactionsByNonce(w.current.signer, txs, w.current.header.ParentHash)
 				tcount := w.current.tcount
 				w.commitTransactions(txset, coinbase, nil)
 				// Only update the snapshot if any new transactons were added
@@ -767,19 +772,20 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 	return receipt.Logs, nil
 }
 
-func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
+func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase common.Address, interrupt *int32) bool {
 	// Short circuit if current is nil
 	if w.current == nil {
 		return true
 	}
 
 	gasLimit := w.current.header.GasLimit
+	fmt.Println("gasLimit", gasLimit)
 	if w.current.gasPool == nil {
 		w.current.gasPool = new(core.GasPool).AddGas(gasLimit)
 	}
 
 	var coalescedLogs []*types.Log
-
+	hasRecords := txs.NextCursor()
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
 		// (1) new head block event arrival, the interrupt signal is 1
@@ -803,14 +809,17 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		}
 		// If we don't have enough gas for any further transactions then we're done
 		if w.current.gasPool.Gas() < params.TxGas {
+			fmt.Println("==========================Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
 			log.Trace("Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
 			break
 		}
 		// Retrieve the next transaction and abort if all done
-		tx := txs.Peek()
-		if tx == nil {
+		//tx := txs.Peek()
+
+		if hasRecords == false {
 			break
 		}
+		tx := txs.PeekCursor()
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -819,9 +828,14 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
+			fmt.Println("==========================1")
 			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
-			txs.Pop()
+			//txs.Pop()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 			continue
 		}
 		// Start executing the transaction
@@ -832,34 +846,58 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		case errors.Is(err, core.ErrGasLimitReached):
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			log.Trace("Gas limit exceeded for current block", "sender", from)
-			txs.Pop()
+			//txs.Pop()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
 			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
-			txs.Shift()
+			//txs.Shift()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
 			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
-			txs.Pop()
+			//txs.Pop()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 
 		case errors.Is(err, nil):
 			// Everything ok, collect the logs and shift in the next transaction from the same account
 			coalescedLogs = append(coalescedLogs, logs...)
 			w.current.tcount++
-			txs.Shift()
+			//txs.Shift()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 
 		case errors.Is(err, core.ErrTxTypeNotSupported):
 			// Pop the unsupported transaction without shifting in the next from the account
 			log.Trace("Skipping unsupported transaction type", "sender", from, "type", tx.Type())
-			txs.Pop()
+			//txs.Pop()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
 			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
-			txs.Shift()
+			//txs.Shift()
+			hasRecords = txs.NextCursor()
+			if hasRecords == false {
+				break
+			}
 		}
 	}
 
@@ -898,10 +936,11 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		timestamp = int64(parent.Time() + 1)
 	}
 	num := parent.Number()
+	fmt.Println("w.config.GasFloor", w.config.GasFloor)
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.CalcGasLimit(parent.GasUsed(), parent.GasLimit(), w.config.GasFloor, w.config.GasCeil),
+		GasLimit:   w.config.GasFloor,
 		Extra:      w.extra,
 		Time:       uint64(timestamp),
 	}
@@ -984,7 +1023,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	}
 
 	// Fill the block with all available pending transactions.
-	pending, err := w.eth.TxPool().Pending(true)
+	pending, err := w.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
@@ -992,30 +1031,48 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Short circuit if there is no available pending transactions.
 	// But if we disable empty precommit already, ignore it. Since
 	// empty block is necessary to keep the liveness of the network.
-	if len(pending) == 0 && atomic.LoadUint32(&w.noempty) == 0 {
-		w.updateSnapshot()
-		return
-	}
+	///if len(pending) == 0 && atomic.LoadUint32(&w.noempty) == 0 {
+	//w.updateSnapshot()
+	//return
+	//}
+
 	// Split the pending transactions into locals and remotes
-	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
+	/*localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
 	for _, account := range w.eth.TxPool().Locals() {
 		if txs := remoteTxs[account]; len(txs) > 0 {
 			delete(remoteTxs, account)
 			localTxs[account] = txs
 		}
+	}*/
+
+	//txns := types.RemoveInvalidTransactions(w.current.signer, pending)
+
+	fmt.Println("pending txn address count", len(pending), "block", header.Number.Uint64())
+	txsByNonce := types.NewTransactionsByNonce(w.current.signer, pending, w.current.header.ParentHash)
+	s := w.current.state.Copy()
+	selectedTxns, err := w.engine.SelectTransactions(w.chain, w.current.header, s, txsByNonce)
+	if err != nil {
+		log.Error("Failed to SelectTransactions", "err", err)
+		return
 	}
-	if len(localTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(w.current.signer, localTxs, header.BaseFee)
-		if w.commitTransactions(txs, w.coinbase, interrupt) {
-			return
+
+	if w.commitTransactions(selectedTxns, w.coinbase, interrupt) {
+		return
+	}
+
+	/*
+		if len(localTxs) > 0 {
+			txs := types.NewTransactionsByNonce(w.current.signer, localTxs, header.ParentHash)
+			if w.commitTransactions(txs, w.coinbase, interrupt) {
+				return
+			}
 		}
-	}
-	if len(remoteTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(w.current.signer, remoteTxs, header.BaseFee)
-		if w.commitTransactions(txs, w.coinbase, interrupt) {
-			return
-		}
-	}
+		if len(remoteTxs) > 0 {
+			txs := types.NewTransactionsByNonce(w.current.signer, remoteTxs, header.ParentHash)
+			if w.commitTransactions(txs, w.coinbase, interrupt) {
+				return
+			}
+		}*/
 	w.commit(uncles, w.fullTaskHook, true, tstart)
 }
 
@@ -1072,9 +1129,9 @@ func (w *worker) postSideBlock(event core.ChainSideEvent) {
 // totalFees computes total consumed miner fees in ETH. Block transactions and receipts have to have the same order.
 func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
 	feesWei := new(big.Int)
-	for i, tx := range block.Transactions() {
-		minerFee, _ := tx.EffectiveGasTip(block.BaseFee())
-		feesWei.Add(feesWei, new(big.Int).Mul(new(big.Int).SetUint64(receipts[i].GasUsed), minerFee))
+	for i, _ := range block.Transactions() {
+		//minerFee, _ := tx.EffectiveGasTip(block.BaseFee())
+		feesWei.Add(feesWei, new(big.Int).SetUint64(receipts[i].GasUsed))
 	}
 	return new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether)))
 }

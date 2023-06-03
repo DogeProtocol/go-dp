@@ -210,6 +210,9 @@ type ProofOfStake struct {
 	fakeDiff bool // Skip difficulty verifications
 }
 
+var maxTnsPerBlock int
+var maxTxnBlockNumber uint64
+
 // New creates a ProofOfStake proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
 func New(chainConfig *params.ChainConfig, db ethdb.Database,
@@ -245,6 +248,11 @@ func (c *ProofOfStake) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules.
 func (c *ProofOfStake) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
 	return c.verifyHeader(chain, header, nil)
+}
+
+// SelectTransactions selects the transactions for including in the block according to the consensus rules.
+func (c *ProofOfStake) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
+	return txns, nil
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
@@ -638,21 +646,21 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 		} else {
-			fmt.Println("no validators found or len < 3")
+			//fmt.Println("no validators found or len < 3")
 		}
 	}
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
 	} else {
-		for _, tx := range txs {
+		/*for _, tx := range txs {
 			signerHash := c.signer.Hash(tx)
 			if !tx.Verify(signerHash.Bytes()) {
 				fmt.Println("Txn Verify failed", tx.Hash())
 				return errors.New("Transaction verify failed")
 			} else {
-				fmt.Println("Txn Verify ok", tx.Hash())
+				//fmt.Println("Txn Verify ok", tx.Hash())
 			}
-		}
+		}*/
 	}
 
 	// should not happen. Once happen, stop the node is better than broadcast the block
@@ -674,6 +682,12 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 	if err != nil {
 		return nil, err
 	}
+
+	if len(txs) > maxTnsPerBlock {
+		maxTnsPerBlock = len(txs)
+		maxTxnBlockNumber = header.Number.Uint64()
+	}
+	fmt.Println("Block", header.Number.Uint64(), "TxnCount", len(txs), "MaxTxn", maxTnsPerBlock, "MaxTxnBlockNumber", maxTxnBlockNumber)
 
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil

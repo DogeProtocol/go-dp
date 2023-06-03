@@ -372,7 +372,7 @@ func (c *Config) NodeKey() *signaturealgorithm.PrivateKey {
 		return key
 	}
 	if err != nil {
-		log.Error("NodeKey error", err, keyfile)
+		log.Error("NodeKey error", err, "keyfile", keyfile)
 	}
 	// No persistent key found, generate and store a new one.
 	key, err = cryptobase.SigAlg.GenerateKey()

@@ -126,8 +126,8 @@ func MustSignNewTx(prv *signaturealgorithm.PrivateKey, s Signer, txdata TxData) 
 	return tx
 }
 
-// Sender returns the address derived from the signature (V, R, S) using secp256k1
-// elliptic curve and an error if it failed deriving or upon an incorrect
+// Sender returns the address derived from the signature (V, R, S)
+// and an error if it failed deriving or upon an incorrect
 // signature.
 //
 // Sender may cache the address, allowing it to be used regardless of
@@ -235,7 +235,6 @@ func (s londonSigner) Hash(tx *Transaction) common.Hash {
 		[]interface{}{
 			s.chainId,
 			tx.Nonce(),
-			tx.GasTipCap(),
 			tx.GasFeeCap(),
 			tx.Gas(),
 			tx.To(),

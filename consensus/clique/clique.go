@@ -599,6 +599,10 @@ func (c *Clique) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 	return nil
 }
 
+func (c *Clique) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
+	return txns, nil
+}
+
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
 func (c *Clique) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {

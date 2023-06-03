@@ -235,7 +235,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 }
 
 func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {
-	pending, err := b.eth.txPool.Pending(false)
+	pending, err := b.eth.txPool.Pending()
 	if err != nil {
 		return nil, err
 	}

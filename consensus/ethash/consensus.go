@@ -584,6 +584,11 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 	return nil
 }
 
+// SelectTransactions selects the transactions for including in the block according to the consensus rules.
+func (ethash *Ethash) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
+	return txns, nil
+}
+
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
 func (ethash *Ethash) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) error {

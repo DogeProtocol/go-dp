@@ -30,7 +30,6 @@ import (
 	"github.com/DogeProtocol/dp/eth/filters"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/rpc"
-	"math/big"
 	"strconv"
 	"time"
 )
@@ -231,7 +230,7 @@ func (t *Transaction) GasPrice(ctx context.Context) (hexutil.Big, error) {
 		if t.block != nil {
 			if baseFee, _ := t.block.BaseFeePerGas(ctx); baseFee != nil {
 				// price = min(tip, gasFeeCap - baseFee) + baseFee
-				return (hexutil.Big)(*math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee.ToInt()), tx.GasFeeCap())), nil
+				return (hexutil.Big)(*math.BigMin(baseFee.ToInt(), tx.GasFeeCap())), nil
 			}
 		}
 		return hexutil.Big(*tx.GasPrice()), nil
@@ -252,7 +251,7 @@ func (t *Transaction) EffectiveGasPrice(ctx context.Context) (*hexutil.Big, erro
 	if header.BaseFee == nil {
 		return (*hexutil.Big)(tx.GasPrice()), nil
 	}
-	return (*hexutil.Big)(math.BigMin(new(big.Int).Add(tx.GasTipCap(), header.BaseFee), tx.GasFeeCap())), nil
+	return (*hexutil.Big)(math.BigMin(header.BaseFee, tx.GasFeeCap())), nil
 }
 
 func (t *Transaction) MaxFeePerGas(ctx context.Context) (*hexutil.Big, error) {
@@ -265,21 +264,6 @@ func (t *Transaction) MaxFeePerGas(ctx context.Context) (*hexutil.Big, error) {
 		return nil, nil
 	case types.DynamicFeeTxType:
 		return (*hexutil.Big)(tx.GasFeeCap()), nil
-	default:
-		return nil, nil
-	}
-}
-
-func (t *Transaction) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
-	tx, err := t.resolve(ctx)
-	if err != nil || tx == nil {
-		return nil, err
-	}
-	switch tx.Type() {
-	case types.AccessListTxType:
-		return nil, nil
-	case types.DynamicFeeTxType:
-		return (*hexutil.Big)(tx.GasTipCap()), nil
 	default:
 		return nil, nil
 	}

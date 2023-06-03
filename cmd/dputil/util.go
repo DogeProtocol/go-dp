@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
@@ -13,6 +14,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -51,8 +53,154 @@ func getBalance(address string) (ethBalance string, weiBalance string, err error
 	return weiToEther(balance).String(), balance.String(), nil
 }
 
+func findAllAddresses() ([]string, error) {
+	keyfileDir := os.Getenv("GETH_KEY_FILE_DIR")
+	if len(keyfileDir) == 0 {
+		return nil, errors.New("Both GETH_KEY_FILE and GETH_KEY_FILE_DIR environment variables not set")
+	}
+
+	files, err := ioutil.ReadDir(keyfileDir)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	var addresses []string
+	addresses = make([]string, 0)
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		columns := strings.Split(file.Name(), "--")
+		if len(columns) != 3 {
+			continue
+		}
+		addresses = append(addresses, columns[2])
+	}
+
+	return addresses, nil
+}
+
+func findKeyFile(from string) (string, error) {
+	keyfile := os.Getenv("GETH_KEY_FILE")
+	if len(keyfile) > 0 {
+		return keyfile, nil
+	}
+
+	keyfileDir := os.Getenv("GETH_KEY_FILE_DIR")
+	if len(keyfileDir) == 0 {
+		return "", errors.New("Both GETH_KEY_FILE and GETH_KEY_FILE_DIR environment variables not set")
+	}
+
+	files, err := ioutil.ReadDir(keyfileDir)
+	if err != nil {
+		log.Fatal(err)
+		return "", err
+	}
+
+	fromAddress := strings.ToLower(strings.Replace(from, "0x", "", 0))
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if strings.Contains(strings.ToLower(file.Name()), fromAddress) {
+			return filepath.Join(keyfileDir, file.Name()), nil
+		}
+	}
+
+	return "", errors.New("could not find key file")
+}
+
+type ConnectionContext struct {
+	From   string
+	Client *ethclient.Client
+	Key    *keystore.Key
+}
+
+func GetConnectionContext(from string) (*ConnectionContext, error) {
+	keyFile, err := findKeyFile(from)
+	if err != nil {
+		return nil, err
+	}
+
+	secretKey, err := ReadDataFile(keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	password := os.Getenv("GETH_ACC_PWD")
+	key, err := keystore.DecryptKey(secretKey, password)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnectionContext{
+		From:   from,
+		Client: client,
+		Key:    key,
+	}, nil
+}
+
+func sendVia(connectionContext *ConnectionContext, to string, quantity string, nonce uint64) (string, uint64, error) {
+	if connectionContext == nil {
+		return "", 0, errors.New("nil")
+	}
+	fromAddress := common.HexToAddress(connectionContext.From)
+	toAddress := common.HexToAddress(to)
+
+	if nonce == 0 {
+		nonceTmp, err := connectionContext.Client.PendingNonceAt(context.Background(), fromAddress)
+		if err != nil {
+			return "", 0, err
+		}
+		nonce = nonceTmp
+	}
+
+	chainID, err := connectionContext.Client.NetworkID(context.Background())
+	if err != nil {
+		return "", 0, err
+	}
+	gasLimit := uint64(21000)
+	gasPrice, err := connectionContext.Client.SuggestGasPrice(context.Background())
+	if err != nil {
+		return "", 0, err
+	}
+
+	v, err := ParseBigFloat(quantity)
+	if err != nil {
+		return "", 0, err
+	}
+
+	value := etherToWeiFloat(v)
+
+	var data []byte
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), connectionContext.Key.PrivateKey)
+	if err != nil {
+		return "", 0, err
+	}
+	err = connectionContext.Client.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		return "", 0, err
+	}
+
+	fmt.Println("Sent Transaction", "from", fromAddress, "to", toAddress, "quantity", quantity, "Transaction", signedTx.Hash().Hex())
+	return signedTx.Hash().Hex(), nonce, nil
+}
+
 func send(from string, to string, quantity string) (string, error) {
-	secretKey, err := ReadDataFile(os.Getenv("GETH_KEY_FILE"))
+	keyFile, err := findKeyFile(from)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println("keyFile", keyFile)
+	secretKey, err := ReadDataFile(keyFile)
 	if err != nil {
 		return "", err
 	}
@@ -131,6 +279,7 @@ func ReadDataFile(filename string) ([]byte, error) {
 	// if we os.Open returns an error then handle it
 	if err != nil {
 		log.Println(err.Error())
+		return nil, err
 	}
 
 	fmt.Println("Successfully Opened ", filename)
