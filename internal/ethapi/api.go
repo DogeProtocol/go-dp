@@ -62,24 +62,25 @@ func NewPublicEthereumAPI(b Backend) *PublicEthereumAPI {
 
 // GasPrice returns a suggestion for a gas price for legacy transactions.
 func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
-	tipcap, err := s.b.SuggestGasTipCap(ctx)
+	/*tipcap, err := s.b.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if head := s.b.CurrentHeader(); head.BaseFee != nil {
 		tipcap.Add(tipcap, head.BaseFee)
 	}
-	return (*hexutil.Big)(tipcap), err
+	return (*hexutil.Big)(tipcap), err*/
+	return (*hexutil.Big)(s.b.CurrentHeader().BaseFee), nil
 }
 
 // MaxPriorityFeePerGas returns a suggestion for a gas tip cap for dynamic fee transactions.
-func (s *PublicEthereumAPI) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
+/*func (s *PublicEthereumAPI) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
 	tipcap, err := s.b.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return (*hexutil.Big)(tipcap), err
-}
+}*/
 
 type feeHistoryResult struct {
 	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
@@ -826,6 +827,20 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 	return res[:], state.Error()
 }
 
+func (s *PublicBlockChainAPI) DoesFinalizedTransactionExist(ctx context.Context, hash common.Hash) (bool, error) {
+	// Try to return an already finalized transaction
+	tx, _, _, _, err := s.b.GetTransaction(ctx, hash)
+	if err != nil {
+		return false, err
+	}
+	if tx != nil {
+		return true, nil
+	}
+
+	// Transaction unknown, return as such
+	return false, nil
+}
+
 // OverrideAccount indicates the overriding fields of account during the execution
 // of a message call.
 // Note, state and stateDiff can't be specified at the same time. If state is
@@ -1315,11 +1330,11 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.Accesses = &al
 		result.ChainID = (*hexutil.Big)(tx.ChainId())
 		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
-		//result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
 		// if the transaction has been mined, compute the effective gas price
 		if baseFee != nil && blockHash != (common.Hash{}) {
 			// price = min(tip, gasFeeCap - baseFee) + baseFee
-			price := math.BigMin(baseFee, tx.GasFeeCap())
+			price := math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee), tx.GasFeeCap())
 			result.GasPrice = (*hexutil.Big)(price)
 		} else {
 			result.GasPrice = nil

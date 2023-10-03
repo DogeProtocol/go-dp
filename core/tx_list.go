@@ -17,7 +17,6 @@
 package core
 
 import (
-	"bytes"
 	"container/heap"
 	"math"
 	"math/big"
@@ -281,28 +280,23 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
 	if old != nil {
-		if bytes.Compare(old.Hash().Bytes(), tx.Hash().Bytes()) > 0 {
-			return false, nil
-		}
-		/*if old.GasFeeCapCmp(tx) >= 0 {
+		if old.GasFeeCapCmp(tx) >= 0 {
 			return false, nil
 		}
 		// thresholdFeeCap = oldFC  * (100 + priceBump) / 100
 		a := big.NewInt(100 + int64(priceBump))
 		aFeeCap := new(big.Int).Mul(a, old.GasFeeCap())
-		aTip := a.Mul(a, old.GasTipCap())
 
 		// thresholdTip    = oldTip * (100 + priceBump) / 100
 		b := big.NewInt(100)
 		thresholdFeeCap := aFeeCap.Div(aFeeCap, b)
-		thresholdTip := aTip.Div(aTip, b)
 
 		// Have to ensure that either the new fee cap or tip is higher than the
 		// old ones as well as checking the percentage threshold to ensure that
 		// this is accurate for low (Wei-level) gas price replacements
-		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 || tx.GasTipCapIntCmp(thresholdTip) < 0 {
+		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 {
 			return false, nil
-		}*/
+		}
 	}
 	// Otherwise overwrite the old transaction with the current one
 	l.txs.Put(tx)
@@ -434,22 +428,6 @@ func (h *priceHeap) Less(i, j int) bool {
 	return h.list[i].Nonce() > h.list[j].Nonce()
 }
 
-/*
-func (h *priceHeap) cmp(a, b *types.Transaction) int {
-	if h.baseFee != nil {
-		// Compare effective tips if baseFee is specified
-		if c := a.EffectiveGasTipCmp(b, h.baseFee); c != 0 {
-			return c
-		}
-	}
-	// Compare fee caps if baseFee is not specified or effective tips are equal
-	if c := a.GasFeeCapCmp(b); c != 0 {
-		return c
-	}
-	// Compare tips if effective tips and fee caps are equal
-	return a.GasTipCapCmp(b)
-}*/
-
 func (h *priceHeap) Push(x interface{}) {
 	tx := x.(*types.Transaction)
 	h.list = append(h.list, tx)
@@ -515,40 +493,6 @@ func (l *txPricedList) Removed(count int) {
 	// Seems we've reached a critical number of stale transactions, reheap
 	l.Reheap()
 }
-
-/*
-// Underpriced checks whether a transaction is cheaper than (or as cheap as) the
-// lowest priced (remote) transaction currently being tracked.
-func (l *txPricedList) Underpriced(tx *types.Transaction) bool {
-	// Note: with two queues, being underpriced is defined as being worse than the worst item
-	// in all non-empty queues if there is any. If both queues are empty then nothing is underpriced.
-	return (l.underpricedFor(&l.urgent, tx) || len(l.urgent.list) == 0) &&
-		(l.underpricedFor(&l.floating, tx) || len(l.floating.list) == 0) &&
-		(len(l.urgent.list) != 0 || len(l.floating.list) != 0)
-}
-
-// underpricedFor checks whether a transaction is cheaper than (or as cheap as) the
-// lowest priced (remote) transaction in the given heap.
-func (l *txPricedList) underpricedFor(h *priceHeap, tx *types.Transaction) bool {
-	// Discard stale price points if found at the heap start
-	for len(h.list) > 0 {
-		head := h.list[0]
-		if l.all.GetRemote(head.Hash()) == nil { // Removed or migrated
-			l.stales--
-			heap.Pop(h)
-			continue
-		}
-		break
-	}
-	// Check if the transaction is underpriced or not
-	if len(h.list) == 0 {
-		return false // There is no remote transaction at all.
-	}
-	// If the remote transaction is even cheaper than the
-	// cheapest one tracked locally, reject it.
-	return h.cmp(h.list[0], tx) >= 0
-}
-*/
 
 // Discard finds a number of most underpriced transactions, removes them from the
 // priced list and returns them for further removal from the entire pool.

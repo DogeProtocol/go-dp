@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"

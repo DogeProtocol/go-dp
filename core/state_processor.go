@@ -18,11 +18,11 @@ package core
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/misc"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/misc"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -87,7 +87,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	return receipts, allLogs, *usedGas, nil
@@ -148,7 +147,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		return nil, err
 	}
 	// Create a new context to be used in the EVM environment
-	blockContext := NewEVMBlockContext(header, bc, author)
+	blockContext := NewEVMBlockContext(header, bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
-	return applyTransaction(msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
+	return applyTransaction(msg, config, bc, nil, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }

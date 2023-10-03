@@ -46,6 +46,7 @@ var (
 	errClockWarp        = errors.New("reply deadline too far in the future")
 	errClosed           = errors.New("socket closed")
 	errLowPort          = errors.New("low port")
+	errTooSoon          = errors.New("too soon to resume from previous error")
 )
 
 const (
@@ -53,7 +54,7 @@ const (
 	expiration     = 20 * time.Second
 	bondExpiration = 24 * time.Hour
 
-	maxFindnodeFailures = 5                // nodes exceeding this limit are dropped
+	maxFindnodeFailures = 15               // nodes exceeding this limit are dropped
 	ntpFailureThreshold = 32               // Continuous timeouts after which to check NTP
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
 	driftThreshold      = 10 * time.Second // Allowed clock drift before warning user
@@ -80,6 +81,8 @@ type UDPv4 struct {
 	gotreply        chan reply
 	closeCtx        context.Context
 	cancelCloseCtx  context.CancelFunc
+	nodeErrorMap    map[string]time.Time //todo: map cleanup
+	nodeMutex       sync.Mutex
 }
 
 // replyMatcher represents a pending reply.
@@ -142,6 +145,7 @@ func ListenV4(sm UdpSessionManager, ln *enode.LocalNode, cfg Config) (*UDPv4, er
 		closeCtx:        closeCtx,
 		cancelCloseCtx:  cancel,
 		log:             cfg.Log,
+		nodeErrorMap:    make(map[string]time.Time),
 	}
 
 	tab, err := newTable(t, ln.Database(), cfg.Bootnodes, t.log)
@@ -282,7 +286,11 @@ func (t *UDPv4) RandomNodes() enode.Iterator {
 
 // lookupRandom implements transport.
 func (t *UDPv4) lookupRandom() []*enode.Node {
-	return t.newRandomLookup(t.closeCtx).run()
+	lookup := t.newRandomLookup(t.closeCtx)
+	if lookup == nil {
+		return make([]*enode.Node, 0)
+	}
+	return lookup.run()
 }
 
 // lookupSelf implements transport.
@@ -295,10 +303,12 @@ func (t *UDPv4) newRandomLookup(ctx context.Context) *lookup {
 	target.PubBytes = make([]byte, cryptobase.SigAlg.PublicKeyLength())
 	n, err := crand.Read(target.PubBytes)
 	if err != nil {
-		panic(err)
+		t.log.Trace("rand error")
+		return nil
 	}
 	if n != cryptobase.SigAlg.PublicKeyLength() {
-		panic("newRandomLookup")
+		t.log.Trace("invalid public key")
+		return nil
 	}
 	return t.newLookup(ctx, target)
 }
@@ -628,7 +638,7 @@ func (t *UDPv4) handlePacket(from *net.UDPAddr, buf []byte) error {
 		}
 	}
 
-	t.log.Trace("<< "+packet.Name(), "id", fromID, "addr", from, "err", err, len(buf))
+	t.log.Trace("<< "+packet.Name(), "id", fromID, "addr", from, "err", err, "len", len(buf))
 
 	if err == nil && packet.handle != nil {
 
@@ -727,18 +737,58 @@ type packetHandlerV4 struct {
 func (t *UDPv4) verifyPing(h *packetHandlerV4, from *net.UDPAddr, fromID enode.ID, fromKey v4wire.Pubkey) error {
 	req := h.Packet.(*v4wire.Ping)
 
+	if t.doesNodeHasError(from) {
+		return errTooSoon
+	}
+
 	senderKey, err := v4wire.DecodePubkey(fromKey)
 	if err != nil {
-
 		return err
 	}
 	if v4wire.Expired(req.Expiration) {
-
 		return errExpired
 	}
 
 	h.senderKey = senderKey
 	return nil
+}
+
+const ERROR_BACKOFF_SECONDS = 60
+
+func HasExceededTimeThreshold(startTime time.Time, thresholdMs int64) bool {
+	end := time.Now().UnixNano() / int64(time.Second)
+	start := startTime.UnixNano() / int64(time.Second)
+	diff := end - start
+	if diff >= thresholdMs {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (t *UDPv4) addNodeError(from *net.UDPAddr) {
+	t.nodeMutex.Lock()
+	defer t.nodeMutex.Unlock()
+
+	t.nodeErrorMap[from.IP.String()] = time.Now()
+}
+
+func (t *UDPv4) doesNodeHasError(from *net.UDPAddr) bool {
+	t.nodeMutex.Lock()
+	defer t.nodeMutex.Unlock()
+
+	time, ok := t.nodeErrorMap[from.IP.String()]
+	if ok == false {
+		return false
+	}
+
+	if HasExceededTimeThreshold(time, ERROR_BACKOFF_SECONDS) {
+		t.log.Trace("exceededErrorThreshold", "node", from.IP.String())
+		return false
+	}
+
+	t.log.Trace("doesNodeHasError yes", "node", from.IP.String())
+	return true
 }
 
 func (t *UDPv4) handlePing(h *packetHandlerV4, from *net.UDPAddr, fromID enode.ID, mac []byte) {
@@ -853,14 +903,15 @@ func (t *UDPv4) verifyNeighbors(h *packetHandlerV4, from *net.UDPAddr, fromID en
 	req := h.Packet.(*v4wire.Neighbors)
 
 	if v4wire.Expired(req.Expiration) {
-
+		t.log.Trace("verifyNeighbors errExpired", "ip", from.IP)
 		return errExpired
 	}
 	if !t.handleReply(fromID, from.IP, h.Packet) {
-
+		t.log.Trace("verifyNeighbors errUnsolicitedReply", "ip", from.IP)
 		return errUnsolicitedReply
 	}
 
+	t.log.Trace("verifyNeighbors ok")
 	return nil
 }
 

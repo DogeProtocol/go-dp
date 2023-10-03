@@ -39,9 +39,10 @@ import (
 )
 
 const (
-	alpha           = 3  // Kademlia concurrency factor
-	bucketSize      = 1  // Kademlia bucket size
-	maxReplacements = 10 // Size of per-bucket replacement list
+	alpha              = 3  // Kademlia concurrency factor
+	bucketSize         = 1  // Kademlia bucket size
+	maxReplacements    = 10 // Size of per-bucket replacement list
+	minNodesBeforeDrop = 3
 
 	// We keep buckets for the upper 1/15 of distances because
 	// it's very unlikely we'll ever encounter a node that's closer.
@@ -54,7 +55,7 @@ const (
 	tableIPLimit, tableSubnet   = 10, 24
 
 	refreshInterval    = 30 * time.Minute
-	revalidateInterval = 10 * time.Second
+	revalidateInterval = 120 * time.Second
 	copyNodesInterval  = 30 * time.Second
 	seedMinTableTime   = 5 * time.Minute
 	seedCount          = 30
@@ -71,14 +72,15 @@ type Table struct {
 	rand    *mrand.Rand       // source of randomness, periodically reseeded
 	ips     netutil.DistinctNetSet
 
-	log        log.Logger
-	db         *enode.DB // database of known nodes
-	net        transport
-	refreshReq chan chan struct{}
-	initDone   chan struct{}
-	closeReq   chan struct{}
-	closed     chan struct{}
-
+	log           log.Logger
+	db            *enode.DB // database of known nodes
+	net           transport
+	refreshReq    chan chan struct{}
+	initDone      chan struct{}
+	closeReq      chan struct{}
+	closed        chan struct{}
+	nodeErrorMap  map[string]time.Time //todo: map cleanup
+	nodeMutex     sync.Mutex
 	nodeAddedHook func(*node) // for testing
 }
 
@@ -101,15 +103,16 @@ type bucket struct {
 
 func newTable(t transport, db *enode.DB, bootnodes []*enode.Node, log log.Logger) (*Table, error) {
 	tab := &Table{
-		net:        t,
-		db:         db,
-		refreshReq: make(chan chan struct{}),
-		initDone:   make(chan struct{}),
-		closeReq:   make(chan struct{}),
-		closed:     make(chan struct{}),
-		rand:       mrand.New(mrand.NewSource(0)),
-		ips:        netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit},
-		log:        log,
+		net:          t,
+		db:           db,
+		refreshReq:   make(chan chan struct{}),
+		initDone:     make(chan struct{}),
+		closeReq:     make(chan struct{}),
+		closed:       make(chan struct{}),
+		rand:         mrand.New(mrand.NewSource(0)),
+		ips:          netutil.DistinctNetSet{Subnet: tableSubnet, Limit: tableIPLimit},
+		log:          log,
+		nodeErrorMap: make(map[string]time.Time),
 	}
 	if err := tab.setFallbackNodes(bootnodes); err != nil {
 		return nil, err
@@ -322,6 +325,10 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 		return
 	}
 
+	if tab.doesNodeHasError(last.IP().String()) {
+		return
+	}
+
 	// Ping the selected node and wait for a pong.
 	remoteSeq, err := tab.net.ping(unwrapNode(last))
 
@@ -329,6 +336,7 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 	if last.Seq() < remoteSeq {
 		n, err := tab.net.RequestENR(unwrapNode(last))
 		if err != nil {
+			tab.addNodeError(last.IP().String())
 			tab.log.Debug("ENR request failed", "id", last.ID(), "addr", last.addr(), "err", err)
 		} else {
 			last = &node{Node: *n, addedAt: last.addedAt, livenessChecks: last.livenessChecks}
@@ -345,6 +353,7 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 		tab.bumpInBucket(b, last)
 		return
 	}
+
 	// No reply received, pick a replacement or delete the node if there aren't
 	// any replacements.
 	if r := tab.replace(b, last); r != nil {
@@ -629,6 +638,32 @@ func (tab *Table) bumpInBucket(b *bucket, n *node) bool {
 func (tab *Table) deleteInBucket(b *bucket, n *node) {
 	b.entries = deleteNode(b.entries, n)
 	tab.removeIP(b, n.IP())
+}
+
+func (tab *Table) addNodeError(from string) {
+	tab.nodeMutex.Lock()
+	defer tab.nodeMutex.Unlock()
+
+	tab.nodeErrorMap[from] = time.Now()
+}
+
+func (tab *Table) doesNodeHasError(from string) bool {
+	tab.nodeMutex.Lock()
+	defer tab.nodeMutex.Unlock()
+
+	time, ok := tab.nodeErrorMap[from]
+	if ok == false {
+		tab.log.Trace("doesNodeHasError no", "node", from)
+		return false
+	}
+
+	if HasExceededTimeThreshold(time, ERROR_BACKOFF_SECONDS) {
+		tab.log.Trace("doesNodeHasError no threshold exceeded", "node", from)
+		return false
+	}
+
+	tab.log.Trace("doesNodeHasError yes", "node", from)
+	return true
 }
 
 func contains(ns []*node, id enode.ID) bool {

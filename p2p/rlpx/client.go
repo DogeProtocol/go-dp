@@ -4,12 +4,14 @@ import (
 	"bytes"
 	cipher2 "crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/keyestablishmentalgorithm"
 	"github.com/DogeProtocol/dp/crypto/oqs"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
 	"io"
 	"sync"
@@ -187,6 +189,10 @@ func (c *Client) PerformHandshake() error {
 
 	//Validate that expected public key and remote public key are the same (additional sanity check)
 	if !bytes.Equal(serverPubKeyDataLocal, serverPubKeyDataRemote) {
+		log.Error("Public Key mismatch",
+			"serverSigningPublicKey", base64.StdEncoding.EncodeToString(c.serverSigningPublicKey.PubData),
+			"signature", base64.StdEncoding.EncodeToString(serverVerifyMessage.Signature[:serverVerifyMessage.SignatureLen]),
+			"serverPubKeyDataRemote", base64.StdEncoding.EncodeToString(serverPubKeyDataRemote))
 		return errors.New("Public key mismatch")
 	}
 

@@ -7,11 +7,11 @@ import (
 	"github.com/DogeProtocol/dp/accounts/abi/bind"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/ethclient"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -59,36 +59,30 @@ func main() {
 		return
 	}
 	fmt.Println("Deposit ...")
-	deposit(contractAddress, depositorAddress, validatorAddress,
+	deposit(contractAddress, depositorAddress, common.HexToAddress(validatorAddress),
 		depositorPassword, validatorPassword, depositAmount)
 }
 
 func deposit(contractAddress string,
-	depositorAddress string, validatorAddress string,
+	depositorAddress string, validatorAddress common.Address,
 	depositorPassword string, validatorPassword string, depositAmount string) {
 
-	var depositorSecretKey []byte
 	var depositorKey *keystore.Key
-	var validatorSecretKey []byte
 	var validatorKey *keystore.Key
 
-	ks := SetUpKeyStore("./data/keystore")
-	if len(depositorPath) > 0 {
-		path := strings.ReplaceAll(depositorPath, "\\", "/")
-		ks = SetUpKeyStore(path)
+	depositorSecretKey, err := ReadDataFile(depositorPath)
+	if err != nil {
+		fmt.Println("Depositor Error", err)
+		return
 	}
-	accounts := ks.GetAllKeys()
-	for _, account := range accounts {
-		acc := account.Address.String()
-		d := strings.EqualFold(depositorAddress, acc)
-		if d == true {
-			depositorSecretKey, _ = ReadDataFile(account.URL.Path)
-			depositorKey, _ = keystore.DecryptKey(depositorSecretKey, depositorPassword)
-			if depositorKey == nil {
-				log.Println(e + " GETH_STAKING_DEPOSITER_PASS")
-				return
-			}
-		}
+	depositorKey, err = keystore.DecryptKey(depositorSecretKey, depositorPassword)
+	if err != nil {
+		fmt.Println("Depositor Error", err)
+		return
+	}
+	if depositorKey == nil {
+		log.Println(e + " GETH_STAKING_DEPOSITER_PASS")
+		return
 	}
 
 	if depositorKey == nil {
@@ -96,31 +90,35 @@ func deposit(contractAddress string,
 		return
 	}
 
-	ks = SetUpKeyStore("./data/keystore")
-	if len(validatorPath) > 0 {
-		path := strings.ReplaceAll(validatorPath, "\\", "/")
-		ks = SetUpKeyStore(path)
+	validatorSecretKey, err := ReadDataFile(validatorPath)
+	if err != nil {
+		fmt.Println("Depositor Error", err)
+		return
 	}
-	accounts = ks.GetAllKeys()
-	for _, account := range accounts {
-		acc := account.Address.String()
-		v := strings.EqualFold(validatorAddress, acc)
-		if v == true {
-			validatorSecretKey, _ = ReadDataFile(account.URL.Path)
-			validatorKey, _ = keystore.DecryptKey(validatorSecretKey, validatorPassword)
-			if validatorKey == nil {
-				log.Println(e + " GETH_STAKING_VALIDATOR_PASS")
-				return
-			}
-			_, err := cryptobase.SigAlg.SerializePublicKey(&validatorKey.PrivateKey.PublicKey)
-			if err != nil {
-				panic(err)
-			}
-		}
+
+	validatorKey, err = keystore.DecryptKey(validatorSecretKey, validatorPassword)
+	if err != nil {
+		fmt.Println("Depositor Error", err)
+		return
 	}
 
 	if validatorKey == nil {
-		log.Println(e + " GETH_STAKING_VALIDATOR  GETH_VALIDATOR_PATH")
+		log.Println(e + " GETH_STAKING_VALIDATOR_PASS")
+		return
+	}
+	_, err = cryptobase.SigAlg.SerializePublicKey(&validatorKey.PrivateKey.PublicKey)
+	if err != nil {
+		log.Println("validator SerializePublicKey", err)
+		return
+	}
+	valAddressFromKey, err := cryptobase.SigAlg.PublicKeyToAddress(&validatorKey.PrivateKey.PublicKey)
+	if err != nil {
+		log.Println("validator PublicKeyToAddress", err)
+		return
+	}
+
+	if valAddressFromKey != validatorAddress {
+		log.Println("validator key address check failed", err)
 		return
 	}
 
@@ -132,7 +130,7 @@ func deposit(contractAddress string,
 
 		if depositorKey != nil && len(priBytes) >= cryptobase.SigAlg.PrivateKeyLength() {
 			tx, err := depositContract(depositorAddress, contractAddress, depositorKey.PrivateKey.PublicKey.PubData,
-				depositorKey.PrivateKey, depositAmount)
+				depositorKey.PrivateKey, depositAmount, validatorAddress)
 			if err != nil {
 				log.Println("Error occurred." + tx + " : " + err.Error())
 				return
@@ -147,8 +145,8 @@ func deposit(contractAddress string,
 	}
 }
 
-func depositContract(fromaddress string, contractaddress string, pubKey []byte,
-	key *signaturealgorithm.PrivateKey, depositAmount string) (string, error) {
+func depositContract(fromaddress string, contractaddress string, validatorPubKey []byte,
+	key *signaturealgorithm.PrivateKey, depositAmount string, validatorAddress common.Address) (string, error) {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -191,17 +189,14 @@ func depositContract(fromaddress string, contractaddress string, pubKey []byte,
 		return "4.5", err
 	}
 
-	contract, err := NewStaking(contractAddress, client)
+	contract, err := staking.NewStaking(contractAddress, client)
 	if err != nil {
 		return "5", err
 	}
-	keyhash := crypto.Keccak256(pubKey[:])
-	var keyHashBytes [32]byte
-	copy(keyHashBytes[:], keyhash)
-	tx, err := contract.NewDeposit(auth, keyHashBytes)
+
+	tx, err := contract.NewDeposit(auth, validatorAddress)
 	if err != nil {
-		//log.Println(err.Error())
-		return "6", err
+		return "NewDeposit failed", err
 	}
 
 	// Don't even wait, check its presence in the local pending state

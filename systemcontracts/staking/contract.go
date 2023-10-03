@@ -1,4 +1,4 @@
-package systemcontracts
+package staking
 
 import (
 	"encoding/hex"
@@ -10,9 +10,10 @@ import (
 	"strings"
 )
 
-const STAKING_CONTRACT = "0x0000000000000000000000000000000000001000"
+//solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking
+//abigen --bin=c:\github\go-dp\systemcontracts\staking\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\staking.go
 
-//var STAKING_CONTRACT = os.Getenv("STAKING_CONTRACT_ADDRESS")
+const STAKING_CONTRACT = "0x0000000000000000000000000000000000001000"
 
 const PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER = 1
 
@@ -45,26 +46,26 @@ type Method struct {
 }
 
 type Deposit struct {
-	GetDepositCount        string `json:"GetDepositCount"`
-	GetTotalDepositBalance string `json:"GetTotalDepositBalance"`
+	GetDepositorCount        string `json:"getDepositorCount"`
+	GetTotalDepositedBalance string `json:"getTotalDepositedBalance"`
 }
 
 type Validator struct {
-	GetDepositBalanceOf string `json:"GetDepositBalanceOf"`
-	ListValidator       string `json:"listValidator"`
-	GetDepositor        string `json:"GetDepositor"`
+	GetBalanceOfDepositor   string `json:"getBalanceOfDepositor"`
+	ListValidators          string `json:"listValidators"`
+	GetDepositorOfValidator string `json:"getDepositorOfValidator"`
 }
 
 var (
 	methods_collection = &Method{
 		Deposits: &Deposit{
-			GetDepositCount:        "depositCount",
-			GetTotalDepositBalance: "totalDepositBalance",
+			GetDepositorCount:        "getDepositorCount",
+			GetTotalDepositedBalance: "getTotalDepositedBalance",
 		},
 		Validators: &Validator{
-			GetDepositBalanceOf: "depositBalanceOf",
-			ListValidator:       "listValidator",
-			GetDepositor:        "getDepositor",
+			GetBalanceOfDepositor:   "getBalanceOfDepositor",
+			ListValidators:          "listValidators",
+			GetDepositorOfValidator: "getDepositorOfValidator",
 		},
 	}
 )
@@ -126,13 +127,24 @@ func GetStakingContract_ABI() (abi.ABI, error) {
 }
 
 // Validators method
-
-func GetContract_Method_ListValidator() string {
-	return SystemContractsData[stakingContract].Contracts.Methods.Validators.ListValidator
+func GetContract_Method_ListValidators() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.ListValidators
 }
 
-func GetContract_Method_GetDepositor() string {
-	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetDepositor
+func GetContract_Method_GetDepositorOfValidator() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetDepositorOfValidator
+}
+
+func GetContract_Method_GetBalanceOfDepositor() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetBalanceOfDepositor
+}
+
+func GetContract_Method_GetDepositorCount() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetDepositorCount
+}
+
+func GetContract_Method_GetTotalDepositedBalance() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetTotalDepositedBalance
 }
 
 func IsStakingContractCreated(currentBlockNumber uint64) bool {

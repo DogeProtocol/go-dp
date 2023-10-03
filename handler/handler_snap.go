@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"github.com/DogeProtocol/dp/core"
@@ -22,19 +22,19 @@ import (
 	"github.com/DogeProtocol/dp/p2p/enode"
 )
 
-// snapHandler implements the snap.Backend interface to handle the various network
+// SnapHandler implements the snap.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
-type snapHandler handler
+type SnapHandler P2PHandler
 
-func (h *snapHandler) Chain() *core.BlockChain { return h.chain }
+func (h *SnapHandler) Chain() *core.BlockChain { return h.chain }
 
 // RunPeer is invoked when a peer joins on the `snap` protocol.
-func (h *snapHandler) RunPeer(peer *snap.Peer, hand snap.Handler) error {
-	return (*handler)(h).runSnapExtension(peer, hand)
+func (h *SnapHandler) RunPeer(peer *snap.Peer, hand snap.Handler) error {
+	return (*P2PHandler)(h).runSnapExtension(peer, hand)
 }
 
 // PeerInfo retrieves all known `snap` information about a peer.
-func (h *snapHandler) PeerInfo(id enode.ID) interface{} {
+func (h *SnapHandler) PeerInfo(id enode.ID) interface{} {
 	if p := h.peers.peer(id.String()); p != nil {
 		if p.snapExt != nil {
 			return p.snapExt.info()
@@ -43,8 +43,8 @@ func (h *snapHandler) PeerInfo(id enode.ID) interface{} {
 	return nil
 }
 
-// Handle is invoked from a peer's message handler when it receives a new remote
-// message that the handler couldn't consume and serve itself.
-func (h *snapHandler) Handle(peer *snap.Peer, packet snap.Packet) error {
-	return h.downloader.DeliverSnapPacket(peer, packet)
+// Handle is invoked from a peer's message P2PHandler when it receives a new remote
+// message that the P2PHandler couldn't consume and serve itself.
+func (h *SnapHandler) Handle(peer *snap.Peer, packet snap.Packet) error {
+	return h.Downloader.DeliverSnapPacket(peer, packet)
 }

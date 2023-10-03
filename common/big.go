@@ -28,3 +28,43 @@ var (
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 )
+
+func SafeAddBigInt(x, y *big.Int) *big.Int {
+	result := big.NewInt(0)
+	result.Add(x, y)
+	return result
+}
+
+func SafeSubBigInt(x, y *big.Int) *big.Int {
+	result := big.NewInt(0)
+	result.Sub(x, y)
+	return result
+}
+
+func SafeMulBigInt(x, y *big.Int) *big.Int {
+	result := big.NewInt(0)
+	result.Mul(x, y)
+	return result
+}
+
+func SafeDivBigInt(x, y *big.Int) *big.Int {
+	result := big.NewInt(0)
+	result.Div(x, y)
+	return result
+}
+
+func SafeDivBigFloat(x, y *big.Float) *big.Float {
+	result := big.NewFloat(0)
+	result.Quo(x, y)
+	return result
+}
+
+func SafePercentageOfBigInt(x, y *big.Int) *big.Int {
+	hundred := big.NewInt(100)
+	return SafeDivBigInt(SafeMulBigInt(hundred, x), y)
+}
+
+func SafeRelativePercentageBigInt(total, percentage *big.Int) *big.Int {
+	hundred := big.NewInt(100)
+	return SafeDivBigInt(SafeMulBigInt(total, percentage), hundred)
+}

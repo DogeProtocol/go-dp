@@ -241,7 +241,9 @@ func send(from string, to string, quantity string) (string, error) {
 
 	var data []byte
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
+	fmt.Println("chainID", chainID)
+
+	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), key.PrivateKey)
 	if err != nil {
 		return "", err
 	}

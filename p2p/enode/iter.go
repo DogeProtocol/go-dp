@@ -21,6 +21,9 @@ import (
 	"time"
 )
 
+const LOOKUP_GAP_MS = 9000
+const iterInterval = 10 * time.Second
+
 // Iterator represents a sequence of nodes. The Next method moves to the next node in the
 // sequence. It returns false when the sequence has ended or the iterator is closed. Close
 // may be called concurrently with Next and Node, and interrupts Next if it is blocked.
@@ -92,7 +95,6 @@ func (it *sliceIter) Node() *Node {
 	it.mu.Lock()
 	defer it.mu.Unlock()
 
-
 	if len(it.nodes) == 0 {
 
 		return nil
@@ -144,16 +146,18 @@ type FairMix struct {
 	timeout time.Duration
 	cur     *Node
 
-	mu      sync.Mutex
-	closed  chan struct{}
-	sources []*mixSource
-	last    int
+	mu         sync.Mutex
+	closed     chan struct{}
+	sources    []*mixSource
+	last       int
+	iterTicker *time.Ticker
 }
 
 type mixSource struct {
 	it      Iterator
 	next    chan *Node
 	timeout time.Duration
+	name    string
 }
 
 // NewFairMix creates a mixer.
@@ -164,15 +168,16 @@ type mixSource struct {
 // timeout makes the mixer completely fair.
 func NewFairMix(timeout time.Duration) *FairMix {
 	m := &FairMix{
-		fromAny: make(chan *Node),
-		closed:  make(chan struct{}),
-		timeout: timeout,
+		fromAny:    make(chan *Node),
+		closed:     make(chan struct{}),
+		timeout:    timeout,
+		iterTicker: time.NewTicker(iterInterval),
 	}
 	return m
 }
 
 // AddSource adds a source of nodes.
-func (m *FairMix) AddSource(it Iterator) {
+func (m *FairMix) AddSource(it Iterator, name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -180,7 +185,7 @@ func (m *FairMix) AddSource(it Iterator) {
 		return
 	}
 	m.wg.Add(1)
-	source := &mixSource{it, make(chan *Node), m.timeout}
+	source := &mixSource{it, make(chan *Node), m.timeout, name}
 	m.sources = append(m.sources, source)
 	go m.runSource(m.closed, source)
 }
@@ -206,7 +211,6 @@ func (m *FairMix) Close() {
 
 // Next returns a node from a random source.
 func (m *FairMix) Next() bool {
-
 
 	m.cur = nil
 
@@ -294,19 +298,36 @@ func (m *FairMix) deleteSource(s *mixSource) {
 func (m *FairMix) runSource(closed chan struct{}, s *mixSource) {
 	defer m.wg.Done()
 	defer close(s.next)
+	defer m.iterTicker.Stop()
 
-	for s.it.Next() {
+	for {
+		select {
+		case <-closed:
+			return
+		case <-m.iterTicker.C:
+			if s.it.Next() == false {
+				continue
+			}
+			n := s.it.Node()
+			select {
+			case s.next <- n:
+			case m.fromAny <- n:
+			case <-closed:
+				return
+			}
+		}
+	}
 
+	/*for s.it.Next() {
 		n := s.it.Node()
-
+		fmt.Println("runSource", n.IP(), "name", s.name, "time", time.Now())
 		select {
 		case s.next <- n:
 		case m.fromAny <- n:
 		case <-closed:
-
 			return
 		}
-	}
-
-
+		fmt.Println("sleep")
+		time.Sleep(time.Millisecond * LOOKUP_GAP_MS)
+	}*/
 }

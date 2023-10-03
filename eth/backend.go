@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/consensus/proofofstake"
+	"github.com/DogeProtocol/dp/handler"
 	"math/big"
 	"runtime"
 	"sync"
@@ -31,7 +32,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/clique"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/bloombits"
 	"github.com/DogeProtocol/dp/core/rawdb"
@@ -69,7 +69,7 @@ type Ethereum struct {
 	// Handlers
 	txPool             *core.TxPool
 	blockchain         *core.BlockChain
-	handler            *handler
+	handler            *handler.P2PHandler
 	ethDialCandidates  enode.Iterator
 	snapDialCandidates enode.Iterator
 
@@ -161,6 +161,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		log.Info("Unprotected transactions allowed")
 	}
 	ethAPI := ethapi.NewPublicBlockChainAPI(eth.APIBackend)
+
 	eth.engine = ethconfig.CreateConsensusEngine(stack, chainConfig, &ethashConfig, config.Miner.Notify, config.Miner.Noverify, chainDb, ethAPI, genesisHash)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -219,7 +220,12 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.handler, err = newHandler(&handlerConfig{
+
+	//if eng, ok := eth.engine.(*proofofstake.ProofOfStake); ok {
+	//	eng.SetP2PHandler(eth.handler)
+	//}
+
+	if eth.handler, err = handler.NewHandler(&handler.HandlerConfig{
 		Database:   chainDb,
 		Chain:      eth.blockchain,
 		TxPool:     eth.txPool,
@@ -232,6 +238,15 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	if eng, ok := eth.engine.(*proofofstake.ProofOfStake); ok {
+		eng.SetP2PHandler(eth.handler)
+		var consensusHandler handler.ConsensusHandler = eng.GetConsensusPacketHandler()
+		eth.handler.SetConsensusHandler(consensusHandler)
+	}
+
+	eth.p2pServer.SetRequestPeersFn(eth.handler.RequestPeerList)
+	eth.handler.SetPeerHandler(eth.p2pServer.HandlePeerList)
 
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
@@ -323,7 +338,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   downloader.NewPublicDownloaderAPI(s.handler.downloader, s.eventMux),
+			Service:   downloader.NewPublicDownloaderAPI(s.handler.Downloader, s.eventMux),
 			Public:    true,
 		}, {
 			Namespace: "miner",
@@ -432,9 +447,6 @@ func (s *Ethereum) shouldPreserve(block *types.Block) bool {
 	// is A, F and G sign the block of round5 and reject the block of opponents
 	// and in the round6, the last available signer B is offline, the whole
 	// network is stuck.
-	if _, ok := s.engine.(*clique.Clique); ok {
-		return false
-	}
 	if _, ok := s.engine.(*proofofstake.ProofOfStake); ok {
 		return false
 	}
@@ -479,27 +491,20 @@ func (s *Ethereum) StartMining(threads int) error {
 			log.Error("Cannot start mining without etherbase", "err", err)
 			return fmt.Errorf("etherbase missing: %v", err)
 		}
-		if clique, ok := s.engine.(*clique.Clique); ok {
-			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
-			if wallet == nil || err != nil {
-				log.Error("Etherbase account unavailable locally", "err", err)
-				return fmt.Errorf("signer missing: %v", err)
-			}
 
-			clique.Authorize(eb, wallet.SignData)
-		}
 		if proofofstake, ok := s.engine.(*proofofstake.ProofOfStake); ok {
-			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+			account := accounts.Account{Address: eb}
+			wallet, err := s.accountManager.Find(account)
 			if wallet == nil || err != nil {
 				log.Error("Etherbase account unavailable locally", "err", err)
 				return fmt.Errorf("signer missing: %v", err)
 			}
 
-			proofofstake.Authorize(eb, wallet.SignData, wallet.SignTx)
+			proofofstake.Authorize(eb, wallet.SignData, wallet.SignTx, account)
 		}
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
-		atomic.StoreUint32(&s.handler.acceptTxs, 1)
+		atomic.StoreUint32(&s.handler.AcceptTxns, 1)
 
 		go s.miner.Start(eb)
 	}
@@ -530,17 +535,17 @@ func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
 func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum) IsListening() bool                  { return true } // Always listening
-func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
-func (s *Ethereum) Synced() bool                       { return atomic.LoadUint32(&s.handler.acceptTxs) == 1 }
+func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.Downloader }
+func (s *Ethereum) Synced() bool                       { return atomic.LoadUint32(&s.handler.AcceptTxns) == 1 }
 func (s *Ethereum) ArchiveMode() bool                  { return s.config.NoPruning }
 func (s *Ethereum) BloomIndexer() *core.ChainIndexer   { return s.bloomIndexer }
 
 // Protocols returns all the currently configured
 // network protocols to start.
 func (s *Ethereum) Protocols() []p2p.Protocol {
-	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates)
+	protos := eth.MakeProtocols((*handler.EthHandler)(s.handler), s.networkID, s.ethDialCandidates)
 	if s.config.SnapshotCache > 0 {
-		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
+		protos = append(protos, snap.MakeProtocols((*handler.SnapHandler)(s.handler), s.snapDialCandidates)...)
 	}
 	return protos
 }

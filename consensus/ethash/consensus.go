@@ -573,6 +573,10 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainHeaderReader, header *type
 	return nil
 }
 
+func (ethash *Ethash) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
+	return false
+}
+
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
@@ -585,8 +589,8 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 }
 
 // SelectTransactions selects the transactions for including in the block according to the consensus rules.
-func (ethash *Ethash) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
-	return txns, nil
+func (ethash *Ethash) HandleTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	return nil, nil
 }
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,

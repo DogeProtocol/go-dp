@@ -80,8 +80,10 @@ type Engine interface {
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainHeaderReader, header *types.Header) error
 
-	// SelectTransactions selects the transactions for including in the block according to the consensus rules.
-	SelectTransactions(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error)
+	// HandleTransactions selects the transactions for including in the block according to the consensus rules.
+	HandleTransactions(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error)
+
+	IsBlockReadyToSeal(chain ChainHeaderReader, header *types.Header, state *state.StateDB) bool
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// but does not assemble the block.

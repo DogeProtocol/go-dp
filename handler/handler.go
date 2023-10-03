@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"errors"
@@ -66,34 +66,46 @@ type txPool interface {
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
-	Pending() (map[common.Address]types.Transactions, error)
+	Pending(enforceTips bool) (map[common.Address]types.Transactions, error)
 
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 }
 
-// handlerConfig is the collection of initialization parameters to create a full
-// node network handler.
-type handlerConfig struct {
-	Database   ethdb.Database            // Database for direct sync insertions
-	Chain      *core.BlockChain          // Blockchain to serve data from
-	TxPool     txPool                    // Transaction pool to propagate from
-	Network    uint64                    // Network identifier to adfvertise
-	Sync       downloader.SyncMode       // Whether to fast or full sync
-	BloomCache uint64                    // Megabytes to alloc for fast sync bloom
-	EventMux   *event.TypeMux            // Legacy event mux, deprecate for `feed`
-	Checkpoint *params.TrustedCheckpoint // Hard coded checkpoint for sync challenges
-	Whitelist  map[uint64]common.Hash    // Hard coded whitelist for sync challenged
+// HandlerConfig is the collection of initialization parameters to create a full
+// node network P2PHandler.
+type HandlerConfig struct {
+	Database               ethdb.Database            // Database for direct sync insertions
+	Chain                  *core.BlockChain          // Blockchain to serve data from
+	TxPool                 txPool                    // Transaction pool to propagate from
+	Network                uint64                    // Network identifier to adfvertise
+	Sync                   downloader.SyncMode       // Whether to fast or full sync
+	BloomCache             uint64                    // Megabytes to alloc for fast sync bloom
+	EventMux               *event.TypeMux            // Legacy event mux, deprecate for `feed`
+	Checkpoint             *params.TrustedCheckpoint // Hard coded checkpoint for sync challenges
+	Whitelist              map[uint64]common.Hash    // Hard coded whitelist for sync challenged
+	ConsensusPacketHandler *ConsensusPacketHandler
 }
 
-type handler struct {
+type ConsensusHandler interface {
+	HandleConsensusPacket(packet *eth.ConsensusPacket) error
+	HandleRequestConsensusDataPacket(packet *eth.RequestConsensusDataPacket) ([]*eth.ConsensusPacket, error)
+}
+
+type ConsensusPacketHandler struct {
+	Handler ConsensusHandler
+}
+
+type HandlePeerList func(peerList []string) error
+
+type P2PHandler struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	snapSync  uint32 // Flag whether fast sync should operate on top of the snap protocol
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	fastSync   uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	snapSync   uint32 // Flag whether fast sync should operate on top of the snap protocol
+	AcceptTxns uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -103,11 +115,12 @@ type handler struct {
 	chain    *core.BlockChain
 	maxPeers int
 
-	downloader   *downloader.Downloader
-	stateBloom   *trie.SyncBloom
-	blockFetcher *fetcher.BlockFetcher
-	txFetcher    *fetcher.TxFetcher
-	peers        *peerSet
+	Downloader       *downloader.Downloader
+	stateBloom       *trie.SyncBloom
+	blockFetcher     *fetcher.BlockFetcher
+	txFetcher        *fetcher.TxFetcher
+	consensusHandler *ConsensusPacketHandler
+	peers            *peerSet
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
@@ -123,15 +136,47 @@ type handler struct {
 	chainSync *chainSyncer
 	wg        sync.WaitGroup
 	peerWG    sync.WaitGroup
+
+	handlePeerListFn HandlePeerList
 }
 
-// newHandler returns a handler for all Ethereum chain management protocol.
-func newHandler(config *handlerConfig) (*handler, error) {
+var lock = &sync.Mutex{}
+var p2phandler *P2PHandler
+
+func GetPacketHandler() *P2PHandler {
+	lock.Lock()
+	defer lock.Unlock()
+	return p2phandler
+}
+
+func (h *P2PHandler) SetConsensusHandler(handler ConsensusHandler) {
+	lock.Lock()
+	defer lock.Unlock()
+	consensusHandler := &ConsensusPacketHandler{
+		Handler: handler,
+	}
+	h.consensusHandler = consensusHandler
+}
+
+func (h *P2PHandler) SetPeerHandler(handleFn HandlePeerList) {
+	lock.Lock()
+	defer lock.Unlock()
+	h.handlePeerListFn = handleFn
+}
+
+// NewHandler returns a P2PHandler for all Ethereum chain management protocol.
+func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	if p2phandler != nil {
+		return p2phandler, nil
+	}
+
 	// Create the protocol manager with the base fields
 	if config.EventMux == nil {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
-	h := &handler{
+	h := &P2PHandler{
 		networkID:  config.Network,
 		forkFilter: forkid.NewFilter(config.Chain),
 		eventMux:   config.EventMux,
@@ -174,8 +219,8 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		h.checkpointNumber = (config.Checkpoint.SectionIndex+1)*params.CHTFrequency - 1
 		h.checkpointHash = config.Checkpoint.SectionHead
 	}
-	// Construct the downloader (long sync) and its backing state bloom if fast
-	// sync is requested. The downloader is responsible for deallocating the state
+	// Construct the Downloader (long sync) and its backing state bloom if fast
+	// sync is requested. The Downloader is responsible for deallocating the state
 	// bloom when it's done.
 	// Note: we don't enable it if snap-sync is performed, since it's very heavy
 	// and the heal-portion of the snap sync is much lighter than fast. What we particularly
@@ -184,7 +229,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	if atomic.LoadUint32(&h.fastSync) == 1 && atomic.LoadUint32(&h.snapSync) == 0 {
 		h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
 	}
-	h.downloader = downloader.New(h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
+	h.Downloader = downloader.New(h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -215,7 +260,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		}
 		n, err := h.chain.InsertChain(blocks)
 		if err == nil {
-			atomic.StoreUint32(&h.acceptTxs, 1) // Mark initial sync done on any fetcher import
+			atomic.StoreUint32(&h.AcceptTxns, 1) // Mark initial sync done on any fetcher import
 		}
 		return n, err
 	}
@@ -230,12 +275,13 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	}
 	h.txFetcher = fetcher.NewTxFetcher(h.txpool.Has, h.txpool.AddRemotes, fetchTx)
 	h.chainSync = newChainSyncer(h)
+	p2phandler = h
 	return h, nil
 }
 
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
 // various subsistems and starts handling messages.
-func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
+func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	// If the peer has a `snap` extension, wait for it to connect so we can have
 	// a uniform initialization/teardown mechanism
 	snap, err := h.peers.waitSnapExtension(peer)
@@ -293,13 +339,13 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	if p == nil {
 		return errors.New("peer dropped during handling")
 	}
-	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if err := h.downloader.RegisterPeer(peer.ID(), peer.Version(), peer); err != nil {
+	// Register the peer in the Downloader. If the Downloader considers it banned, we disconnect
+	if err := h.Downloader.RegisterPeer(peer.ID(), peer.Version(), peer); err != nil {
 		peer.Log().Error("Failed to register peer in eth syncer", "err", err)
 		return err
 	}
 	if snap != nil {
-		if err := h.downloader.SnapSyncer.Register(snap); err != nil {
+		if err := h.Downloader.SnapSyncer.Register(snap); err != nil {
 			peer.Log().Error("Failed to register peer in snap syncer", "err", err)
 			return err
 		}
@@ -342,8 +388,8 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 // runSnapExtension registers a `snap` peer into the joint eth/snap peerset and
 // starts handling inbound messages. As `snap` is only a satellite protocol to
 // `eth`, all subsystem registrations and lifecycle management will be done by
-// the main `eth` handler to prevent strange races.
-func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error {
+// the main `eth` P2PHandler to prevent strange races.
+func (h *P2PHandler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error {
 	h.peerWG.Add(1)
 	defer h.peerWG.Done()
 
@@ -355,15 +401,15 @@ func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error 
 }
 
 // removePeer requests disconnection of a peer.
-func (h *handler) removePeer(id string) {
+func (h *P2PHandler) removePeer(id string) {
 	peer := h.peers.peer(id)
 	if peer != nil {
 		peer.Peer.Disconnect(p2p.DiscUselessPeer)
 	}
 }
 
-// unregisterPeer removes a peer from the downloader, fetchers and main peer set.
-func (h *handler) unregisterPeer(id string) {
+// unregisterPeer removes a peer from the Downloader, fetchers and main peer set.
+func (h *P2PHandler) unregisterPeer(id string) {
 	// Create a custom logger to avoid printing the entire id
 	var logger log.Logger
 	if len(id) < 16 {
@@ -383,9 +429,9 @@ func (h *handler) unregisterPeer(id string) {
 
 	// Remove the `snap` extension if it exists
 	if peer.snapExt != nil {
-		h.downloader.SnapSyncer.Unregister(id)
+		h.Downloader.SnapSyncer.Unregister(id)
 	}
-	h.downloader.UnregisterPeer(id)
+	h.Downloader.UnregisterPeer(id)
 	h.txFetcher.Drop(id)
 
 	if err := h.peers.unregisterPeer(id); err != nil {
@@ -393,7 +439,7 @@ func (h *handler) unregisterPeer(id string) {
 	}
 }
 
-func (h *handler) Start(maxPeers int) {
+func (h *P2PHandler) Start(maxPeers int) {
 	h.maxPeers = maxPeers
 
 	// broadcast transactions
@@ -413,7 +459,7 @@ func (h *handler) Start(maxPeers int) {
 	go h.txsyncLoop64() // TODO(karalabe): Legacy initial tx echange, drop with eth/64.
 }
 
-func (h *handler) Stop() {
+func (h *P2PHandler) Stop() {
 	h.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	h.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
@@ -434,7 +480,7 @@ func (h *handler) Stop() {
 
 // BroadcastBlock will either propagate a block to a subset of its peers, or
 // will only announce its availability (depending what's requested).
-func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
+func (h *P2PHandler) BroadcastBlock(block *types.Block, propagate bool) {
 	hash := block.Hash()
 	peers := h.peers.peersWithoutBlock(hash)
 
@@ -469,7 +515,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 // - To a square root of all peers
 // - And, separately, as announcements to all peers which are not known to
 // already have the given transaction.
-func (h *handler) BroadcastTransactions(txs types.Transactions) {
+func (h *P2PHandler) BroadcastTransactions(txs types.Transactions) {
 	var (
 		annoCount   int // Count of announcements made
 		annoPeers   int
@@ -508,8 +554,58 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 		"tx packs", directPeers, "broadcast txs", directCount)
 }
 
+func (h *P2PHandler) RequestTransactions(txns []common.Hash) error {
+	peers := h.peers.allPeers()
+
+	numDirect := int(math.Sqrt(float64(len(peers))))
+	for _, peer := range peers[:numDirect] {
+		peer.RequestTxs(txns)
+	}
+
+	return nil
+}
+
+func (h *P2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPacket) error {
+	peers := h.peers.allPeers()
+
+	numDirect := int(math.Sqrt(float64(len(peers))))
+	for _, peer := range peers[:numDirect] {
+		peer.AsyncSendRequestConsensusDataPacket(packet)
+	}
+
+	return nil
+}
+
+func (h *P2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {
+	peers := h.peers.allPeers()
+	for _, peer := range peers {
+		_, err := peer.Node().Address()
+		if err != nil {
+			log.Trace("BroadcastConsensusData", "err", err, "peer", peer.ID())
+		}
+		peer.AsyncSendConsensusPacket(packet)
+	}
+
+	return nil
+}
+
+func (h *P2PHandler) RequestPeerList() error {
+	packet := &eth.RequestPeerListPacket{
+		MaxPeers: 10,
+	}
+	peers := h.peers.allPeers()
+	for _, peer := range peers {
+		_, err := peer.Node().Address()
+		if err != nil {
+			log.Trace("RequestPeerList", "err", err, "peer", peer.ID())
+		}
+		peer.AsyncSendRequestPeerListPacket(packet)
+	}
+	return nil
+}
+
 // minedBroadcastLoop sends mined blocks to connected peers.
-func (h *handler) minedBroadcastLoop() {
+func (h *P2PHandler) minedBroadcastLoop() {
 	defer h.wg.Done()
 
 	for obj := range h.minedBlockSub.Chan() {
@@ -521,7 +617,7 @@ func (h *handler) minedBroadcastLoop() {
 }
 
 // txBroadcastLoop announces new transactions to connected peers.
-func (h *handler) txBroadcastLoop() {
+func (h *P2PHandler) txBroadcastLoop() {
 	defer h.wg.Done()
 	for {
 		select {

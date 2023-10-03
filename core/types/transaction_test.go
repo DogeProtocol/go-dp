@@ -558,6 +558,131 @@ func TestTransactionSortNoTxns(t *testing.T) {
 	fmt.Println("count", count)
 }
 
+func testTransactionNonceOrder_byCount(txnCount int, t *testing.T) {
+	// Generate a batch of accounts to start with
+	keys := make([]*signaturealgorithm.PrivateKey, 1)
+	for i := 0; i < len(keys); i++ {
+		keys[i], _ = cryptobase.SigAlg.GenerateKey()
+	}
+	signer := HomesteadSigner{}
+
+	// Generate a batch of transactions with overlapping prices, but different creation times
+	groups := map[common.Address]Transactions{}
+	overallCount := 0
+	for start, key := range keys {
+		addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
+
+		txnList := make([]*Transaction, 0)
+		for i := 0; i < txnCount; i++ {
+			tx, _ := SignTx(NewTransaction(uint64(i), common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+			tx.time = time.Unix(0, int64(len(keys)-start))
+			overallCount = overallCount + 1
+			txnList = append(txnList, tx)
+			//groups[addr] = append(groups[addr], tx)
+			//fmt.Println("txhash", tx.Hash(), addr)
+		}
+		for j := len(txnList) - 1; j >= 0; j-- {
+			groups[addr] = append(groups[addr], txnList[j])
+		}
+	}
+	// Sort the transactions and cross check the nonce ordering
+	parentHash := common.BytesToHash([]byte("test parent hash"))
+	txset := NewTransactionsByNonce(signer, groups, parentHash)
+
+	count := 0
+	ok := txset.NextCursor()
+	prevNonce := uint64(0)
+	for ok == true {
+		txn := txset.PeekCursor()
+		if txn.Nonce() < prevNonce {
+			fmt.Println("failed", txn.Hash(), txn.Nonce(), prevNonce)
+			t.Errorf("failed")
+			t.Fatalf("failed")
+		}
+		prevNonce = txn.Nonce()
+		from, _ := Sender(signer, txn)
+		fmt.Println("Cursor", txn.Hash(), from, txn.Nonce(), prevNonce)
+		ok = txset.NextCursor()
+		count = count + 1
+	}
+	if count != overallCount {
+		t.Errorf("test count failed")
+	}
+	fmt.Println("count", count)
+}
+
+func TestTransactionNonceOrder(t *testing.T) {
+	testTransactionNonceOrder_byCount(10, t)
+	testTransactionNonceOrder_byCount(1, t)
+	testTransactionNonceOrder_byCount(2, t)
+}
+
+func testTransactionNonceOrder_skip_byCount(txnCount int, skipMap map[int]bool, outputCount int, t *testing.T) {
+	// Generate a batch of accounts to start with
+	keys := make([]*signaturealgorithm.PrivateKey, 1)
+	for i := 0; i < len(keys); i++ {
+		keys[i], _ = cryptobase.SigAlg.GenerateKey()
+	}
+	signer := HomesteadSigner{}
+
+	// Generate a batch of transactions with overlapping prices, but different creation times
+	groups := map[common.Address]Transactions{}
+	overallCount := 0
+	for start, key := range keys {
+		addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
+
+		txnList := make([]*Transaction, 0)
+		for i := 0; i < txnCount; i++ {
+			tx, _ := SignTx(NewTransaction(uint64(i), common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+			tx.time = time.Unix(0, int64(len(keys)-start))
+			overallCount = overallCount + 1
+			txnList = append(txnList, tx)
+			//groups[addr] = append(groups[addr], tx)
+			//fmt.Println("txhash", tx.Hash(), addr)
+		}
+		for j := len(txnList) - 1; j >= 0; j = j - 1 {
+			_, ok := skipMap[j]
+			if ok {
+				continue
+			}
+			groups[addr] = append(groups[addr], txnList[j])
+		}
+	}
+	// Sort the transactions and cross check the nonce ordering
+	parentHash := common.BytesToHash([]byte("test parent hash"))
+	txset := NewTransactionsByNonce(signer, groups, parentHash)
+
+	count := 0
+	ok := txset.NextCursor()
+	prevNonce := uint64(0)
+	for ok == true {
+		txn := txset.PeekCursor()
+		if txn.Nonce() < prevNonce {
+			fmt.Println("failed", txn.Hash(), txn.Nonce(), prevNonce)
+			t.Errorf("failed")
+			t.Fatalf("failed")
+		}
+		prevNonce = txn.Nonce()
+		from, _ := Sender(signer, txn)
+		fmt.Println("Cursor", txn.Hash(), from, txn.Nonce(), prevNonce)
+		ok = txset.NextCursor()
+		count = count + 1
+	}
+	if count != outputCount {
+		fmt.Println("count", count, outputCount)
+		t.Errorf("test count failed")
+	}
+}
+
+func TestTransactionNonceOrderSkip(t *testing.T) {
+	testTransactionNonceOrder_skip_byCount(10, map[int]bool{1: true}, 1, t)
+	testTransactionNonceOrder_skip_byCount(10, map[int]bool{5: true}, 5, t)
+	testTransactionNonceOrder_skip_byCount(10, map[int]bool{0: true}, 9, t)
+	testTransactionNonceOrder_skip_byCount(10, map[int]bool{9: true}, 9, t)
+	testTransactionNonceOrder_skip_byCount(0, map[int]bool{0: true}, 0, t)
+	testTransactionNonceOrder_skip_byCount(1, map[int]bool{0: true}, 0, t)
+}
+
 // TestTransactionCoding tests serializing/de-serializing to/from rlp and JSON.
 func TestTransactionCoding(t *testing.T) {
 	key, err := cryptobase.SigAlg.GenerateKey()

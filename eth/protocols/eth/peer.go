@@ -54,6 +54,10 @@ const (
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
 	// above some healthy uncle limit, so use that.
 	maxQueuedBlockAnns = 4
+
+	maxQueuedConsensusMessages       = 128
+	maxQueuedRequestPeerListMessages = 3
+	maxQueuedPeerListMessages        = 3
 )
 
 // max is a helper function which returns the larger of the two given integers.
@@ -75,9 +79,13 @@ type Peer struct {
 	head common.Hash // Latest advertised head block hash
 	td   *big.Int    // Latest advertised head block total difficulty
 
-	knownBlocks     mapset.Set             // Set of block hashes known to be known by this peer
-	queuedBlocks    chan *blockPropagation // Queue of blocks to broadcast to the peer
-	queuedBlockAnns chan *types.Block      // Queue of blocks to announce to the peer
+	knownBlocks                    mapset.Set             // Set of block hashes known to be known by this peer
+	queuedBlocks                   chan *blockPropagation // Queue of blocks to broadcast to the peer
+	queuedBlockAnns                chan *types.Block      // Queue of blocks to announce to the peer
+	queuedConsensusMessages        chan *ConsensusPacket  // Queue of ConsensusPackets to broadcast to the peer
+	queuedRequestConsensusMessages chan *RequestConsensusDataPacket
+	queuedRequestPeerListMessages  chan *RequestPeerListPacket
+	queuedPeerListMessages         chan *PeerListPacket
 
 	txpool      TxPool             // Transaction pool used by the broadcasters for liveness checks
 	knownTxs    mapset.Set         // Set of transaction hashes known to be known by this peer
@@ -92,22 +100,30 @@ type Peer struct {
 // version.
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
 	peer := &Peer{
-		id:              p.ID().String(),
-		Peer:            p,
-		rw:              rw,
-		version:         version,
-		knownTxs:        mapset.NewSet(),
-		knownBlocks:     mapset.NewSet(),
-		queuedBlocks:    make(chan *blockPropagation, maxQueuedBlocks),
-		queuedBlockAnns: make(chan *types.Block, maxQueuedBlockAnns),
-		txBroadcast:     make(chan []common.Hash),
-		txAnnounce:      make(chan []common.Hash),
-		txpool:          txpool,
-		term:            make(chan struct{}),
+		id:                             p.ID().String(),
+		Peer:                           p,
+		rw:                             rw,
+		version:                        version,
+		knownTxs:                       mapset.NewSet(),
+		knownBlocks:                    mapset.NewSet(),
+		queuedBlocks:                   make(chan *blockPropagation, maxQueuedBlocks),
+		queuedBlockAnns:                make(chan *types.Block, maxQueuedBlockAnns),
+		queuedConsensusMessages:        make(chan *ConsensusPacket, maxQueuedConsensusMessages),
+		queuedRequestConsensusMessages: make(chan *RequestConsensusDataPacket, maxQueuedConsensusMessages),
+		queuedRequestPeerListMessages:  make(chan *RequestPeerListPacket, maxQueuedRequestPeerListMessages),
+		queuedPeerListMessages:         make(chan *PeerListPacket, maxQueuedPeerListMessages),
+		txBroadcast:                    make(chan []common.Hash),
+		txAnnounce:                     make(chan []common.Hash),
+		txpool:                         txpool,
+		term:                           make(chan struct{}),
 	}
 	// Start up all the broadcasters
 	go peer.broadcastBlocks()
 	go peer.broadcastTransactions()
+	go peer.broadcastConsensusMessages()
+	go peer.broadcastRequestConsensusDataMessages()
+	go peer.broadcastRequestPeerListMessages()
+	go peer.broadcastPeerListMessages()
 	if version >= ETH65 {
 		go peer.announceTransactions()
 	}
@@ -540,4 +556,59 @@ func (p *Peer) RequestTxs(hashes []common.Hash) error {
 		})
 	}
 	return p2p.Send(p.rw, GetPooledTransactionsMsg, GetPooledTransactionsPacket(hashes))
+}
+
+// SendRequestConsensusDataPacket requests consensus data from a remote node.
+func (p *Peer) SendRequestConsensusDataPacket(packet *RequestConsensusDataPacket) error {
+	p.Log().Debug("SendRequestConsensusDataPacket", "parentHash", packet.ParentHash)
+	return p2p.Send(p.rw, RequestConsensusDataMsg, packet)
+}
+
+func (p *Peer) AsyncSendRequestConsensusDataPacket(packet *RequestConsensusDataPacket) {
+	select {
+	case p.queuedRequestConsensusMessages <- packet:
+
+	default:
+	}
+}
+
+// SendConsensusPacket sends block's transaction proposals
+func (p *Peer) SendConsensusPacket(packet *ConsensusPacket) error {
+	return p2p.Send(p.rw, ConsensusMsg, packet)
+}
+
+// AsyncSendConsensusPacket queues consensus packets to remote peers. If
+// the peer's broadcast queue is full, the event is silently dropped.
+func (p *Peer) AsyncSendConsensusPacket(packet *ConsensusPacket) {
+	select {
+	case p.queuedConsensusMessages <- packet:
+
+	default:
+	}
+}
+
+func (p *Peer) SendRequestPeerListPacket(packet *RequestPeerListPacket) error {
+	p.Log().Debug("SendRequestPeerListPacket", "maxPeers", packet)
+	return p2p.Send(p.rw, RequestPeerListMsg, packet)
+}
+
+func (p *Peer) AsyncSendRequestPeerListPacket(packet *RequestPeerListPacket) {
+	select {
+	case p.queuedRequestPeerListMessages <- packet:
+
+	default:
+	}
+}
+
+func (p *Peer) SendPeerListPacket(packet *PeerListPacket) error {
+	p.Log().Debug("SendPeerListPacket", "numPeers", len(packet.PeerList))
+	return p2p.Send(p.rw, PeerListMsg, packet)
+}
+
+func (p *Peer) AsyncSendPeerListPacket(packet *PeerListPacket) {
+	select {
+	case p.queuedPeerListMessages <- packet:
+
+	default:
+	}
 }

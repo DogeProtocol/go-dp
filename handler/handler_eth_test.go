@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ import (
 	"github.com/DogeProtocol/dp/trie"
 )
 
-// testEthHandler is a mock event handler to listen for inbound network requests
+// testEthHandler is a mock event P2PHandler to listen for inbound network requests
 // on the `eth` protocol and convert them into a more easily testable form.
 type testEthHandler struct {
 	blockBroadcasts event.Feed
@@ -112,7 +112,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
 		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
-		ethNoFork, _ = newHandler(&handlerConfig{
+		ethNoFork, _ = NewHandler(&HandlerConfig{
 			Database:   dbNoFork,
 			Chain:      chainNoFork,
 			TxPool:     newTestTxPool(),
@@ -120,7 +120,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 			Sync:       downloader.FullSync,
 			BloomCache: 1,
 		})
-		ethProFork, _ = newHandler(&handlerConfig{
+		ethProFork, _ = NewHandler(&HandlerConfig{
 			Database:   dbProFork,
 			Chain:      chainProFork,
 			TxPool:     newTestTxPool(),
@@ -164,7 +164,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 				t.Fatalf("frontier nofork <-> profork failed: %v", err)
 			}
 		case <-time.After(250 * time.Millisecond):
-			t.Fatalf("frontier nofork <-> profork handler timeout")
+			t.Fatalf("frontier nofork <-> profork P2PHandler timeout")
 		}
 	}
 	// Progress into Homestead. Fork's match, so we don't care what the future holds
@@ -195,7 +195,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 				t.Fatalf("homestead nofork <-> profork failed: %v", err)
 			}
 		case <-time.After(250 * time.Millisecond):
-			t.Fatalf("homestead nofork <-> profork handler timeout")
+			t.Fatalf("homestead nofork <-> profork P2PHandler timeout")
 		}
 	}
 	// Progress into Spurious. Forks mismatch, signalling differing chains, reject
@@ -242,17 +242,17 @@ func TestRecvTransactions66(t *testing.T) { testRecvTransactions(t, eth.ETH66) }
 func testRecvTransactions(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	// Create a message handler, configure it to accept transactions and watch them
+	// Create a message P2PHandler, configure it to accept transactions and watch them
 	handler := newTestHandler()
 	defer handler.close()
 
-	handler.handler.acceptTxs = 1 // mark synced to accept transactions
+	handler.handler.AcceptTxns = 1 // mark synced to accept transactions
 
 	txs := make(chan core.NewTxsEvent)
 	sub := handler.txpool.SubscribeNewTxsEvent(txs)
 	defer sub.Unsubscribe()
 
-	// Create a source peer to send messages through and a sink handler to receive them
+	// Create a source peer to send messages through and a sink P2PHandler to receive them
 	p2pSrc, p2pSink := p2p.MsgPipe()
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
@@ -263,9 +263,9 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	defer sink.Close()
 
 	go handler.handler.runEthPeer(sink, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(handler.handler), peer)
+		return eth.Handle((*EthHandler)(handler.handler), peer)
 	})
-	// Run the handshake locally to avoid spinning up a source handler
+	// Run the handshake locally to avoid spinning up a source P2PHandler
 	var (
 		genesis = handler.chain.Genesis()
 		head    = handler.chain.CurrentBlock()
@@ -300,7 +300,7 @@ func TestSendTransactions66(t *testing.T) { testSendTransactions(t, eth.ETH66) }
 func testSendTransactions(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	// Create a message handler and fill the pool with big transactions
+	// Create a message P2PHandler and fill the pool with big transactions
 	handler := newTestHandler()
 	defer handler.close()
 
@@ -314,7 +314,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	go handler.txpool.AddRemotes(insert) // Need goroutine to not block on feed
 	time.Sleep(250 * time.Millisecond)   // Wait until tx events get out of the system (can't use events, tx broadcaster races with peer join)
 
-	// Create a source handler to send messages through and a sink peer to receive them
+	// Create a source P2PHandler to send messages through and a sink peer to receive them
 	p2pSrc, p2pSink := p2p.MsgPipe()
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
@@ -325,9 +325,9 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	defer sink.Close()
 
 	go handler.handler.runEthPeer(src, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(handler.handler), peer)
+		return eth.Handle((*EthHandler)(handler.handler), peer)
 	})
-	// Run the handshake locally to avoid spinning up a source handler
+	// Run the handshake locally to avoid spinning up a source P2PHandler
 	var (
 		genesis = handler.chain.Genesis()
 		head    = handler.chain.CurrentBlock()
@@ -336,7 +336,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	if err := sink.Handshake(1, td, head.Hash(), genesis.Hash(), forkid.NewIDWithChain(handler.chain), forkid.NewFilter(handler.chain)); err != nil {
 		t.Fatalf("failed to run protocol handshake")
 	}
-	// After the handshake completes, the source handler should stream the sink
+	// After the handshake completes, the source P2PHandler should stream the sink
 	// the transactions, subscribe to all inbound network events
 	backend := new(testEthHandler)
 
@@ -386,7 +386,7 @@ func TestTransactionPropagation66(t *testing.T) { testTransactionPropagation(t, 
 func testTransactionPropagation(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	// Create a source handler to send transactions from and a number of sinks
+	// Create a source P2PHandler to send transactions from and a number of sinks
 	// to receive them. We need multiple sinks since a one-to-one peering would
 	// broadcast all transactions without announcement.
 	source := newTestHandler()
@@ -397,9 +397,9 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 		sinks[i] = newTestHandler()
 		defer sinks[i].close()
 
-		sinks[i].handler.acceptTxs = 1 // mark synced to accept transactions
+		sinks[i].handler.AcceptTxns = 1 // mark synced to accept transactions
 	}
-	// Interconnect all the sink handlers with the source handler
+	// Interconnect all the sink handlers with the source P2PHandler
 	for i, sink := range sinks {
 		sink := sink // Closure for gorotuine below
 
@@ -413,10 +413,10 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 		defer sinkPeer.Close()
 
 		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer) error {
-			return eth.Handle((*ethHandler)(source.handler), peer)
+			return eth.Handle((*EthHandler)(source.handler), peer)
 		})
 		go sink.handler.runEthPeer(sinkPeer, func(peer *eth.Peer) error {
-			return eth.Handle((*ethHandler)(sink.handler), peer)
+			return eth.Handle((*EthHandler)(sink.handler), peer)
 		})
 	}
 	// Subscribe to all the transaction pools
@@ -496,7 +496,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	defer func(old time.Duration) { syncChallengeTimeout = old }(syncChallengeTimeout)
 	syncChallengeTimeout = 250 * time.Millisecond
 
-	// Create a test handler and inject a CHT into it. The injection is a bit
+	// Create a test P2PHandler and inject a CHT into it. The injection is a bit
 	// ugly, but it beats creating everything manually just to avoid reaching
 	// into the internals a bit.
 	handler := newTestHandler()
@@ -530,11 +530,11 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	go func() {
 		defer close(handlerDone)
 		handler.handler.runEthPeer(local, func(peer *eth.Peer) error {
-			return eth.Handle((*ethHandler)(handler.handler), peer)
+			return eth.Handle((*EthHandler)(handler.handler), peer)
 		})
 	}()
 
-	// Run the handshake locally to avoid spinning up a remote handler.
+	// Run the handshake locally to avoid spinning up a remote P2PHandler.
 	var (
 		genesis = handler.chain.Genesis()
 		head    = handler.chain.CurrentBlock()
@@ -598,7 +598,7 @@ func TestBroadcastBlock100Peers(t *testing.T) { testBroadcastBlock(t, 100, 10) }
 func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 	t.Parallel()
 
-	// Create a source handler to broadcast blocks from and a number of sinks
+	// Create a source P2PHandler to broadcast blocks from and a number of sinks
 	// to receive them.
 	source := newTestHandlerWithBlocks(1)
 	defer source.close()
@@ -607,7 +607,7 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 	for i := 0; i < len(sinks); i++ {
 		sinks[i] = new(testEthHandler)
 	}
-	// Interconnect all the sink handlers with the source handler
+	// Interconnect all the sink handlers with the source P2PHandler
 	var (
 		genesis = source.chain.Genesis()
 		td      = source.chain.GetTd(genesis.Hash(), genesis.NumberU64())
@@ -625,7 +625,7 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 		defer sinkPeer.Close()
 
 		go source.handler.runEthPeer(sourcePeer, func(peer *eth.Peer) error {
-			return eth.Handle((*ethHandler)(source.handler), peer)
+			return eth.Handle((*EthHandler)(source.handler), peer)
 		})
 		if err := sinkPeer.Handshake(1, td, genesis.Hash(), genesis.Hash(), forkid.NewIDWithChain(source.chain), forkid.NewFilter(source.chain)); err != nil {
 			t.Fatalf("failed to run protocol handshake")
@@ -677,12 +677,12 @@ func TestBroadcastMalformedBlock66(t *testing.T) { testBroadcastMalformedBlock(t
 func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	// Create a source handler to broadcast blocks from and a number of sinks
+	// Create a source P2PHandler to broadcast blocks from and a number of sinks
 	// to receive them.
 	source := newTestHandlerWithBlocks(1)
 	defer source.close()
 
-	// Create a source handler to send messages through and a sink peer to receive them
+	// Create a source P2PHandler to send messages through and a sink peer to receive them
 	p2pSrc, p2pSink := p2p.MsgPipe()
 	defer p2pSrc.Close()
 	defer p2pSink.Close()
@@ -693,9 +693,9 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	defer sink.Close()
 
 	go source.handler.runEthPeer(src, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(source.handler), peer)
+		return eth.Handle((*EthHandler)(source.handler), peer)
 	})
-	// Run the handshake locally to avoid spinning up a sink handler
+	// Run the handshake locally to avoid spinning up a sink P2PHandler
 	var (
 		genesis = source.chain.Genesis()
 		td      = source.chain.GetTd(genesis.Hash(), genesis.NumberU64())
@@ -703,7 +703,7 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	if err := sink.Handshake(1, td, genesis.Hash(), genesis.Hash(), forkid.NewIDWithChain(source.chain), forkid.NewFilter(source.chain)); err != nil {
 		t.Fatalf("failed to run protocol handshake")
 	}
-	// After the handshake completes, the source handler should stream the sink
+	// After the handshake completes, the source P2PHandler should stream the sink
 	// the blocks, subscribe to inbound network events
 	backend := new(testEthHandler)
 

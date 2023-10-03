@@ -484,10 +484,10 @@ func logDiff(original *SignTxRequest, new *SignTxResponse) bool {
 		log.Info("GasPrice changed by UI", "was", a, "is", b)
 		modified = true
 	}
-	/*if a, b := original.Transaction.MaxPriorityFeePerGas, new.Transaction.MaxPriorityFeePerGas; intPtrModified(a, b) {
+	if a, b := original.Transaction.MaxPriorityFeePerGas, new.Transaction.MaxPriorityFeePerGas; intPtrModified(a, b) {
 		log.Info("maxPriorityFeePerGas changed by UI", "was", a, "is", b)
 		modified = true
-	}*/
+	}
 	if a, b := original.Transaction.MaxFeePerGas, new.Transaction.MaxFeePerGas; intPtrModified(a, b) {
 		log.Info("maxFeePerGas changed by UI", "was", a, "is", b)
 		modified = true

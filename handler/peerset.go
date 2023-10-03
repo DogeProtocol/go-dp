@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"errors"
@@ -196,6 +196,16 @@ func (ps *peerSet) peersWithoutBlock(hash common.Hash) []*ethPeer {
 	return list
 }
 
+func (ps *peerSet) allPeers() []*ethPeer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	list := make([]*ethPeer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		list = append(list, p)
+	}
+	return list
+}
+
 // peersWithoutTransaction retrieves a list of peers that do not have a given
 // transaction in their set of known hashes.
 func (ps *peerSet) peersWithoutTransaction(hash common.Hash) []*ethPeer {
@@ -219,6 +229,20 @@ func (ps *peerSet) len() int {
 	defer ps.lock.RUnlock()
 
 	return len(ps.peers)
+}
+
+func (ps *peerSet) PeerList() []string {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	peerList := make([]string, len(ps.peers))
+	i := 0
+	for _, peer := range ps.peers {
+		peerList[i] = peer.Node().String()
+		i = i + 1
+	}
+
+	return peerList
 }
 
 // snapLen returns if the current number of `snap` peers in the set.

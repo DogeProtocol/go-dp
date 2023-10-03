@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
+	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io"
@@ -30,7 +31,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/rlp"
 )
 
@@ -80,7 +80,7 @@ type TxData interface {
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
-	//gasTipCap() *big.Int
+	gasTipCap() *big.Int
 	gasFeeCap() *big.Int
 	value() *big.Int
 	nonce() uint64
@@ -197,7 +197,9 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 // setDecoded sets the inner transaction and size after decoding.
 func (tx *Transaction) setDecoded(inner TxData, size int) {
 	tx.inner = inner
-	tx.time = time.Now()
+	//tx.time = time.Now()
+	tx.time = time.Date(
+		2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	if size > 0 {
 		tx.size.Store(common.StorageSize(size))
 	}
@@ -273,7 +275,7 @@ func (tx *Transaction) Gas() uint64 { return tx.inner.gas() }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.inner.gasPrice()) }
 
 // GasTipCap returns the gasTipCap per gas of the transaction.
-//func (tx *Transaction) GasTipCap() *big.Int { return new(big.Int).Set(tx.inner.gasTipCap()) }
+func (tx *Transaction) GasTipCap() *big.Int { return new(big.Int).Set(tx.inner.gasTipCap()) }
 
 // GasFeeCap returns the fee cap per gas of the transaction.
 func (tx *Transaction) GasFeeCap() *big.Int { return new(big.Int).Set(tx.inner.gasFeeCap()) }
@@ -319,6 +321,18 @@ func (tx *Transaction) GasFeeCapIntCmp(other *big.Int) int {
 	return tx.inner.gasFeeCap().Cmp(other)
 }
 
+func (tx *Transaction) EffectiveGas(baseFee *big.Int) (*big.Int, error) {
+	if baseFee == nil {
+		return tx.GasFeeCap(), nil
+	}
+	var err error
+	gasFeeCap := tx.GasFeeCap()
+	if gasFeeCap.Cmp(baseFee) == -1 {
+		err = ErrGasFeeCapTooLow
+	}
+	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
+}
+
 /*
 // GasTipCapCmp compares the gasTipCap of two transactions.
 func (tx *Transaction) GasTipCapCmp(other *Transaction) int {
@@ -330,13 +344,12 @@ func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
 	return tx.inner.gasTipCap().Cmp(other)
 }
 
-
 // EffectiveGasTip returns the effective miner gasTipCap for the given base fee.
 // Note: if the effective gasTipCap is negative, this method returns both error
 // the actual negative value, _and_ ErrGasFeeCapTooLow
 func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	if baseFee == nil {
-		return 0, nil
+		return tx.GasTipCap(), nil
 	}
 	var err error
 	gasFeeCap := tx.GasFeeCap()
@@ -345,7 +358,6 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	}
 	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
 }
-
 
 // EffectiveGasTipValue is identical to EffectiveGasTip, but does not return an
 // error in case the effective gasTipCap is negative
@@ -370,18 +382,6 @@ func (tx *Transaction) EffectiveGasTipIntCmp(other *big.Int, baseFee *big.Int) i
 	return tx.EffectiveGasTipValue(baseFee).Cmp(other)
 }
 */
-
-func (tx *Transaction) EffectiveGas(baseFee *big.Int) (*big.Int, error) {
-	if baseFee == nil {
-		return nil, errors.New("base fee is nil")
-	}
-	var err error
-	gasFeeCap := tx.GasFeeCap()
-	if gasFeeCap.Cmp(baseFee) == -1 {
-		err = ErrGasFeeCapTooLow
-	}
-	return gasFeeCap.Sub(gasFeeCap, baseFee), err
-}
 
 // Hash returns the transaction hash.
 func (tx *Transaction) Hash() common.Hash {
@@ -420,7 +420,9 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	}
 	cpy := tx.inner.copy()
 	cpy.setSignatureValues(signer.ChainID(), v, r, s)
-	return &Transaction{inner: cpy, time: tx.time}, nil
+	t := time.Date(
+		2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	return &Transaction{inner: cpy, time: t}, nil
 }
 
 func (tx *Transaction) Verify(digestHash []byte) bool {
@@ -431,11 +433,14 @@ func (tx *Transaction) Verify(digestHash []byte) bool {
 // Transactions implements DerivableList for transactions.
 type Transactions []*Transaction
 
+func (s Transactions) Less(i, j int) bool { return s[i].Nonce() < s[j].Nonce() }
+func (s Transactions) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
 // Len returns the length of s.
 func (s Transactions) Len() int { return len(s) }
 
 // EncodeIndex encodes the i'th transaction to w. Note that this does not check for errors
-// because we assume that *Transaction will only ever contain valid txs that were either
+// because we assume that *Transaction will only ever contain valid txns that were either
 // constructed by decoding or via public API in this package.
 func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
 	tx := s[i]
@@ -515,7 +520,7 @@ func (s *TxBySortPrefix) Pop() interface{} {
 // TransactionsByNonce represents a set of transactions supporting removing
 // entire batches of transactions for non-executable accounts.
 type TransactionsByNonce struct {
-	txs              map[common.Address]Transactions // Per account nonce-sorted list of transactions
+	txns             map[common.Address]Transactions // Per account nonce-sorted list of transactions
 	heads            TxBySortPrefix                  // Next transaction for each unique account (heap)
 	signer           Signer                          // Signer for the set of transactions
 	parentHash       common.Hash
@@ -538,6 +543,23 @@ func NewTransactionsByNonce(signer Signer, txs map[common.Address]Transactions, 
 				continue
 			}
 		}
+		if len(accTxs) == 0 {
+			delete(txs, from)
+			continue
+		}
+		sort.Sort(accTxs)
+		prevTxn := accTxs[0]
+		for i := 1; i < len(accTxs); i++ {
+			if accTxs[i].Nonce() != prevTxn.Nonce()+1 {
+				accTxs = accTxs[:i]
+				break
+			}
+			prevTxn = accTxs[i]
+		}
+		if len(accTxs) == 0 {
+			delete(txs, from)
+			continue
+		}
 		acc, _ := Sender(signer, accTxs[0])
 		sortPrefix := crypto.Keccak256(parentHash.Bytes(), acc.Bytes())
 		wrapped, err := NewWrapperTxn(accTxs[0], sortPrefix)
@@ -553,7 +575,7 @@ func NewTransactionsByNonce(signer Signer, txs map[common.Address]Transactions, 
 
 	// Assemble and return the transaction set
 	output := &TransactionsByNonce{
-		txs:        txs,
+		txns:       txs,
 		heads:      heads,
 		signer:     signer,
 		parentHash: parentHash,
@@ -563,11 +585,27 @@ func NewTransactionsByNonce(signer Signer, txs map[common.Address]Transactions, 
 	return output
 }
 
+func (t *TransactionsByNonce) GetList() []common.Hash {
+	txnList := make([]common.Hash, 0, len(t.txns))
+
+	for _, accTxs := range t.txns {
+		for i := 0; i < len(accTxs); i++ {
+			txnList = append(txnList, accTxs[i].Hash())
+		}
+	}
+
+	return txnList
+}
+
+func (t *TransactionsByNonce) GetMap() map[common.Address]Transactions {
+	return t.txns
+}
+
 // Peek returns the next transaction
 func (t *TransactionsByNonce) internalSort() {
-	t.orderedAddresses = make([]common.Address, len(t.txs))
+	t.orderedAddresses = make([]common.Address, len(t.txns))
 	txnIndex := 0
-	for from, _ := range t.txs {
+	for from, _ := range t.txns {
 		t.orderedAddresses[txnIndex] = from
 		txnIndex = txnIndex + 1
 	}
@@ -581,10 +619,10 @@ func (t *TransactionsByNonce) internalSort() {
 }
 
 func (t *TransactionsByNonce) PeekCursor() *Transaction {
-	if t.addressIndex < 0 || len(t.txs) == 0 {
+	if t.addressIndex < 0 || len(t.txns) == 0 {
 		return nil
 	}
-	return t.txs[t.orderedAddresses[t.addressIndex]][t.round]
+	return t.txns[t.orderedAddresses[t.addressIndex]][t.round]
 }
 
 func (t *TransactionsByNonce) ResetCursor() {
@@ -606,7 +644,7 @@ func (t *TransactionsByNonce) NextCursor() bool {
 		if t.addressIndex < 0 {
 			debug.PrintStack()
 		}
-		if t.txs[t.orderedAddresses[i]].Len() > t.round {
+		if t.txns[t.orderedAddresses[i]].Len() > t.round {
 			t.addressIndex = i
 			return true
 		}
@@ -614,7 +652,7 @@ func (t *TransactionsByNonce) NextCursor() bool {
 
 	t.round = t.round + 1
 	for i := 0; i < t.addressIndex; i++ {
-		if t.txs[t.orderedAddresses[i]].Len() > t.round {
+		if t.txns[t.orderedAddresses[i]].Len() > t.round {
 			t.addressIndex = i
 			return true
 		}
@@ -634,10 +672,10 @@ func (t *TransactionsByNonce) Peek1() *Transaction {
 // Shift replaces the current best head with the next one from the same account.
 func (t *TransactionsByNonce) Shift1() {
 	acc, _ := Sender(t.signer, t.heads[0].tx)
-	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
+	if txs, ok := t.txns[acc]; ok && len(txs) > 0 {
 		sortPrefix := crypto.Keccak256(t.parentHash.Bytes(), acc.Bytes())
 		if wrapped, err := NewWrapperTxn(txs[0], sortPrefix); err == nil {
-			t.heads[0], t.txs[acc] = wrapped, txs[1:]
+			t.heads[0], t.txns[acc] = wrapped, txs[1:]
 			heap.Fix(&t.heads, 0)
 			return
 		}
@@ -669,7 +707,7 @@ type Message struct {
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
 	return Message{
 		from:      from,
 		to:        to,
@@ -701,19 +739,18 @@ func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
 	}
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
 	if baseFee != nil {
-		msg.gasPrice = math.BigMin(baseFee, msg.gasFeeCap)
+		msg.gasPrice = msg.gasFeeCap
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
 	return msg, err
 }
 
-func (m Message) From() common.Address { return m.from }
-func (m Message) To() *common.Address  { return m.to }
-func (m Message) GasPrice() *big.Int   { return m.gasPrice }
-func (m Message) GasFeeCap() *big.Int  { return m.gasFeeCap }
-
-// func (m Message) GasTipCap() *big.Int    { return m.gasTipCap }
+func (m Message) From() common.Address   { return m.from }
+func (m Message) To() *common.Address    { return m.to }
+func (m Message) GasPrice() *big.Int     { return m.gasPrice }
+func (m Message) GasFeeCap() *big.Int    { return m.gasFeeCap }
+func (m Message) GasTipCap() *big.Int    { return m.gasFeeCap }
 func (m Message) Value() *big.Int        { return m.amount }
 func (m Message) Gas() uint64            { return m.gasLimit }
 func (m Message) Nonce() uint64          { return m.nonce }

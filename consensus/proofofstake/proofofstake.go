@@ -19,13 +19,14 @@ package proofofstake
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/internal/ethapi"
-	"github.com/DogeProtocol/dp/systemcontracts"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -105,7 +106,7 @@ var (
 	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
 
 	// errMismatchingEpochValidators is returned if a sprint block contains a
-	// list of validators different than the one the local node calculated.
+	// list of validatorsDepositMap different than the one the local node calculated.
 	errMismatchingEpochValidators = errors.New("mismatching validator list on epoch block")
 
 	// errExtraSigners is returned if non-checkpoint block contain signer data in
@@ -180,6 +181,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	}
 	var validator common.Address
 	copy(validator[:], crypto.Keccak256(pubkey[:])[12:])
+	//fmt.Println("validator", validator, "block", header.Number)
 	sigcache.Add(hash, validator)
 	return validator, nil
 }
@@ -208,10 +210,11 @@ type ProofOfStake struct {
 
 	// The fields below are for testing only
 	fakeDiff bool // Skip difficulty verifications
-}
 
-var maxTnsPerBlock int
-var maxTxnBlockNumber uint64
+	consensusHandler *ConsensusHandler
+
+	account *accounts.Account
+}
 
 // New creates a ProofOfStake proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
@@ -226,23 +229,42 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)
 
-	return &ProofOfStake{
-		chainConfig: chainConfig,
-		config:      conf.ProofOfStake,
-		genesisHash: genesisHash,
-		db:          db,
-		ethAPI:      ethAPI,
-		recents:     recents,
-		signatures:  signatures,
-		proposals:   make(map[common.Address]bool),
-		signer:      types.NewLondonSigner(chainConfig.ChainID),
+	packetHandler := NewConsensusPacketHandler()
+
+	proofofstake := &ProofOfStake{
+		chainConfig:      chainConfig,
+		config:           conf.ProofOfStake,
+		genesisHash:      genesisHash,
+		db:               db,
+		ethAPI:           ethAPI,
+		recents:          recents,
+		signatures:       signatures,
+		proposals:        make(map[common.Address]bool),
+		signer:           types.NewLondonSigner(chainConfig.ChainID),
+		consensusHandler: packetHandler,
 	}
+
+	proofofstake.consensusHandler.getValidatorsFn = proofofstake.GetValidators
+	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExistFn
+
+	return proofofstake
+}
+
+func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler) {
+	c.consensusHandler.p2pHandler = handler
 }
 
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
 func (c *ProofOfStake) Author(header *types.Header) (common.Address, error) {
-	return ecrecover(header, c.signatures)
+	return ZERO_ADDRESS, nil
+}
+
+func (c *ProofOfStake) DoesFinalizedTransactionExistFn(txnHash common.Hash) (bool, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	return c.ethAPI.DoesFinalizedTransactionExist(ctx, txnHash)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
@@ -250,9 +272,132 @@ func (c *ProofOfStake) VerifyHeader(chain consensus.ChainHeaderReader, header *t
 	return c.verifyHeader(chain, header, nil)
 }
 
-// SelectTransactions selects the transactions for including in the block according to the consensus rules.
-func (c *ProofOfStake) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
-	return txns, nil
+func flattenTxnMap(txnMap map[common.Address]types.Transactions) ([]common.Hash, map[common.Hash]common.Address) {
+	if txnMap == nil {
+		return nil, nil
+	}
+
+	count := 0
+	for _, v := range txnMap {
+		count = count + v.Len()
+	}
+
+	txnList := make([]common.Hash, count)
+	txnAddressMap := make(map[common.Hash]common.Address)
+	i := 0
+	for k, v := range txnMap {
+		for _, txn := range v {
+			//fmt.Println("flattenTxnMap", txn.Hash())
+			txnList[i].CopyFrom(txn.Hash())
+			txnAddressMap[txnList[i]] = k
+			i = i + 1
+		}
+	}
+
+	return txnList, txnAddressMap
+}
+
+func recreateTxnMap(selectedTxns []common.Hash, txnAddressMap map[common.Hash]common.Address, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	if selectedTxns == nil {
+		return nil, nil
+	}
+
+	resultMap := make(map[common.Address]types.Transactions)
+	for _, txnHash := range selectedTxns {
+		addr, ok := txnAddressMap[txnHash]
+		if ok == false {
+			log.Trace("recreateTxnMap not fouud", "tx", txnHash)
+			fmt.Println("recreateTxnMap not found", txnHash)
+			return nil, errors.New("unknown transaction")
+			/*for k, v := range txnAddressMap {
+				fmt.Println("recreateTxnMap txnAddressMap", "k", k, "v", v)
+			}
+			*/
+			continue
+		}
+		txnList, ok := txnMap[addr]
+		if ok == false {
+			return nil, errors.New("unknown address")
+		}
+		for _, txnInner := range txnList {
+			hash := txnInner.Hash()
+			if hash.IsEqualTo(txnHash) {
+				_, ok := resultMap[addr]
+				if ok == false {
+					resultMap[addr] = make([]*types.Transaction, 0)
+				}
+				resultMap[addr] = append(resultMap[addr], txnInner)
+			}
+		}
+	}
+
+	return resultMap, nil
+}
+
+func (c *ProofOfStake) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
+	blockState, _, err := c.consensusHandler.getBlockState(header.ParentHash)
+	if err != nil {
+		fmt.Println("blockState", blockState, "err", err)
+		return false
+	}
+	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
+		return false
+	}
+
+	return true
+}
+
+// HandleTransactions selects the transactions for including in the block according to the consensus rules.
+func (c *ProofOfStake) HandleTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	if c.signFn == nil {
+		return nil, errors.New("not a miner")
+	}
+	txns, txnAddressMap := flattenTxnMap(txnMap)
+
+	err := c.consensusHandler.HandleTransactions(header.ParentHash, txns)
+	if err != nil {
+		return nil, err
+	}
+
+	blockState, round, err := c.consensusHandler.getBlockState(header.ParentHash)
+	if err != nil {
+		fmt.Println("getBlockState", err)
+		return nil, err
+	}
+	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
+		return nil, errors.New("not ready yet")
+	}
+	vote, err := c.consensusHandler.getBlockVote(header.ParentHash)
+	if err != nil {
+		fmt.Println("getBlockVote", err)
+		return nil, err
+	}
+
+	selectedTxns, err := c.consensusHandler.getBlockSelectedTransactions(header.ParentHash)
+	if err != nil {
+		fmt.Println("getBlockSelectedTransactions", err)
+		return nil, err
+	}
+	if selectedTxns == nil {
+		fmt.Println("getBlockSelectedTransactions nil")
+		return nil, nil
+	}
+
+	fmt.Println("HandleTransactions", "in", len(txns), "out", len(selectedTxns), "round", round, "vote", vote)
+	/*for _, t := range txns {
+		fmt.Println("HandleTransactions intxns", "txn", t)
+	}
+	for _, t := range selectedTxns {
+		fmt.Println("HandleTransactions outtxns", "txn", t)
+	}*/
+
+	resultMap, err := recreateTxnMap(selectedTxns, txnAddressMap, txnMap)
+	if err != nil {
+		fmt.Println("recreateTxnMap", err)
+		return nil, err
+	}
+
+	return resultMap, nil
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
@@ -281,6 +426,7 @@ func (c *ProofOfStake) VerifyHeaders(chain consensus.ChainHeaderReader, headers 
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
 func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+	return nil
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -291,17 +437,12 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 		return consensus.ErrFutureBlock
 	}
 	// Checkpoint blocks need to enforce zero beneficiary
-	checkpoint := (number % c.config.Epoch) == 0
-	if checkpoint && header.Coinbase != (common.Address{}) {
-		return errInvalidCheckpointBeneficiary
-	}
+
 	// Nonces must be 0x00..0 or 0xff..f, zeroes enforced on checkpoints
 	if !bytes.Equal(header.Nonce[:], nonceAuthVote) && !bytes.Equal(header.Nonce[:], nonceDropVote) {
 		return errInvalidVote
 	}
-	if checkpoint && !bytes.Equal(header.Nonce[:], nonceDropVote) {
-		return errInvalidCheckpointVote
-	}
+
 	// Check that the extra-data contains both the vanity and signature
 	if len(header.Extra) < extraVanity {
 		return errMissingVanity
@@ -310,13 +451,7 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 		return errMissingSignature
 	}
 	// Ensure that the extra-data contains a signer list on checkpoint, but none otherwise
-	var signersBytes = len(header.Extra) - extraVanity - extraSeal
-	if !checkpoint && signersBytes != 0 {
-		return errExtraSigners
-	}
-	if checkpoint && signersBytes%common.AddressLength != 0 {
-		return errInvalidCheckpointSigners
-	}
+
 	// Ensure that the mix digest is zero as we don't have fork protection currently
 	if header.MixDigest != (common.Hash{}) {
 		return errInvalidMixDigest
@@ -348,6 +483,7 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
 func (c *ProofOfStake) verifyCascadingFields(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+	return nil
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -433,26 +569,32 @@ func (c *ProofOfStake) snapshot(chain consensus.ChainHeaderReader, number uint64
 		// consider the checkpoint trusted and snapshot it.
 		if number == 0 || (number%c.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold || chain.GetHeaderByNumber(number-1) == nil)) {
 			checkpoint := chain.GetHeaderByNumber(number)
-			if checkpoint != nil {
-				hash := checkpoint.Hash()
-				//dynamic length
+			//hash := checkpoint.Hash()
 
-				addresslength := len(checkpoint.Extra) - extraVanity - extraSeal
-				if addresslength < 0 {
-					addresslength = len(checkpoint.Extra) - extraVanity - 65
+			if checkpoint != nil {
+				/*validatorsDepositMap, err := c.GetValidators(hash)
+				if err != nil {
+					//fmt.Println("GetValidators err", err)
+					return nil, err
+				}
+				if len(validatorsDepositMap) < 3 {
+					//fmt.Println("no validatorsDepositMap found or len < 3", len(validatorsDepositMap))
+					return nil, errors.New("no validatorsDepositMap found or len < 3")
 				}
 
-				signers := make([]common.Address, addresslength/common.AddressLength)
+				signers := make([]common.Address, len(validatorsDepositMap))
 
 				for i := 0; i < len(signers); i++ {
-					copy(signers[i][:], checkpoint.Extra[extraVanity+i*common.AddressLength:])
+					signers[i] = validatorsDepositMap[i]
 				}
 				snap = newSnapshot(c.config, c.signatures, number, hash, signers)
 				if err := snap.store(c.db); err != nil {
 					return nil, err
 				}
-				log.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+				log.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)*/
 				break
+			} else {
+				//fmt.Println("checkpoint is nil")
 			}
 		}
 		// No snapshot for this header, gather the header and move backward
@@ -508,6 +650,8 @@ func (c *ProofOfStake) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
 func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+	return nil
+
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -554,90 +698,46 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
 	header.Nonce = types.BlockNonce{}
-
 	number := header.Number.Uint64()
+	header.Difficulty = header.Number
 
-	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
-	if err != nil {
-		return err
-	}
-	if number%c.config.Epoch != 0 {
-		c.lock.RLock()
-
-		// Gather all the proposals that make sense voting on
-		addresses := make([]common.Address, 0, len(c.proposals))
-		for address, authorize := range c.proposals {
-			if snap.validVote(address, authorize) {
-				addresses = append(addresses, address)
-			}
-		}
-		// If there's pending proposals, cast a vote on them
-		if len(addresses) > 0 {
-			header.Coinbase = addresses[rand.Intn(len(addresses))]
-			if c.proposals[header.Coinbase] {
-				copy(header.Nonce[:], nonceAuthVote)
-			} else {
-				copy(header.Nonce[:], nonceDropVote)
-			}
-		}
-		c.lock.RUnlock()
-	}
-	// Set the correct difficulty
-	header.Difficulty = calcDifficulty(snap, c.validator)
-
-	// Ensure the extra data has all its components
 	if len(header.Extra) < extraVanity {
 		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
 	}
 	header.Extra = header.Extra[:extraVanity]
-
-	if number%c.config.Epoch == 0 {
-
-		for _, signer := range snap.signers() {
-			header.Extra = append(header.Extra, signer[:]...)
-		}
-	}
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
-	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
-
-	// Ensure the timestamp has the correct delay
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
 	header.Time = parent.Time + c.config.Period
-	if header.Time < uint64(time.Now().Unix()) {
-		header.Time = uint64(time.Now().Unix())
-	}
+
 	return nil
 }
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
 func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) error {
+	/*number := header.Number.Uint64()
 
-	number := header.Number.Uint64()
-
-	code := state.GetCode(systemcontracts.GetStakingContract_Address())
+	code := state.GetCode(staking.GetStakingContract_Address())
 	if code == nil || len(code) == 0 {
 		log.Info("contract code is nil")
 	} else {
 		//Depositor reward
-		validators, err := c.GetValidatorsAddress(header.ParentHash)
+		validatorsDepositMap, err := c.GetValidators(header.ParentHash)
 		if err != nil {
-			fmt.Println("GetValidatorsAddress err", err)
+			//fmt.Println("GetValidators err", err)
 			//return nil
-		} else if validators != nil && len(validators) >= 3 {
-			fmt.Println("Found validators: ", len(validators))
-			index := number % uint64(len(validators))
-			validator := validators[index]
-			depositor, err := c.GetDepositor(validator, header.ParentHash)
+		} else if validatorsDepositMap != nil && len(validatorsDepositMap) >= 3 {
+			//fmt.Println("Found validatorsDepositMap: ", len(validatorsDepositMap))
+			index := number % uint64(len(validatorsDepositMap))
+			validator := validatorsDepositMap[index]
+			depositor, err := c.GetDepositorOfValidator(validator, header.ParentHash)
 			if err != nil {
 				return err
 			}
@@ -646,13 +746,13 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 		} else {
-			//fmt.Println("no validators found or len < 3")
+			//fmt.Println("no validatorsDepositMap found or len < 3", len(validatorsDepositMap))
 		}
-	}
+	}*/
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
 	} else {
-		/*for _, tx := range txs {
+		for _, tx := range txs {
 			signerHash := c.signer.Hash(tx)
 			if !tx.Verify(signerHash.Bytes()) {
 				fmt.Println("Txn Verify failed", tx.Hash())
@@ -660,7 +760,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			} else {
 				//fmt.Println("Txn Verify ok", tx.Hash())
 			}
-		}*/
+		}
 	}
 
 	// should not happen. Once happen, stop the node is better than broadcast the block
@@ -671,11 +771,11 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
 
+	fmt.Println("finalize", "root", header.Root, "number", header.Number, "unclehash", header.UncleHash, "txns", len(txs), "iseip", chain.Config().IsEIP158(header.Number))
+
 	return nil
 }
 
-// FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
-// nor block rewards given, and returns the final block.
 func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
 	err := c.Finalize(chain, header, state, txs, uncles)
@@ -683,43 +783,66 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 		return nil, err
 	}
 
-	if len(txs) > maxTnsPerBlock {
-		maxTnsPerBlock = len(txs)
-		maxTxnBlockNumber = header.Number.Uint64()
-	}
-	fmt.Println("Block", header.Number.Uint64(), "TxnCount", len(txs), "MaxTxn", maxTnsPerBlock, "MaxTxnBlockNumber", maxTxnBlockNumber)
-
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil
-
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
-func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signTxFn SignerTxFn) {
+func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signTxFn SignerTxFn, account accounts.Account) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	c.validator = validator
 	c.signFn = signFn
 	c.signTxFn = signTxFn
+
+	c.consensusHandler.signFn = signFn
+	c.consensusHandler.account = account
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
 func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	header := block.Header()
+	fmt.Println("=============Seal1", block.ParentHash().String(), "number", header.Number.Uint64())
 
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
 	}
-	// For 0-period chains, refuse to seal empty blocks (no reward but would spin sealing)
-	if c.config.Period == 0 && len(block.Transactions()) == 0 {
-		log.Info("Sealing paused, waiting for transactions")
-		return nil
+
+	blockState, round, err := c.consensusHandler.getBlockState(block.ParentHash())
+	if err != nil {
+		fmt.Println("getBlockState", err)
+		return err
 	}
+
+	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
+		fmt.Println("=============Seal2", block.ParentHash().String(), "round", round)
+		return errors.New("Block state not yet BLOCK_STATE_WAITING_FOR_COMMITS")
+	}
+
+	fmt.Println("=============Seal", block.ParentHash().String(), "round", round)
+	//copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+
+	delay1 := time.Unix(int64(header.Time), 0).Sub(time.Now())
+	go func() {
+		select {
+		case <-stop:
+			return
+		case <-time.After(delay1):
+		}
+
+		select {
+		case results <- block.WithSeal(header):
+		default:
+			log.Warn("Sealing result is not read by miner", "sealhash", SealHash(header))
+		}
+	}()
+	return nil
+
 	// Don't hold the validator fields for the entire sealing procedure
 	c.lock.RLock()
 	validator, signFn := c.validator, c.signFn
@@ -752,12 +875,15 @@ func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Bloc
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
+
 	// Sign all the things!
 	sighash, err := signFn(accounts.Account{Address: validator}, accounts.MimetypeProofOfStake, ProofOfStakeRLP(header))
 	if err != nil {
 		return err
 	}
+
 	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+
 	// Wait until sealing is terminated or delay timeout.
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
 	go func() {
@@ -814,6 +940,10 @@ func (c *ProofOfStake) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 		Service:   &API{chain: chain, proofofstake: c},
 		Public:    false,
 	}}
+}
+
+func (c *ProofOfStake) GetConsensusPacketHandler() *ConsensusHandler {
+	return c.consensusHandler
 }
 
 // SealHash returns the hash of a block prior to it being sealed.

@@ -45,10 +45,11 @@ const (
 
 	// These fields are stored per ID and IP, the full key is "n:<ID>:v4:<IP>:findfail".
 	// Use nodeItemKey to create those keys.
-	dbNodeFindFails = "findfail"
-	dbNodePing      = "lastping"
-	dbNodePong      = "lastpong"
-	dbNodeSeq       = "seq"
+	dbNodeFindFails     = "findfail"
+	dbNodePing          = "lastping"
+	dbNodePong          = "lastpong"
+	dbNodeSeq           = "seq"
+	dbNodeLastConnected = "lastconn"
 
 	// Local information is keyed by ID only, the full key is "local:<ID>:seq".
 	// Use localItemKey to create those keys.
@@ -266,6 +267,20 @@ func (db *DB) UpdateNode(node *Node) error {
 	return db.storeUint64(nodeItemKey(node.ID(), zeroIP, dbNodeSeq), node.Seq())
 }
 
+func (db *DB) UpsertNode(node *Node) error {
+	err := db.UpdateNode(node)
+	if err != nil {
+		return err
+	}
+
+	ip := node.IP()
+
+	if ip = node.IP().To16(); ip == nil {
+		return errInvalidIP
+	}
+	return db.storeInt64(nodeItemKey(node.ID(), ip, dbNodeLastConnected), time.Now().Unix())
+}
+
 // NodeSeq returns the stored record sequence number of the given node.
 func (db *DB) NodeSeq(id ID) uint64 {
 	return db.fetchUint64(nodeItemKey(id, zeroIP, dbNodeSeq))
@@ -387,6 +402,16 @@ func (db *DB) LastPongReceived(id ID, ip net.IP) time.Time {
 	return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodePong)), 0)
 }
 
+// LastConnectionTime retrieves the time of the last successful connection from remote node.
+func (db *DB) LastConnectionTime(id ID, ip net.IP) time.Time {
+	if ip = ip.To16(); ip == nil {
+		return time.Time{}
+	}
+	// Launch expirer
+	db.ensureExpirer()
+	return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodeLastConnected)), 0)
+}
+
 // UpdateLastPongReceived updates the last pong time of a node.
 func (db *DB) UpdateLastPongReceived(id ID, ip net.IP, instance time.Time) error {
 	if ip = ip.To16(); ip == nil {
@@ -464,6 +489,44 @@ seek:
 			continue seek // iterator exhausted
 		}
 		if now.Sub(db.LastPongReceived(n.ID(), n.IP())) > maxAge {
+			continue seek
+		}
+		for i := range nodes {
+			if nodes[i].ID() == n.ID() {
+				continue seek // duplicate
+			}
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+// QueryNodes retrieves random nodes to be used to connect.
+func (db *DB) QueryNodes(n int, maxAge time.Duration) []*Node {
+	var (
+		now   = time.Now()
+		nodes = make([]*Node, 0, n)
+		it    = db.lvl.NewIterator(nil, nil)
+		id    ID
+	)
+	defer it.Release()
+
+seek:
+	for seeks := 0; len(nodes) < n && seeks < n*5; seeks++ {
+		// Seek to a random entry. The first byte is incremented by a
+		// random amount each time in order to increase the likelihood
+		// of hitting all existing nodes in very small databases.
+		ctr := id[0]
+		rand.Read(id[:])
+		id[0] = ctr + id[0]%16
+		it.Seek(nodeKey(id))
+
+		n := nextNode(it)
+		if n == nil {
+			id[0] = 0
+			continue seek // iterator exhausted
+		}
+		if now.Sub(db.LastConnectionTime(n.ID(), n.IP())) > maxAge {
 			continue seek
 		}
 		for i := range nodes {

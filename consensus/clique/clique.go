@@ -599,8 +599,12 @@ func (c *Clique) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 	return nil
 }
 
-func (c *Clique) SelectTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txns *types.TransactionsByNonce) (*types.TransactionsByNonce, error) {
-	return txns, nil
+func (c *Clique) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
+	return false
+}
+
+func (c *Clique) HandleTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	return nil, nil
 }
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,

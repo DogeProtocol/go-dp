@@ -44,7 +44,7 @@ var ProtocolVersions = []uint{ETH66, ETH65}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ETH66: 17, ETH65: 17}
+var protocolLengths = map[uint]uint64{ETH66: 34, ETH65: 34}
 
 // maxMessageSize is the maximum cap on the size of a protocol message.
 const maxMessageSize = 10 * 1024 * 1024
@@ -68,13 +68,19 @@ const (
 	NewPooledTransactionHashesMsg = 0x08
 	GetPooledTransactionsMsg      = 0x09
 	PooledTransactionsMsg         = 0x0a
+
+	ConsensusMsg            = 0x18
+	RequestConsensusDataMsg = 0x19
+
+	RequestPeerListMsg = 0x20
+	PeerListMsg        = 0x21
 )
 
 var (
 	errNoStatusMsg             = errors.New("no status message")
 	errMsgTooLarge             = errors.New("message too long")
 	errDecode                  = errors.New("invalid message")
-	errInvalidMsgCode          = errors.New("invalid message code")
+	errInvalidMsgCode          = errors.New("invalid message code 3")
 	errProtocolVersionMismatch = errors.New("protocol version mismatch")
 	errNetworkIDMismatch       = errors.New("network ID mismatch")
 	errGenesisMismatch         = errors.New("genesis mismatch")
@@ -321,6 +327,28 @@ type PooledTransactionsRLPPacket66 struct {
 	PooledTransactionsRLPPacket
 }
 
+// ConsensusPacket is the network packet for Consensus Data
+type ConsensusPacket struct {
+	ParentHash    common.Hash `json:"parentHash"    gencodec:"required"`
+	Signature     []byte      `json:"signature"     gencodec:"required"`
+	ConsensusData []byte      `json:"consensusData" gencodec:"required"`
+}
+
+// type RequestConsensusDataPacket struct { is the network packet for requesting Consensus Data
+type RequestConsensusDataPacket struct {
+	ParentHash  common.Hash `json:"parentHash"    gencodec:"required"`
+	RequestData []byte      `json:"requestData" gencodec:"required"`
+}
+
+// PeerListPacket is the network packet for requesting list of peers
+type RequestPeerListPacket struct {
+	MaxPeers uint16 `json:"maxPeers"    gencodec:"required"`
+}
+
+type PeerListPacket struct {
+	PeerList []string `json:"peerNodeList"    gencodec:"required"`
+}
+
 func (*StatusPacket) Name() string { return "Status" }
 func (*StatusPacket) Kind() byte   { return StatusMsg }
 
@@ -365,3 +393,25 @@ func (*GetPooledTransactionsPacket) Kind() byte   { return GetPooledTransactions
 
 func (*PooledTransactionsPacket) Name() string { return "PooledTransactions" }
 func (*PooledTransactionsPacket) Kind() byte   { return PooledTransactionsMsg }
+
+func (*ConsensusPacket) Name() string { return "ConsensusPacket" }
+func (*ConsensusPacket) Kind() byte   { return ConsensusMsg }
+
+func (*RequestConsensusDataPacket) Name() string { return "RequestConsensusDataPacket" }
+func (*RequestConsensusDataPacket) Kind() byte   { return RequestConsensusDataMsg }
+
+func (*RequestPeerListPacket) Name() string { return "RequestPeerListPacket" }
+func (*RequestPeerListPacket) Kind() byte   { return RequestPeerListMsg }
+
+func (*PeerListPacket) Name() string { return "PeerListPacket" }
+func (*PeerListPacket) Kind() byte   { return PeerListMsg }
+
+func NewConsensusPacket(otherPacket *ConsensusPacket) (c ConsensusPacket) {
+	c.ConsensusData = make([]byte, len(otherPacket.ConsensusData))
+	copy(c.ConsensusData, otherPacket.ConsensusData)
+	c.Signature = make([]byte, len(otherPacket.Signature))
+	copy(c.Signature, otherPacket.Signature)
+	c.ParentHash.CopyFrom(otherPacket.ParentHash)
+
+	return c
+}

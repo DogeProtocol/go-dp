@@ -18,7 +18,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -44,7 +43,7 @@ const (
 	// takes up based on its size. The slots are used as DoS protection, ensuring
 	// that validating a new transaction remains a constant operation (in reality
 	// O(maxslots), where max slots are 4 currently).
-	txSlotSize = 32 * 1024 * 30
+	txSlotSize = 32 * 1024
 
 	// txMaxSize is the maximum size a single transaction can have. This field has
 	// non-trivial consequences: larger transactions are significantly harder and
@@ -169,9 +168,9 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceBump:  10,
 
 	AccountSlots: 16,
-	GlobalSlots:  4096 + 1024, // urgent + floating queue capacity with 4:1 ratio
+	GlobalSlots:  40960 + 10240, // urgent + floating queue capacity with 4:1 ratio
 	AccountQueue: 64,
-	GlobalQueue:  1024,
+	GlobalQueue:  10240,
 
 	Lifetime: 3 * time.Hour,
 }
@@ -287,7 +286,6 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
-	fmt.Println("txPool gasPrice", pool.gasPrice, "globalSlots", config.GlobalSlots, "GlobalQueue", config.GlobalQueue)
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -432,17 +430,17 @@ func (pool *TxPool) SetGasPrice(price *big.Int) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	old := pool.gasPrice
+	//old := pool.gasPrice
 	pool.gasPrice = price
 	// if the min miner fee increased, remove transactions below the new threshold
-	if price.Cmp(old) > 0 {
+	/*if price.Cmp(old) > 0 {
 		// pool.priced is sorted by GasFeeCap, so we have to iterate through pool.all instead
-		//drop := pool.all.RemotesBelowTip(price)
-		//for _, tx := range drop {
-		//	pool.removeTx(tx.Hash(), false)
-		//}
-		//pool.priced.Removed(len(drop))
-	}
+		drop := pool.all.RemotesBelowTip(price)
+		for _, tx := range drop {
+			pool.removeTx(tx.Hash(), false)
+		}
+		pool.priced.Removed(len(drop))
+	}*/
 
 	log.Info("Transaction pool price threshold updated", "price", price)
 }
@@ -520,7 +518,7 @@ func (pool *TxPool) ContentFrom(addr common.Address) (types.Transactions, types.
 // The enforceTips parameter can be used to do an extra filtering on the pending
 // transactions and only return those whose **effective** tip is large enough in
 // the next pending execution environment.
-func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
+func (pool *TxPool) Pending(enforceTips bool) (map[common.Address]types.Transactions, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -587,22 +585,20 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.GasFeeCap().BitLen() > 256 {
 		return ErrFeeCapVeryHigh
 	}
-	//if tx.GasTipCap().BitLen() > 256 {
-	//	return ErrTipVeryHigh
-	//}
+	if tx.GasTipCap().BitLen() > 256 {
+		return ErrTipVeryHigh
+	}
 	// Ensure gasFeeCap is greater than or equal to gasTipCap.
-	//if tx.GasFeeCapIntCmp(tx.GasTipCap()) < 0 {
-	//	return ErrTipAboveFeeCap
-	//}
+	if tx.GasFeeCapIntCmp(tx.GasTipCap()) < 0 {
+		return ErrTipAboveFeeCap
+	}
 	// Make sure the transaction is signed properly.
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
 		return ErrInvalidSender
 	}
 	// Drop non-local transactions under our own minimal accepted gas price or tip
-	//if !local && tx.GasTipCapIntCmp(pool.gasPrice) < 0 {
-	//	return ErrUnderpriced
-	//}
+
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
@@ -648,34 +644,32 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		invalidTxMeter.Mark(1)
 		return false, err
 	}
-	/*
-		// If the transaction pool is full, discard underpriced transactions
-		if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
-			fmt.Println("underpriced!")
-			// If the new transaction is underpriced, don't accept it
-			if !isLocal && pool.priced.Underpriced(tx) {
-				log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-				underpricedTxMeter.Mark(1)
-				return false, ErrUnderpriced
-			}
-			// New transaction is better than our worse ones, make room for it.
-			// If it's a local transaction, forcibly discard all available transactions.
-			// Otherwise if we can't make enough room for new one, abort the operation.
-			drop, success := pool.priced.Discard(pool.all.Slots()-int(pool.config.GlobalSlots+pool.config.GlobalQueue)+numSlots(tx), isLocal)
-
-			// Special case, we still can't make the room for the new remote one.
-			if !isLocal && !success {
-				log.Trace("Discarding overflown transaction", "hash", hash)
-				overflowedTxMeter.Mark(1)
-				return false, ErrTxPoolOverflow
-			}
-			// Kick out the underpriced remote transactions.
-			for _, tx := range drop {
-				log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-				underpricedTxMeter.Mark(1)
-				pool.removeTx(tx.Hash(), false)
-			}
+	// If the transaction pool is full, discard underpriced transactions
+	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
+		// If the new transaction is underpriced, don't accept it
+		/*if !isLocal && pool.priced.Underpriced(tx) {
+			log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+			underpricedTxMeter.Mark(1)
+			return false, ErrUnderpriced
 		}*/
+		// New transaction is better than our worse ones, make room for it.
+		// If it's a local transaction, forcibly discard all available transactions.
+		// Otherwise if we can't make enough room for new one, abort the operation.
+		drop, success := pool.priced.Discard(pool.all.Slots()-int(pool.config.GlobalSlots+pool.config.GlobalQueue)+numSlots(tx), isLocal)
+
+		// Special case, we still can't make the room for the new remote one.
+		if !isLocal && !success {
+			log.Trace("Discarding overflown transaction", "hash", hash)
+			overflowedTxMeter.Mark(1)
+			return false, ErrTxPoolOverflow
+		}
+		// Kick out the underpriced remote transactions.
+		for _, tx := range drop {
+			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+			underpricedTxMeter.Mark(1)
+			pool.removeTx(tx.Hash(), false)
+		}
+	}
 	// Try to replace an existing transaction in the pending pool
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
@@ -1772,20 +1766,6 @@ func (t *txLookup) RemoteToLocals(locals *accountSet) int {
 	}
 	return migrated
 }
-
-/*
-// RemotesBelowTip finds all remote transactions below the given tip threshold.
-func (t *txLookup) RemotesBelowTip(threshold *big.Int) types.Transactions {
-	found := make(types.Transactions, 0, 128)
-	t.Range(func(hash common.Hash, tx *types.Transaction, local bool) bool {
-		if tx.GasTipCapIntCmp(threshold) < 0 {
-			found = append(found, tx)
-		}
-		return true
-	}, false, true) // Only iterate remotes
-	return found
-}
-*/
 
 // numSlots calculates the number of slots needed for a single transaction.
 func numSlots(tx *types.Transaction) int {

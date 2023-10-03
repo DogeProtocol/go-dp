@@ -18,12 +18,18 @@ package eth
 
 import (
 	"bytes"
+	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"testing"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/rlp"
+)
+
+var (
+	ZERO_HASH common.Hash = common.BytesToHash([]byte{0})
 )
 
 // Tests that the custom union field encoder and decoder works correctly.
@@ -116,6 +122,66 @@ func TestEth66EmptyMessages(t *testing.T) {
 		}
 	}
 
+}
+
+func TestConsensusPacket(t *testing.T) {
+	testmsg1 := hexutil.MustDecode("0x68692074686572656f636b636861696e62626262626262626262626262626262")
+	digestHash1 := []byte(testmsg1)
+
+	keypair, err := cryptobase.SigAlg.GenerateKey()
+	if err != nil {
+		t.Fatalf("failed")
+	}
+	sig1, err := cryptobase.SigAlg.Sign(digestHash1, keypair)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+
+	pkt1 := &ConsensusPacket{
+		Signature:     make([]byte, len(sig1)),
+		ConsensusData: make([]byte, 1),
+		ParentHash:    ZERO_HASH,
+	}
+	copy(pkt1.Signature, sig1)
+	pkt1.ConsensusData[0] = 1
+
+	pkt2 := NewConsensusPacket(pkt1)
+	if bytes.Compare(pkt1.ConsensusData, pkt2.ConsensusData) != 0 {
+		t.Fatalf("failed")
+	}
+
+	if bytes.Compare(pkt1.Signature, pkt2.Signature) != 0 {
+		t.Fatalf("failed")
+	}
+
+	if pkt2.ParentHash.IsEqualTo(ZERO_HASH) == false {
+		t.Fatalf("failed")
+	}
+
+	sig2, err := cryptobase.SigAlg.Sign(digestHash1, keypair)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+	pkt3 := &ConsensusPacket{
+		Signature:     make([]byte, len(sig2)),
+		ConsensusData: make([]byte, 1),
+		ParentHash:    ZERO_HASH,
+	}
+	copy(pkt3.Signature, sig2)
+	pkt3.ConsensusData[0] = 2
+
+	pkt4 := NewConsensusPacket(pkt3)
+	if bytes.Compare(pkt2.ConsensusData, pkt4.ConsensusData) == 0 {
+		t.Fatalf("failed")
+	}
+
+	if bytes.Compare(pkt2.Signature, pkt4.Signature) == 0 {
+		t.Fatalf("failed")
+	}
+
+	if pkt4.ParentHash.IsEqualTo(ZERO_HASH) == false {
+		t.Fatalf("failed")
+	}
 }
 
 // TestEth66Messages tests the encoding of all redefined eth66 messages

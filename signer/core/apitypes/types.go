@@ -69,14 +69,14 @@ func (v *ValidationMessages) GetWarnings() error {
 // This struct is identical to ethapi.TransactionArgs, except for the usage of
 // common.MixedcaseAddress in From and To
 type SendTxArgs struct {
-	From         common.MixedcaseAddress  `json:"from"`
-	To           *common.MixedcaseAddress `json:"to"`
-	Gas          hexutil.Uint64           `json:"gas"`
-	GasPrice     *hexutil.Big             `json:"gasPrice"`
-	MaxFeePerGas *hexutil.Big             `json:"maxFeePerGas"`
-	//MaxPriorityFeePerGas *hexutil.Big             `json:"maxPriorityFeePerGas"`
-	Value hexutil.Big    `json:"value"`
-	Nonce hexutil.Uint64 `json:"nonce"`
+	From                 common.MixedcaseAddress  `json:"from"`
+	To                   *common.MixedcaseAddress `json:"to"`
+	Gas                  hexutil.Uint64           `json:"gas"`
+	GasPrice             *hexutil.Big             `json:"gasPrice"`
+	MaxFeePerGas         *hexutil.Big             `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *hexutil.Big             `json:"maxPriorityFeePerGas"`
+	Value                hexutil.Big              `json:"value"`
+	Nonce                hexutil.Uint64           `json:"nonce"`
 
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	// "input" is the newer name and should be preferred by clients.
@@ -99,16 +99,16 @@ func (args SendTxArgs) String() string {
 
 func (args *SendTxArgs) ToTransaction() *types.Transaction {
 	txArgs := ethapi.TransactionArgs{
-		Gas:          &args.Gas,
-		GasPrice:     args.GasPrice,
-		MaxFeePerGas: args.MaxFeePerGas,
-		//MaxPriorityFeePerGas: args.MaxPriorityFeePerGas,
-		Value:      &args.Value,
-		Nonce:      &args.Nonce,
-		Data:       args.Data,
-		Input:      args.Input,
-		AccessList: args.AccessList,
-		ChainID:    args.ChainID,
+		Gas:                  &args.Gas,
+		GasPrice:             args.GasPrice,
+		MaxFeePerGas:         args.MaxFeePerGas,
+		MaxPriorityFeePerGas: args.MaxPriorityFeePerGas,
+		Value:                &args.Value,
+		Nonce:                &args.Nonce,
+		Data:                 args.Data,
+		Input:                args.Input,
+		AccessList:           args.AccessList,
+		ChainID:              args.ChainID,
 	}
 	// Add the To-field, if specified
 	if args.To != nil {

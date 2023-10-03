@@ -193,3 +193,70 @@ func (p *Peer) announceTransactions() {
 		}
 	}
 }
+
+// broadcastConsensusMessages is a write loop that multiplexes consensus messages
+// to the remote peer. The goal is to have an async writer that does not lock up
+// node internals and at the same time rate limits queued data.
+func (p *Peer) broadcastConsensusMessages() {
+	for {
+		select {
+		case packet := <-p.queuedConsensusMessages:
+			err := p.SendConsensusPacket(packet)
+			if err != nil {
+				continue
+			}
+			p.Log().Trace("broadcastConsensusMessages", "parentHash", packet.ParentHash, "peer", p.id)
+
+		case <-p.term:
+			return
+		}
+	}
+}
+
+func (p *Peer) broadcastRequestConsensusDataMessages() {
+	for {
+		select {
+		case packet := <-p.queuedRequestConsensusMessages:
+			err := p.SendRequestConsensusDataPacket(packet)
+			if err != nil {
+				continue
+			}
+			p.Log().Trace("broadcastRequestConsensusDataMessages", "ParentHash", packet.ParentHash, "peer", p.id)
+
+		case <-p.term:
+			return
+		}
+	}
+}
+
+func (p *Peer) broadcastRequestPeerListMessages() {
+	for {
+		select {
+		case packet := <-p.queuedRequestPeerListMessages:
+			err := p.SendRequestPeerListPacket(packet)
+			if err != nil {
+				continue
+			}
+			p.Log().Trace("broadcastRequestPeerListMessages2", "MaxPeers", packet.MaxPeers)
+
+		case <-p.term:
+			return
+		}
+	}
+}
+
+func (p *Peer) broadcastPeerListMessages() {
+	for {
+		select {
+		case packet := <-p.queuedPeerListMessages:
+			err := p.SendPeerListPacket(packet)
+			if err != nil {
+				continue
+			}
+			p.Log().Trace("SendPeerListPacket", "numPeers", len(packet.PeerList))
+
+		case <-p.term:
+			return
+		}
+	}
+}

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"sync/atomic"
@@ -36,14 +36,14 @@ func TestFastSyncDisabling66(t *testing.T) { testFastSyncDisabling(t, eth.ETH66)
 func testFastSyncDisabling(t *testing.T, protocol uint) {
 	t.Parallel()
 
-	// Create an empty handler and ensure it's in fast sync mode
+	// Create an empty P2PHandler and ensure it's in fast sync mode
 	empty := newTestHandler()
 	if atomic.LoadUint32(&empty.handler.fastSync) == 0 {
 		t.Fatalf("fast sync disabled on pristine blockchain")
 	}
 	defer empty.close()
 
-	// Create a full handler and ensure fast sync ends up disabled
+	// Create a full P2PHandler and ensure fast sync ends up disabled
 	full := newTestHandlerWithBlocks(1024)
 	if atomic.LoadUint32(&full.handler.fastSync) == 1 {
 		t.Fatalf("fast sync not disabled on non-empty blockchain")
@@ -61,10 +61,10 @@ func testFastSyncDisabling(t *testing.T, protocol uint) {
 	defer fullPeer.Close()
 
 	go empty.handler.runEthPeer(emptyPeer, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(empty.handler), peer)
+		return eth.Handle((*EthHandler)(empty.handler), peer)
 	})
 	go full.handler.runEthPeer(fullPeer, func(peer *eth.Peer) error {
-		return eth.Handle((*ethHandler)(full.handler), peer)
+		return eth.Handle((*EthHandler)(full.handler), peer)
 	})
 	// Wait a bit for the above handlers to start
 	time.Sleep(250 * time.Millisecond)

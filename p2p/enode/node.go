@@ -21,6 +21,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"math/bits"
 	"net"
@@ -126,6 +128,10 @@ func (n *Node) TCP() int {
 	var port enr.TCP
 	n.Load(&port)
 	return int(port)
+}
+
+func (n *Node) Address() (common.Address, error) {
+	return cryptobase.SigAlg.PublicKeyToAddress(n.Pubkey())
 }
 
 // Pubkey returns the secp256k1 public key of the node, if present.

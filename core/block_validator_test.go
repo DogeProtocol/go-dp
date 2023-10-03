@@ -28,6 +28,28 @@ import (
 	"github.com/DogeProtocol/dp/params"
 )
 
+func TestBlockUnhashedFields(t *testing.T) {
+	// Create a simple chain to verify
+	var (
+		testdb    = rawdb.NewMemoryDatabase()
+		gspec     = &Genesis{Config: params.TestChainConfig}
+		genesis   = gspec.MustCommit(testdb)
+		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 8, nil)
+	)
+	headers := make([]*types.Header, len(blocks))
+	for i, block := range blocks {
+		headers[i] = block.Header()
+
+		blockHashBefore := headers[i].Hash()
+		headers[i].UnhashedConsensusData = []byte{byte(i)}
+		blockHashAfter := headers[i].Hash()
+
+		if blockHashBefore.IsEqualTo(blockHashAfter) == false {
+			t.Fatalf("block hasb check failed")
+		}
+	}
+}
+
 // Tests that simple header verification works, for both good and bad blocks.
 func TestHeaderVerification(t *testing.T) {
 	// Create a simple chain to verify

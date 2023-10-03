@@ -145,11 +145,11 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	}
 
 	if sig.Verify(pubBytes1, digestHash1, signature2) != false {
-		t.Fatal("Verify failed")
+		t.Fatal("Verify negative failed")
 	}
 
 	if sig.Verify(pubBytes1, digestHash2, signature1) != false {
-		t.Fatal("Verify failed")
+		t.Fatal("Verify negative failed")
 	}
 
 	sigExtracted, pubExtracted, err := sig.PublicKeyAndSignatureFromCombinedSignature(digestHash1, signature1)
@@ -294,7 +294,6 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal(err)
 	}
 
-	//bigIntBytes := sig.PrivateKeyAsBigInt(key1).Bytes()
 	serializedKey1Bytes, err := sig.SerializePrivateKey(key1)
 	if err != nil {
 		t.Fatal(err)

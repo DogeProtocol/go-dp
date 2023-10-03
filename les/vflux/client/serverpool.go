@@ -309,7 +309,7 @@ func (s *ServerPool) Start() {
 	for _, iter := range s.mixSources {
 		// add sources to mixer at startup because the mixer instantly tries to read them
 		// which should only happen after NodeStateMachine has been started
-		s.mixer.AddSource(iter)
+		s.mixer.AddSource(iter, "serverpool")
 	}
 	for _, url := range s.trustedURLs {
 		if node, err := enode.Parse(s.validSchemes, url); err == nil {

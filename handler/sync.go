@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"math/big"
@@ -46,7 +46,7 @@ type txsync struct {
 }
 
 // syncTransactions starts sending all currently pending transactions to the given peer.
-func (h *handler) syncTransactions(p *eth.Peer) {
+func (h *P2PHandler) syncTransactions(p *eth.Peer) {
 	// Assemble the set of transaction to broadcast or announce to the remote
 	// peer. Fun fact, this is quite an expensive operation as it needs to sort
 	// the transactions if the sorting is not cached yet. However, with a random
@@ -54,7 +54,7 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 	//
 	// TODO(karalabe): Figure out if we could get away with random order somehow
 	var txs types.Transactions
-	pending, _ := h.txpool.Pending()
+	pending, _ := h.txpool.Pending(false)
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
@@ -83,7 +83,7 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 // connection. When a new peer appears, we relay all currently pending
 // transactions. In order to minimise egress bandwidth usage, we send
 // the transactions in small packs to one peer at a time.
-func (h *handler) txsyncLoop64() {
+func (h *P2PHandler) txsyncLoop64() {
 	defer h.wg.Done()
 
 	var (
@@ -156,7 +156,7 @@ func (h *handler) txsyncLoop64() {
 
 // chainSyncer coordinates blockchain sync components.
 type chainSyncer struct {
-	handler     *handler
+	handler     *P2PHandler
 	force       *time.Timer
 	forced      bool // true when force timer fired
 	peerEventCh chan struct{}
@@ -172,7 +172,7 @@ type chainSyncOp struct {
 }
 
 // newChainSyncer creates a chainSyncer.
-func newChainSyncer(handler *handler) *chainSyncer {
+func newChainSyncer(handler *P2PHandler) *chainSyncer {
 	return &chainSyncer{
 		handler:     handler,
 		peerEventCh: make(chan struct{}),
@@ -199,7 +199,7 @@ func (cs *chainSyncer) loop() {
 	cs.handler.txFetcher.Start()
 	defer cs.handler.blockFetcher.Stop()
 	defer cs.handler.txFetcher.Stop()
-	defer cs.handler.downloader.Terminate()
+	defer cs.handler.Downloader.Terminate()
 
 	// The force timer lowers the peer count threshold down to one when it fires.
 	// This ensures we'll always start sync even if there aren't enough peers.
@@ -222,10 +222,10 @@ func (cs *chainSyncer) loop() {
 
 		case <-cs.handler.quitSync:
 			// Disable all insertion on the blockchain. This needs to happen before
-			// terminating the downloader because the downloader waits for blockchain
+			// terminating the Downloader because the Downloader waits for blockchain
 			// inserts, and these can take a long time to finish.
 			cs.handler.chain.StopInsert()
-			cs.handler.downloader.Terminate()
+			cs.handler.Downloader.Terminate()
 			if cs.doneCh != nil {
 				<-cs.doneCh
 			}
@@ -301,7 +301,7 @@ func (cs *chainSyncer) startSync(op *chainSyncOp) {
 }
 
 // doSync synchronizes the local blockchain with a remote peer.
-func (h *handler) doSync(op *chainSyncOp) error {
+func (h *P2PHandler) doSync(op *chainSyncOp) error {
 	if op.mode == downloader.FastSync || op.mode == downloader.SnapSync {
 		// Before launch the fast sync, we have to ensure user uses the same
 		// txlookup limit.
@@ -321,7 +321,7 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		}
 	}
 	// Run the sync cycle, and disable fast sync if we're past the pivot block
-	err := h.downloader.Synchronise(op.peer.ID(), op.head, op.td, op.mode)
+	err := h.Downloader.Synchronise(op.peer.ID(), op.head, op.td, op.mode)
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		// Checkpoint passed, sanity check the timestamp to have a fallback mechanism
 		// for non-checkpointed (number = 0) private networks.
 		if head.Time() >= uint64(time.Now().AddDate(0, -1, 0).Unix()) {
-			atomic.StoreUint32(&h.acceptTxs, 1)
+			atomic.StoreUint32(&h.AcceptTxns, 1)
 		}
 	}
 	if head.NumberU64() > 0 {

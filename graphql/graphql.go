@@ -30,6 +30,7 @@ import (
 	"github.com/DogeProtocol/dp/eth/filters"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/rpc"
+	"math/big"
 	"strconv"
 	"time"
 )
@@ -230,7 +231,7 @@ func (t *Transaction) GasPrice(ctx context.Context) (hexutil.Big, error) {
 		if t.block != nil {
 			if baseFee, _ := t.block.BaseFeePerGas(ctx); baseFee != nil {
 				// price = min(tip, gasFeeCap - baseFee) + baseFee
-				return (hexutil.Big)(*math.BigMin(baseFee.ToInt(), tx.GasFeeCap())), nil
+				return (hexutil.Big)(*math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee.ToInt()), tx.GasFeeCap())), nil
 			}
 		}
 		return hexutil.Big(*tx.GasPrice()), nil
@@ -251,7 +252,7 @@ func (t *Transaction) EffectiveGasPrice(ctx context.Context) (*hexutil.Big, erro
 	if header.BaseFee == nil {
 		return (*hexutil.Big)(tx.GasPrice()), nil
 	}
-	return (*hexutil.Big)(math.BigMin(header.BaseFee, tx.GasFeeCap())), nil
+	return (*hexutil.Big)(math.BigMin(new(big.Int).Add(tx.GasTipCap(), header.BaseFee), tx.GasFeeCap())), nil
 }
 
 func (t *Transaction) MaxFeePerGas(ctx context.Context) (*hexutil.Big, error) {
@@ -264,6 +265,21 @@ func (t *Transaction) MaxFeePerGas(ctx context.Context) (*hexutil.Big, error) {
 		return nil, nil
 	case types.DynamicFeeTxType:
 		return (*hexutil.Big)(tx.GasFeeCap()), nil
+	default:
+		return nil, nil
+	}
+}
+
+func (t *Transaction) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
+	tx, err := t.resolve(ctx)
+	if err != nil || tx == nil {
+		return nil, err
+	}
+	switch tx.Type() {
+	case types.AccessListTxType:
+		return nil, nil
+	case types.DynamicFeeTxType:
+		return (*hexutil.Big)(tx.GasTipCap()), nil
 	default:
 		return nil, nil
 	}
@@ -1174,23 +1190,23 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 }
 
 func (r *Resolver) GasPrice(ctx context.Context) (hexutil.Big, error) {
-	tipcap, err := r.backend.SuggestGasTipCap(ctx)
+	/*tipcap, err := r.backend.SuggestGasTipCap(ctx)
 	if err != nil {
 		return hexutil.Big{}, err
 	}
 	if head := r.backend.CurrentHeader(); head.BaseFee != nil {
 		tipcap.Add(tipcap, head.BaseFee)
-	}
-	return (hexutil.Big)(*tipcap), nil
+	}*/
+	return (hexutil.Big)(*r.backend.CurrentHeader().BaseFee), nil
 }
 
-func (r *Resolver) MaxPriorityFeePerGas(ctx context.Context) (hexutil.Big, error) {
+/*func (r *Resolver) MaxPriorityFeePerGas(ctx context.Context) (hexutil.Big, error) {
 	tipcap, err := r.backend.SuggestGasTipCap(ctx)
 	if err != nil {
 		return hexutil.Big{}, err
 	}
-	return (hexutil.Big)(*tipcap), nil
-}
+	return (hexutil.Big)(r.backend.CurrentHeader().BaseFee), nil
+}*/
 
 func (r *Resolver) ChainID(ctx context.Context) (hexutil.Big, error) {
 	return hexutil.Big(*r.backend.ChainConfig().ChainID), nil

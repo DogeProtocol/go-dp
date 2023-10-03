@@ -118,7 +118,7 @@ func (ui *CommandlineUI) ApproveTx(request *SignTxRequest) (SignTxResponse, erro
 	fmt.Printf("gas:                %v (%v)\n", request.Transaction.Gas, uint64(request.Transaction.Gas))
 	if request.Transaction.MaxFeePerGas != nil {
 		fmt.Printf("maxFeePerGas:          %v wei\n", request.Transaction.MaxFeePerGas.ToInt())
-		//fmt.Printf("maxPriorityFeePerGas:  %v wei\n", request.Transaction.MaxPriorityFeePerGas.ToInt())
+		fmt.Printf("maxPriorityFeePerGas:  %v wei\n", request.Transaction.MaxPriorityFeePerGas.ToInt())
 	} else {
 		fmt.Printf("gasprice: %v wei\n", request.Transaction.GasPrice.ToInt())
 	}

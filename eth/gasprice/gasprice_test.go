@@ -163,34 +163,3 @@ func (b *testBackend) CurrentHeader() *types.Header {
 func (b *testBackend) GetBlockByNumber(number uint64) *types.Block {
 	return b.chain.GetBlockByNumber(number)
 }
-
-func TestSuggestTipCap(t *testing.T) {
-	config := Config{
-		Blocks:     3,
-		Percentile: 60,
-		Default:    big.NewInt(params.GWei),
-	}
-	var cases = []struct {
-		fork   *big.Int // London fork number
-		expect *big.Int // Expected gasprice suggestion
-	}{
-		{nil, big.NewInt(params.GWei * int64(30))},
-		{big.NewInt(0), big.NewInt(params.GWei * int64(30))},  // Fork point in genesis
-		{big.NewInt(1), big.NewInt(params.GWei * int64(30))},  // Fork point in first block
-		{big.NewInt(32), big.NewInt(params.GWei * int64(30))}, // Fork point in last block
-		{big.NewInt(33), big.NewInt(params.GWei * int64(30))}, // Fork point in the future
-	}
-	for _, c := range cases {
-		backend := newTestBackend(t, c.fork, false)
-		oracle := NewOracle(backend, config)
-
-		// The gas price sampled is: 32G, 31G, 30G, 29G, 28G, 27G
-		got, err := oracle.SuggestTipCap(context.Background())
-		if err != nil {
-			t.Fatalf("Failed to retrieve recommended gas price: %v", err)
-		}
-		if got.Cmp(c.expect) != 0 {
-			t.Fatalf("Gas price mismatch, want %d, got %d", c.expect, got)
-		}
-	}
-}

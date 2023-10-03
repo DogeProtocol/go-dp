@@ -13,6 +13,7 @@ type PrivateKey struct {
 	PublicKey // public part.
 	PriData   []byte
 }
+
 type SignatureAlgorithm interface {
 	SignatureName() string
 	PublicKeyLength() int

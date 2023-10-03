@@ -19,7 +19,6 @@ package gasprice
 import (
 	"context"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
@@ -111,6 +110,7 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 	}
 }
 
+/*
 // SuggestTipCap returns a tip cap so that newly created transaction can have a
 // very high chance to be included in the following blocks.
 //
@@ -191,6 +191,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 
 	return new(big.Int).Set(price), nil
 }
+*/
 
 type results struct {
 	values []*big.Int
@@ -226,7 +227,7 @@ func (s *txSorter) Swap(i, j int) {
 // and sends it to the result channel. If the block is empty or all transactions
 // are sent by the miner itself(it doesn't make any sense to include this kind of
 // transaction prices for sampling), nil gasprice is returned.
-func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, blockNum uint64, limit int, ignoreUnder *big.Int, result chan results, quit chan struct{}) {
+/*func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, blockNum uint64, limit int, ignoreUnder *big.Int, result chan results, quit chan struct{}) {
 	block, err := oracle.backend.BlockByNumber(ctx, rpc.BlockNumber(blockNum))
 	if block == nil {
 		select {
@@ -238,15 +239,15 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 	// Sort the transaction by effective tip in ascending sort.
 	txs := make([]*types.Transaction, len(block.Transactions()))
 	copy(txs, block.Transactions())
-	//sorter := newSorter(txs, block.BaseFee())
-	//sort.Sort(sorter)
+	sorter := newSorter(txs, block.BaseFee())
+	sort.Sort(sorter)
 
 	var prices []*big.Int
-	/*for _, tx := range sorter.txs {
-		tip, _ := tx.EffectiveGasTip(block.BaseFee())
-		if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
-			continue
-		}
+	for _, tx := range sorter.txs {
+		//tip, _ := tx.EffectiveGasTip(block.BaseFee())
+		//if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
+		//	continue
+		//}
 		sender, err := types.Sender(signer, tx)
 		if err == nil && sender != block.Coinbase() {
 			prices = append(prices, tip)
@@ -254,12 +255,13 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 				break
 			}
 		}
-	}*/
+	}
+
 	select {
 	case result <- results{prices, nil}:
 	case <-quit:
 	}
-}
+}*/
 
 type bigIntArray []*big.Int
 

@@ -184,7 +184,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 	if config.EthereumEnabled {
 		ethConf := ethconfig.Defaults
 		ethConf.Genesis = genesis
-		ethConf.SyncMode = downloader.LightSync
+		ethConf.SyncMode = downloader.FullSync
 		ethConf.NetworkId = uint64(config.EthereumNetworkID)
 		ethConf.DatabaseCache = config.EthereumDatabaseCache
 		lesBackend, err := les.New(rawStack, &ethConf)

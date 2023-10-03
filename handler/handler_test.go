@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package handler
 
 import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
@@ -115,22 +115,22 @@ func (p *testTxPool) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subs
 	return p.txFeed.Subscribe(ch)
 }
 
-// testHandler is a live implementation of the Ethereum protocol handler, just
+// testHandler is a live implementation of the Ethereum protocol P2PHandler, just
 // preinitialized with some sane testing defaults and the transaction pool mocked
 // out.
 type testHandler struct {
 	db      ethdb.Database
 	chain   *core.BlockChain
 	txpool  *testTxPool
-	handler *handler
+	handler *P2PHandler
 }
 
-// newTestHandler creates a new handler for testing purposes with no blocks.
+// newTestHandler creates a new P2PHandler for testing purposes with no blocks.
 func newTestHandler() *testHandler {
 	return newTestHandlerWithBlocks(0)
 }
 
-// newTestHandlerWithBlocks creates a new handler for testing purposes, with a
+// newTestHandlerWithBlocks creates a new P2PHandler for testing purposes, with a
 // given number of initial blocks.
 func newTestHandlerWithBlocks(blocks int) *testHandler {
 	// Create a database pre-initialize with a genesis block
@@ -148,7 +148,7 @@ func newTestHandlerWithBlocks(blocks int) *testHandler {
 	}
 	txpool := newTestTxPool()
 
-	handler, _ := newHandler(&handlerConfig{
+	handler, _ := NewHandler(&HandlerConfig{
 		Database:   db,
 		Chain:      chain,
 		TxPool:     txpool,
@@ -166,7 +166,7 @@ func newTestHandlerWithBlocks(blocks int) *testHandler {
 	}
 }
 
-// close tears down the handler and all its internal constructs.
+// close tears down the P2PHandler and all its internal constructs.
 func (b *testHandler) close() {
 	b.handler.Stop()
 	b.chain.Stop()

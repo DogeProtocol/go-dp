@@ -1,4 +1,4 @@
-package systemcontracts
+package staking
 
 import (
 	"encoding/hex"

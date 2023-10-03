@@ -18,9 +18,8 @@ package crypto
 
 import (
 	"bytes"
-	"github.com/DogeProtocol/dp/common"
-
 	"encoding/hex"
+	"github.com/DogeProtocol/dp/common"
 	"testing"
 )
 

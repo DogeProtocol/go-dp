@@ -25,6 +25,7 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -230,7 +231,7 @@ func (api *API) GetSigner(rlpOrBlockNr *blockNumberOrHashOrRLP) (common.Address,
 // Validator api
 
 // GetValidators retrieves the list of authorized signers at the specified block.
-func (api *API) GetValidators() ([]common.Address, error) {
+func (api *API) GetValidators() (map[common.Address]*big.Int, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.CurrentHeader()
 	if header == nil {
