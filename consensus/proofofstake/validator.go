@@ -3,6 +3,7 @@ package proofofstake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/internal/ethapi"
@@ -46,7 +47,7 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	// call
 	data, err := abiData.Pack(method)
 	if err != nil {
-		log.Error("Unable to pack tx for get validatorsDepositMap", "error", err)
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
 		return nil, err
 	}
 	// block
@@ -92,7 +93,7 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		//valz[i] = val
 		depositor, err := p.GetDepositorOfValidator(val, blockHash)
 		if err != nil {
-			//fmt.Println("GetDepositorOfValidator failed", err)
+			fmt.Println("GetDepositorOfValidator failed", err)
 			continue
 		}
 
@@ -100,14 +101,14 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 			return nil, errors.New("invalid depositor")
 		}
 
-		balance, err := p.GetBalanceOfDepositor(depositor, blockHash)
+		balance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
 		if err != nil {
-			//fmt.Println("GetBalanceOfDepositor failed", err)
+			fmt.Println("GetBalanceOfDepositor failed", err)
 			continue
 		}
 
 		proposalsTxnsMap[val] = balance
-		//fmt.Println("validator", val, "depositor", depositor, "depositAmount", depositAmount)
+		fmt.Println("validator", val, "depositor", depositor, "depositAmount", balance)
 	}
 
 	return proposalsTxnsMap, nil
@@ -164,7 +165,7 @@ func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHa
 	return *out, nil
 }
 
-func (p *ProofOfStake) GetBalanceOfDepositor(depositor common.Address, blockHash common.Hash) (*big.Int, error) {
+func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockHash common.Hash) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
@@ -176,7 +177,7 @@ func (p *ProofOfStake) GetBalanceOfDepositor(depositor common.Address, blockHash
 	method := staking.GetContract_Method_GetBalanceOfDepositor()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetBalanceOfDepositor abi error", err)
+		log.Error("GetNetBalanceOfDepositor abi error", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -184,7 +185,7 @@ func (p *ProofOfStake) GetBalanceOfDepositor(depositor common.Address, blockHash
 	// call
 	data, err := abiData.Pack(method, depositor)
 	if err != nil {
-		log.Error("Unable to pack tx for GetBalanceOfDepositor", "error", err)
+		log.Error("Unable to pack tx for GetNetBalanceOfDepositor", "error", err)
 		return nil, err
 	}
 	// block
@@ -234,7 +235,7 @@ func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error
 	// call
 	data, err := abiData.Pack(method)
 	if err != nil {
-		log.Error("Unable to pack tx for get validatorsDepositMap", "error", err)
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
 		return nil, err
 	}
 	// block
@@ -285,7 +286,7 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	// call
 	data, err := abiData.Pack(method)
 	if err != nil {
-		log.Error("Unable to pack tx for get validatorsDepositMap", "error", err)
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
 		return nil, err
 	}
 	// block

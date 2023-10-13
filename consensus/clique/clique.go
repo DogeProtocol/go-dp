@@ -472,6 +472,10 @@ func (c *Clique) VerifyUncles(chain consensus.ChainReader, block *types.Block) e
 	return nil
 }
 
+func (c *Clique) VerifyBlock(chain consensus.ChainHeaderReader, block *types.Block) error {
+	return nil
+}
+
 // verifySeal checks whether the signature contained in the header satisfies the
 // consensus protocol requirements. The method accepts an optional list of parent
 // headers that aren't yet part of the local blockchain to generate the snapshots
@@ -610,6 +614,18 @@ func (c *Clique) HandleTransactions(chain consensus.ChainHeaderReader, header *t
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
 func (c *Clique) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	fmt.Println("FinalizeAndAssemble", header.Number)
+	// Finalize block
+	err := c.Finalize(chain, header, state, txs, uncles)
+	if err != nil {
+		return nil, err
+	}
+
+	// Assemble and return the final block for sealing
+	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil
+}
+
+func (c *Clique) FinalizeAndAssembleWithConsensus(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	fmt.Println("FinalizeAndAssemble", header.Number)
 	// Finalize block
 	err := c.Finalize(chain, header, state, txs, uncles)

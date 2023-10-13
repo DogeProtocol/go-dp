@@ -46,6 +46,22 @@ type ConsensusHandler struct {
 	totalTransactions        uint64
 	maxTransactionsInBlock   uint64
 	maxTransactionsBlockTime int64
+	initTime                 time.Time
+	initialized              bool
+}
+
+type BlockConsensusData struct {
+	BlockProposer          common.Address   `json:"blockProposer" gencodec:"required"`
+	VoteType               VoteType         `json:"voteType" gencodec:"required"`
+	ProposalHash           common.Hash      `json:"proposalHash" gencodec:"required"`
+	PrecommitHash          common.Hash      `json:"precommitHash" gencodec:"required"`
+	NilvotedBlockProposers []common.Address `json:"nilvotedBlockProposers" gencodec:"required"`
+	Round                  byte
+}
+
+type BlockAdditionalConsensusData struct {
+	ConsensusPackets []eth.ConsensusPacket `json:"consensusPackets" gencodec:"required"`
+	InitTime         uint64                `json:"initTime" gencodec:"required"`
 }
 
 //todo: use mono clock
@@ -53,6 +69,9 @@ type ConsensusHandler struct {
 const BLOCK_TIMEOUT_MS = 9000 //relative to start of block locally
 const REQUEST_CONSENSUS_DATA_PERCENT = 20
 const BLOCK_CLEANUP_TIME_MS = 900
+const MAX_ROUND_WITH_TXNS = 4
+
+var STARTUP_DELAY_MS = int64(1200)
 
 type BlockRoundState byte
 type VoteType byte
@@ -95,6 +114,7 @@ const (
 )
 
 var (
+	MIN_VALIDATOR_DEPOSIT                               *big.Int       = big.NewInt(100000)
 	MIN_BLOCK_DEPOSIT                                   *big.Int       = big.NewInt(1000000)
 	MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE *big.Int       = big.NewInt(70)
 	ZERO_HASH                                           common.Hash    = common.BytesToHash([]byte{0})
@@ -102,7 +122,7 @@ var (
 )
 
 type BlockRoundDetails struct {
-	Round uint16
+	Round byte
 
 	proposalPacket     *eth.ConsensusPacket
 	proposalAckPackets map[common.Address]*eth.ConsensusPacket
@@ -142,14 +162,14 @@ type BlockRoundDetails struct {
 }
 
 type BlockStateDetails struct {
-	validatorsDepositMap              map[common.Address]*big.Int
+	filteredValidatorsDepositMap      map[common.Address]*big.Int
 	totalBlockDepositValue            *big.Int
 	blockMinWeightedProposalsRequired *big.Int
 	initTime                          time.Time
-	blockRoundMap                     map[uint16]*BlockRoundDetails
-	currentRound                      uint16
+	blockRoundMap                     map[byte]*BlockRoundDetails
+	currentRound                      byte
 	parentHash                        common.Hash
-	highestProposalRoundSeen          uint16
+	highestProposalRoundSeen          byte
 
 	//stats
 	proposalTime    int64
@@ -160,23 +180,23 @@ type BlockStateDetails struct {
 
 type ProposalDetails struct {
 	Txns  []common.Hash `json:"Txns" gencodec:"required"`
-	Round uint16        `json:"Round" gencodec:"required"`
+	Round byte          `json:"Round" gencodec:"required"`
 }
 
 type ProposalAckDetails struct {
 	ProposalHash        common.Hash `json:"PrecommitHash" gencodec:"required"`
 	ProposalAckVoteType VoteType    `json:"VoteType" gencodec:"required"`
-	Round               uint16      `json:"Round" gencodec:"required"`
+	Round               byte        `json:"Round" gencodec:"required"`
 }
 
 type PreCommitDetails struct {
 	PrecommitHash common.Hash `json:"PrecommitHash" gencodec:"required"` //Hash of txns + ProposalAckVoteType
-	Round         uint16      `json:"Round" gencodec:"required"`
+	Round         byte        `json:"Round" gencodec:"required"`
 }
 
 type CommitDetails struct {
 	CommitHash common.Hash `json:"CommitHash" gencodec:"required"` //Hash of txns + ProposalAckVoteType
-	Round      uint16      `json:"Round" gencodec:"required"`
+	Round      byte        `json:"Round" gencodec:"required"`
 }
 
 type RequestConsensusPacketDetails struct {
@@ -184,7 +204,7 @@ type RequestConsensusPacketDetails struct {
 	ValidatorProposalAcks []common.Address `json:"ValidatorProposalAcks" gencodec:"required"`
 	ValidatorPrecommits   []common.Address `json:"ValidatorPrecommits" gencodec:"required"`
 	ValidatorCommits      []common.Address `json:"ValidatorCommits" gencodec:"required"`
-	Round                 uint32           `json:"Round" gencodec:"required"`
+	Round                 byte             `json:"Round" gencodec:"required"`
 }
 
 func GetTimeStateBucket(state string, ms int64) string {
@@ -249,29 +269,29 @@ func (cph *ConsensusHandler) isValidator(parentHash common.Hash) (bool, error) {
 		return false, errors.New("block hash not found")
 	}
 
-	_, found := blockStateDetails.validatorsDepositMap[cph.account.Address]
+	_, found := blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
 	return found, nil
 }
 
-func getBlockProposer(parentHash common.Hash, validatorDepositMap *map[common.Address]*big.Int, round uint16) (common.Address, error) {
+func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte) (common.Address, error) {
 
 	var proposer common.Address
 
-	if len(*validatorDepositMap) < MIN_VALIDATORS {
+	if len(*filteredValidatorDepositMap) < MIN_VALIDATORS {
 		return proposer, errors.New("min validators not found")
 	}
 
-	validators := make([]common.Address, len(*validatorDepositMap))
+	validators := make([]common.Address, len(*filteredValidatorDepositMap))
 	i := 0
-	for k, _ := range *validatorDepositMap {
+	for k, _ := range *filteredValidatorDepositMap {
 		validators[i].CopyFrom(k)
 		//fmt.Println("getBlockProposer validator", k, "copied", validators[i])
 		i = i + 1
 	}
 
 	sort.Slice(validators, func(i, j int) bool {
-		vi := crypto.Keccak256Hash(parentHash.Bytes(), validators[i].Bytes(), common.LenToBytes(int(round))).Bytes()
-		vj := crypto.Keccak256Hash(parentHash.Bytes(), validators[j].Bytes(), common.LenToBytes(int(round))).Bytes()
+		vi := crypto.Keccak256Hash(parentHash.Bytes(), validators[i].Bytes(), []byte{round}).Bytes()
+		vj := crypto.Keccak256Hash(parentHash.Bytes(), validators[j].Bytes(), []byte{round}).Bytes()
 		return bytes.Compare(vi, vj) == -1
 	})
 
@@ -282,84 +302,103 @@ func getBlockProposer(parentHash common.Hash, validatorDepositMap *map[common.Ad
 	return proposer, nil
 }
 
-func filterValidators(parentHash common.Hash, validatorsDepositMap map[common.Address]*big.Int) (filteredValidators map[common.Address]bool, err error) {
-	if len(validatorsDepositMap) < MIN_VALIDATORS {
-		return nil, errors.New("number of validators less than minimum")
+func filterValidators(parentHash common.Hash, valDepMap *map[common.Address]*big.Int) (filteredValidators map[common.Address]bool, filteredDepositValue *big.Int, blockMinWeightedProposalsRequired *big.Int, err error) {
+	validatorsDepositMap := *valDepMap
+
+	totalDepositValue := big.NewInt(0)
+	valCount := 0
+	for val, depositValue := range validatorsDepositMap {
+		if depositValue.Cmp(MIN_VALIDATOR_DEPOSIT) == -1 {
+			fmt.Println("Skipping validator with low balance", val, depositValue)
+			delete(validatorsDepositMap, val)
+			continue
+		}
+		totalDepositValue = common.SafeAddBigInt(totalDepositValue, depositValue)
+		valCount = valCount + 1
 	}
 
-	totalBlockDepositValue := big.NewInt(0)
-	for _, depositValue := range validatorsDepositMap {
-		totalBlockDepositValue = common.SafeAddBigInt(totalBlockDepositValue, depositValue)
+	if valCount < MIN_VALIDATORS {
+		return nil, nil, nil, errors.New("number of validators less than minimum")
 	}
 
-	if totalBlockDepositValue.Cmp(MIN_BLOCK_DEPOSIT) == -1 {
-		return nil, errors.New("min block deposit not met")
+	if totalDepositValue.Cmp(MIN_BLOCK_DEPOSIT) == -1 {
+		return nil, nil, nil, errors.New("min block deposit not met")
 	}
 
 	filteredValidators = make(map[common.Address]bool)
 
 	if len(validatorsDepositMap) <= MAX_VALIDATORS {
+		for validator := range validatorsDepositMap {
+			filteredValidators[validator] = true
+		}
+	} else {
+		rng, err := cryptobase.DRNG.InitializeWithSeed(parentHash)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		zero := big.NewInt(0)
+		byteMax := big.NewInt(255)
+		depositValueSoFar := big.NewInt(0)
+
+		validatorList := make([]common.Address, len(validatorsDepositMap))
+		ctr := 0
 		for validator, _ := range validatorsDepositMap {
-			filteredValidators[validator] = true
+			validatorList[ctr] = validator
+			ctr = ctr + 1
 		}
 
-		return filteredValidators, nil
-	}
+		sort.Slice(validatorList, func(i, j int) bool {
+			vi := crypto.Keccak256Hash(parentHash.Bytes(), validatorList[i].Bytes()).Bytes()
+			vj := crypto.Keccak256Hash(parentHash.Bytes(), validatorList[j].Bytes()).Bytes()
+			return bytes.Compare(vi, vj) == -1
+		})
 
-	rng, err := cryptobase.DRNG.InitializeWithSeed(parentHash)
-	if err != nil {
-		return nil, err
-	}
-
-	zero := big.NewInt(0)
-	byteMax := big.NewInt(255)
-	depositValueSoFar := big.NewInt(0)
-
-	validatorList := make([]common.Address, len(validatorsDepositMap))
-	ctr := 0
-	for validator, _ := range validatorsDepositMap {
-		validatorList[ctr] = validator
-		ctr = ctr + 1
-	}
-
-	sort.Slice(validatorList, func(i, j int) bool {
-		vi := crypto.Keccak256Hash(parentHash.Bytes(), validatorList[i].Bytes()).Bytes()
-		vj := crypto.Keccak256Hash(parentHash.Bytes(), validatorList[j].Bytes()).Bytes()
-		return bytes.Compare(vi, vj) == -1
-	})
-
-	for _, validator := range validatorList {
-		depositValue := validatorsDepositMap[validator]
-		randByte := big.NewInt(int64(rng.NextByte()))
-
-		//normalize depositValue to byte-max value since random generator only returns bytes
-		normalizedDepositValue := common.SafeDivBigInt(common.SafeMulBigInt(byteMax, depositValue), totalBlockDepositValue)
-		if normalizedDepositValue.Cmp(zero) < 0 || normalizedDepositValue.Cmp(byteMax) > 0 {
-			return nil, errors.New("invalid normalizedDepositValue")
-		}
-
-		if normalizedDepositValue.Cmp(randByte) >= 0 {
-			filteredValidators[validator] = true
-			depositValueSoFar = common.SafeAddBigInt(depositValueSoFar, depositValue)
-		}
-	}
-
-	if len(filteredValidators) < MAX_VALIDATORS || MIN_BLOCK_DEPOSIT.Cmp(depositValueSoFar) > 0 {
 		for _, validator := range validatorList {
-			_, ok := filteredValidators[validator]
-			if ok == false {
-				//this needs optimization, since validators first in the list get the benefit
+			depositValue := validatorsDepositMap[validator]
+			randByte := big.NewInt(int64(rng.NextByte()))
+
+			//normalize depositValue to byte-max value since random generator only returns bytes
+			normalizedDepositValue := common.SafeDivBigInt(common.SafeMulBigInt(byteMax, depositValue), totalDepositValue)
+			if normalizedDepositValue.Cmp(zero) < 0 || normalizedDepositValue.Cmp(byteMax) > 0 {
+				return nil, nil, nil, errors.New("invalid normalizedDepositValue")
+			}
+
+			if normalizedDepositValue.Cmp(randByte) >= 0 {
 				filteredValidators[validator] = true
-				depositValue := validatorsDepositMap[validator]
 				depositValueSoFar = common.SafeAddBigInt(depositValueSoFar, depositValue)
-				if len(filteredValidators) == MAX_VALIDATORS && MIN_BLOCK_DEPOSIT.Cmp(depositValueSoFar) <= 0 {
-					break
+			}
+		}
+
+		if len(filteredValidators) < MAX_VALIDATORS || MIN_BLOCK_DEPOSIT.Cmp(depositValueSoFar) > 0 {
+			for _, validator := range validatorList {
+				_, ok := filteredValidators[validator]
+				if ok == false {
+					//this needs optimization, since validators first in the list get the benefit
+					filteredValidators[validator] = true
+					depositValue := validatorsDepositMap[validator]
+					depositValueSoFar = common.SafeAddBigInt(depositValueSoFar, depositValue)
+					if len(filteredValidators) == MAX_VALIDATORS && MIN_BLOCK_DEPOSIT.Cmp(depositValueSoFar) <= 0 {
+						break
+					}
 				}
 			}
 		}
 	}
 
-	return filteredValidators, nil
+	filteredDepositValue = big.NewInt(0)
+	for val, _ := range filteredValidators {
+		depositValue := validatorsDepositMap[val]
+		filteredDepositValue = common.SafeAddBigInt(filteredDepositValue, depositValue)
+	}
+
+	if filteredDepositValue.Cmp(MIN_BLOCK_DEPOSIT) == -1 {
+		return nil, nil, nil, errors.New("min block deposit not met for filteredDepositValue")
+	}
+
+	blockMinWeightedProposalsRequired = common.SafeRelativePercentageBigInt(filteredDepositValue, MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE)
+
+	return filteredValidators, filteredDepositValue, blockMinWeightedProposalsRequired, nil
 }
 
 func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Hash) error {
@@ -370,35 +409,26 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 	}
 
 	cph.blockStateDetailsMap[parentHash] = &BlockStateDetails{
-		blockRoundMap:            make(map[uint16]*BlockRoundDetails),
-		validatorsDepositMap:     make(map[common.Address]*big.Int),
-		initTime:                 time.Now(),
-		parentHash:               parentHash,
-		highestProposalRoundSeen: 0,
+		blockRoundMap:                make(map[byte]*BlockRoundDetails),
+		filteredValidatorsDepositMap: make(map[common.Address]*big.Int),
+		initTime:                     time.Now(),
+		parentHash:                   parentHash,
+		highestProposalRoundSeen:     0,
 	}
 	blockStateDetails := cph.blockStateDetailsMap[parentHash]
 
 	validators, err := cph.getValidatorsFn(parentHash)
 	if err != nil {
-		//fmt.Println("getValidatorsFn err3", err)
+		fmt.Println("getValidatorsFn", err)
+		delete(cph.blockStateDetailsMap, parentHash)
 		return err
 	}
 
-	filterValidators, err := filterValidators(parentHash, validators)
+	var filteredValidators map[common.Address]bool
+	filteredValidators, blockStateDetails.totalBlockDepositValue, blockStateDetails.blockMinWeightedProposalsRequired, err = filterValidators(parentHash, &validators)
 	if err != nil {
+		delete(cph.blockStateDetailsMap, parentHash)
 		return err
-	}
-
-	blockStateDetails.totalBlockDepositValue = big.NewInt(0)
-	for addr, _ := range filterValidators {
-		depositValue := validators[addr]
-		blockStateDetails.validatorsDepositMap[addr] = depositValue
-		blockStateDetails.totalBlockDepositValue = common.SafeAddBigInt(blockStateDetails.totalBlockDepositValue, depositValue)
-	}
-
-	_, ok = blockStateDetails.validatorsDepositMap[cph.account.Address]
-	if ok == false {
-		fmt.Println("Not a validator in this block")
 	}
 
 	if blockStateDetails.totalBlockDepositValue.Cmp(MIN_BLOCK_DEPOSIT) == -1 {
@@ -406,7 +436,19 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return errors.New("min block deposit not met")
 	}
 
-	blockStateDetails.blockMinWeightedProposalsRequired = common.SafeRelativePercentageBigInt(blockStateDetails.totalBlockDepositValue, MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE)
+	//blockStateDetails.totalBlockDepositValue = big.NewInt(0)
+	for addr, _ := range filteredValidators {
+		depositValue := validators[addr]
+		blockStateDetails.filteredValidatorsDepositMap[addr] = depositValue
+		//blockStateDetails.totalBlockDepositValue = common.SafeAddBigInt(blockStateDetails.totalBlockDepositValue, depositValue)
+	}
+
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
+	if ok == false {
+		fmt.Println("Not a validator in this block")
+	}
+
+	//blockStateDetails.blockMinWeightedProposalsRequired = common.SafeRelativePercentageBigInt(blockStateDetails.totalBlockDepositValue, MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE)
 	//fmt.Println("blockStateDetails.totalBlockDepositValue", blockStateDetails.totalBlockDepositValue)
 	//fmt.Println("blockStateDetails.blockMinWeightedProposalsRequired", blockStateDetails.blockMinWeightedProposalsRequired)
 	//fmt.Println("blockMinWeightedProposalsRequired", blockStateDetails.blockMinWeightedProposalsRequired)
@@ -448,7 +490,7 @@ func (cph *ConsensusHandler) initializeNewBlockRound() error {
 		//fmt.Println("initializeNewBlockRound", blockStateDetails.currentRound, cph.account.Address)
 	}
 
-	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.validatorsDepositMap, blockRoundDetails.Round)
+	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.filteredValidatorsDepositMap, blockRoundDetails.Round)
 	if err != nil {
 		return err
 	}
@@ -461,8 +503,8 @@ func (cph *ConsensusHandler) initializeNewBlockRound() error {
 	return nil
 }
 
-func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, validatorDepositMap *map[common.Address]*big.Int, round uint16) (bool, error) {
-	blockProposer, err := getBlockProposer(parentHash, validatorDepositMap, round)
+func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte) (bool, error) {
+	blockProposer, err := getBlockProposer(parentHash, filteredValidatorDepositMap, round)
 	if err != nil {
 		fmt.Println("isBlockProposer", err)
 		return false, err
@@ -477,6 +519,10 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 
 	if cph.signFn == nil {
 		return nil
+	}
+
+	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
+		return errors.New("startup delay")
 	}
 
 	if packet == nil {
@@ -566,7 +612,7 @@ func (cph *ConsensusHandler) processOutOfOrderPackets(parentHash common.Hash) er
 	return nil
 }
 
-func (cph *ConsensusHandler) getBlockRoundState(parentHash common.Hash, round uint16) (blockRoundState BlockRoundState, voteType VoteType, voteCount int, err error) {
+func (cph *ConsensusHandler) getBlockRoundState(parentHash common.Hash, round byte) (blockRoundState BlockRoundState, voteType VoteType, voteCount int, err error) {
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
@@ -584,7 +630,120 @@ func (cph *ConsensusHandler) getBlockRoundState(parentHash common.Hash, round ui
 	return roundDetails.state, roundDetails.blockVoteType, len(roundDetails.validatorProposalAcks), nil
 }
 
-func (cph *ConsensusHandler) getBlockState(parentHash common.Hash) (blockRoundState BlockRoundState, round uint16, err error) {
+func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (blockConsensusData *BlockConsensusData, blockAdditionalConsensusData *BlockAdditionalConsensusData, err error) {
+	cph.outerPacketLock.Lock()
+	defer cph.outerPacketLock.Unlock()
+
+	blockStateDetails, ok := cph.blockStateDetailsMap[parentHash]
+	if ok == false {
+		return nil, nil, errors.New("block doesn't exist")
+	}
+
+	if blockStateDetails.currentRound == 0 {
+		return nil, nil, errors.New("invalid block round")
+	}
+
+	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
+
+	if blockRoundDetails.state != BLOCK_STATE_RECEIVED_COMMITS {
+		return nil, nil, errors.New("block state not done commit yet")
+	}
+
+	blockConsensusData = &BlockConsensusData{
+		VoteType:               blockRoundDetails.blockVoteType,
+		NilvotedBlockProposers: make([]common.Address, 0),
+		Round:                  blockStateDetails.currentRound,
+	}
+	if blockConsensusData.VoteType == VOTE_TYPE_OK {
+		blockConsensusData.BlockProposer.CopyFrom(blockRoundDetails.proposer)
+		blockConsensusData.ProposalHash.CopyFrom(blockRoundDetails.proposalHash)
+	} else {
+		blockConsensusData.BlockProposer.CopyFrom(ZERO_ADDRESS)
+		blockConsensusData.ProposalHash.CopyFrom(ZERO_HASH)
+	}
+
+	blockConsensusData.PrecommitHash.CopyFrom(blockRoundDetails.precommitHash)
+
+	blockAdditionalConsensusData = &BlockAdditionalConsensusData{
+		InitTime: uint64(blockStateDetails.initTime.UnixNano() / int64(time.Millisecond)),
+	}
+
+	consensusPackets := make([]eth.ConsensusPacket, 0)
+
+	for r := byte(1); r <= blockStateDetails.currentRound; r++ {
+		roundPktCount := 0
+
+		blockRoundDetails := blockStateDetails.blockRoundMap[r]
+		if blockRoundDetails.proposalPacket != nil {
+			consensusPackets = append(consensusPackets, eth.NewConsensusPacket(blockRoundDetails.proposalPacket))
+			roundPktCount = roundPktCount + 1
+		}
+
+		for _, pkt := range blockRoundDetails.proposalAckPackets {
+			consensusPackets = append(consensusPackets, eth.NewConsensusPacket(pkt))
+		}
+		for _, pkt := range blockRoundDetails.precommitPackets {
+			consensusPackets = append(consensusPackets, eth.NewConsensusPacket(pkt))
+		}
+		for _, pkt := range blockRoundDetails.commitPackets {
+			consensusPackets = append(consensusPackets, eth.NewConsensusPacket(pkt))
+		}
+
+		roundProposer, err := getBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, r)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		roundPktCount = roundPktCount + len(blockRoundDetails.proposalAckPackets) + len(blockRoundDetails.precommitPackets) + len(blockRoundDetails.commitPackets)
+		if roundPktCount == 0 {
+			fmt.Println("consensusdata", cph.account.Address, blockStateDetails.currentRound, r)
+			return nil, nil, errors.New("no consensus packets for round")
+		}
+
+		if blockConsensusData.VoteType == VOTE_TYPE_NIL {
+			blockConsensusData.NilvotedBlockProposers = append(blockConsensusData.NilvotedBlockProposers, roundProposer)
+		} else {
+			//if VoteType is VOTE_TUPE_OK, it means that all proposers less than currentRound will be NIL VOTED (except if only one round)
+			if blockStateDetails.currentRound != byte(1) && r < blockStateDetails.currentRound {
+				blockConsensusData.NilvotedBlockProposers = append(blockConsensusData.NilvotedBlockProposers, roundProposer)
+			}
+		}
+
+		fmt.Println("===================>consensusdata", cph.account.Address, blockStateDetails.currentRound, r, roundPktCount)
+	}
+
+	blockAdditionalConsensusData.ConsensusPackets = make([]eth.ConsensusPacket, len(consensusPackets))
+	for i, packet := range consensusPackets {
+		blockAdditionalConsensusData.ConsensusPackets[i] = eth.NewConsensusPacket(&packet)
+	}
+
+	//packetRoundMap, err := ParseConsensusPackets(parentHash, &blockAdditionalConsensusData.ConsensusPackets, blockStateDetails.filteredValidatorsDepositMap)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+
+	//for r := byte(1); r <= blockRoundDetails.Round; r++ {
+	//	_, ok := packetRoundMap[r]
+	//	if ok == false {
+	//		ParseConsensusPackets(parentHash, &blockAdditionalConsensusData.ConsensusPackets, blockStateDetails.filteredValidatorsDepositMap)
+	//		return nil, nil, errors.New("packet not found")
+	//	}
+	//}
+
+	if blockConsensusData.VoteType == VOTE_TYPE_NIL {
+		err = ValidateBlockConsensusDataInner(nil, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap)
+	} else {
+		err = ValidateBlockConsensusDataInner(blockRoundDetails.proposalTxns, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return blockConsensusData, blockAdditionalConsensusData, nil
+}
+
+func (cph *ConsensusHandler) getBlockState(parentHash common.Hash) (blockRoundState BlockRoundState, round byte, err error) {
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
@@ -641,7 +800,7 @@ func (cph *ConsensusHandler) getBlockVote(parentHash common.Hash) (VoteType, err
 	return blockRoundDetails.selfAckProposalVoteType, nil
 }
 
-func GetCombinedTxnHash(parentHash common.Hash, txns []common.Hash) common.Hash {
+func GetCombinedTxnHash(parentHash common.Hash, round byte, txns []common.Hash) common.Hash {
 	var txnList []common.Hash
 	txnList = make([]common.Hash, len(txns))
 	for i := 0; i < len(txns); i++ {
@@ -658,7 +817,7 @@ func GetCombinedTxnHash(parentHash common.Hash, txns []common.Hash) common.Hash 
 		data = append(data, txn.Bytes()...)
 	}
 
-	return crypto.Keccak256Hash(data, parentHash.Bytes())
+	return crypto.Keccak256Hash(data, parentHash.Bytes(), []byte{round})
 }
 
 func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, packet *eth.ConsensusPacket, self bool) error {
@@ -669,6 +828,11 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
 		return errors.New("unknown parentHash")
+	}
+
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
+	if ok == false {
+		return errors.New("not a validator in this block")
 	}
 
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
@@ -690,7 +854,7 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 		return OutOfOrderPackerErr
 	}
 
-	_, ok = blockStateDetails.validatorsDepositMap[validator]
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[validator]
 	if ok == false {
 		//fmt.Println("handleProposeTransactionsPacket6")
 		return errors.New("invalid validator")
@@ -704,8 +868,13 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 		return errors.New("self packet from elsewhere")
 	}
 
+	proposalHash := GetCombinedTxnHash(packet.ParentHash, proposalDetails.Round, proposalDetails.Txns)
+	if blockRoundDetails.proposalPacket != nil && proposalHash.IsEqualTo(blockRoundDetails.proposalHash) == false {
+		return errors.New("invalid proposal hash")
+	}
+
 	blockRoundDetails.blockProposalDetails = &proposalDetails
-	blockRoundDetails.proposalHash = GetCombinedTxnHash(packet.ParentHash, proposalDetails.Txns)
+	blockRoundDetails.proposalHash.CopyFrom(proposalHash)
 	blockRoundDetails.proposalTxns = make([]common.Hash, len(proposalDetails.Txns))
 	for i := 0; i < len(proposalDetails.Txns); i++ {
 		exists, err := cph.doesFinalizedTransactionExistFn(proposalDetails.Txns[i])
@@ -767,7 +936,12 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 		return errors.New("unknown parentHash")
 	}
 
-	_, ok = blockStateDetails.validatorsDepositMap[validator]
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
+	if ok == false {
+		return errors.New("not a validator in this block")
+	}
+
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[validator]
 	if ok == false {
 		return errors.New("invalid validator")
 	}
@@ -807,6 +981,7 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 	}
 
 	if proposalAckDetails.ProposalAckVoteType != VOTE_TYPE_OK && proposalAckDetails.ProposalAckVoteType != VOTE_TYPE_NIL {
+		fmt.Println("proposalAckDetails.ProposalAckVoteType", proposalAckDetails.ProposalAckVoteType)
 		return errors.New("invalid vote type")
 	}
 
@@ -834,7 +1009,7 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 	return nil
 }
 
-func parsePacket(packet *eth.ConsensusPacket) (uint16, common.Address, error) {
+func parsePacket(packet *eth.ConsensusPacket) (byte, common.Address, error) {
 	dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToVerify)
 	pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
@@ -927,7 +1102,7 @@ func (cph *ConsensusHandler) findTotalDepositsInGreaterRound(parentHash common.H
 	}
 
 	totalGreaterRoundDepositCount := big.NewInt(0)
-	for val, depositAmount := range blockStateDetails.validatorsDepositMap {
+	for val, depositAmount := range blockStateDetails.filteredValidatorsDepositMap {
 		exists, ok := valMap[val]
 		if ok == false || exists == false {
 			continue
@@ -963,7 +1138,7 @@ func (cph *ConsensusHandler) shouldMoveToNextRound(parentHash common.Hash) (bool
 
 	totalGreaterRoundDepositCount := big.NewInt(0)
 	currentRoundDepositSoFar := big.NewInt(0)
-	for val, depositAmount := range blockStateDetails.validatorsDepositMap {
+	for val, depositAmount := range blockStateDetails.filteredValidatorsDepositMap {
 		_, ok := valMap[val]
 		if ok == false {
 			_, ok1 := blockRoundDetails.validatorPrecommits[val]
@@ -1012,13 +1187,18 @@ func (cph *ConsensusHandler) handlePrecommitPacket(validator common.Address, pac
 		return errors.New("unknown parentHash")
 	}
 
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
+	if ok == false {
+		return errors.New("not a validator in this block")
+	}
+
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
 	if blockRoundDetails.state != BLOCK_STATE_WAITING_FOR_PRECOMMITS {
 		//fmt.Println("handlePrecommitPacket BLOCK_STATE_WAITING_FOR_PRECOMMITS")
 		return OutOfOrderPackerErr
 	}
 
-	_, ok = blockStateDetails.validatorsDepositMap[validator]
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[validator]
 	if ok == false {
 		//fmt.Println("handleProposeTransactionsPacket6")
 		return errors.New("invalid validator")
@@ -1069,7 +1249,7 @@ func (cph *ConsensusHandler) handlePrecommitPacket(validator common.Address, pac
 	if blockRoundDetails.selfPrecommited {
 		totalVotesDepositCount := big.NewInt(0)
 		for val, _ := range blockRoundDetails.validatorPrecommits {
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		}
 
 		//totalVotesPercentage := common.SafePercentageOfBigInt(totalVotesDepositCount, blockStateDetails.totalBlockDepositValue)
@@ -1100,12 +1280,17 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 		return errors.New("unknown parentHash")
 	}
 
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
+	if ok == false {
+		return errors.New("not a validator in this block")
+	}
+
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
 	if blockRoundDetails.state != BLOCK_STATE_WAITING_FOR_COMMITS {
 		return OutOfOrderPackerErr
 	}
 
-	_, ok = blockStateDetails.validatorsDepositMap[validator]
+	_, ok = blockStateDetails.filteredValidatorsDepositMap[validator]
 	if ok == false {
 		//fmt.Println("handleProposeTransactionsPacket6")
 		return errors.New("invalid validator")
@@ -1138,7 +1323,9 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 		return OutOfOrderPackerErr
 	}
 
-	if commitDetails.CommitHash.IsEqualTo(blockRoundDetails.precommitHash) == false { //precommitHash and commitHash should be the same
+	var commitHash common.Hash
+	commitHash.CopyFrom(crypto.Keccak256Hash(blockRoundDetails.precommitHash.Bytes()))
+	if commitDetails.CommitHash.IsEqualTo(commitHash) == false { //PrecommitHash and commitHash should be the same
 		return errors.New("invalid commit Hash")
 	}
 
@@ -1151,7 +1338,7 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 	if blockRoundDetails.selfCommited {
 		totalVotesDepositCount := big.NewInt(0)
 		for val, _ := range blockRoundDetails.validatorCommits {
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		}
 
 		if totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 {
@@ -1222,10 +1409,15 @@ func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.
 	}
 
 	proposalDetails := &ProposalDetails{}
-	proposalDetails.Txns = make([]common.Hash, len(txns))
+
 	proposalDetails.Round = blockStateDetails.currentRound
-	for i := 0; i < len(proposalDetails.Txns); i++ {
-		proposalDetails.Txns[i].CopyFrom(txns[i])
+	if blockStateDetails.currentRound < MAX_ROUND_WITH_TXNS { //No transactions after this round, to reduce chance of FLP
+		proposalDetails.Txns = make([]common.Hash, len(txns))
+		for i := 0; i < len(proposalDetails.Txns); i++ {
+			proposalDetails.Txns[i].CopyFrom(txns[i])
+		}
+	} else {
+		proposalDetails.Txns = make([]common.Hash, 0)
 	}
 	//fmt.Println("ProposeBlock with txns", len(proposalDetails.Txns))
 
@@ -1311,15 +1503,15 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 		if ack.ProposalAckVoteType == VOTE_TYPE_OK {
 			if ack.ProposalHash.IsEqualTo(blockRoundDetails.proposalHash) {
 				okVotes = okVotes + 1
-				okVotesDepositCount = common.SafeAddBigInt(okVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+				okVotesDepositCount = common.SafeAddBigInt(okVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 			} else {
 				mismatchedVotes = mismatchedVotes + 1
 			}
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		} else if ack.ProposalAckVoteType == VOTE_TYPE_NIL {
 			nilVotes = nilVotes + 1
-			nilVotesDepositCount = common.SafeAddBigInt(nilVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			nilVotesDepositCount = common.SafeAddBigInt(nilVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		} else {
 			return errors.New("unexpected")
 		}
@@ -1327,16 +1519,17 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 
 	//fmt.Println("timeout", "okVotesPercentage", okVotesPercentage, "nilVotesPercentage", nilVotesPercentage, "totalVotesPercentage", totalVotesPercentage)
 
-	if okVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 {
+	if okVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && blockRoundDetails.selfAckProposalVoteType == VOTE_TYPE_OK {
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
-		blockRoundDetails.precommitHash = crypto.Keccak256Hash(blockRoundDetails.proposalHash.Bytes(), []byte{byte(VOTE_TYPE_OK)})
+		blockRoundDetails.precommitHash.CopyFrom(getOkVotePreCommitHash(parentHash, blockRoundDetails.proposalHash, blockStateDetails.currentRound))
 	} else if nilVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 { //handle timeout differently?
 		//fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>NilVote 2")
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
-		blockRoundDetails.precommitHash = crypto.Keccak256Hash(ZERO_HASH.Bytes(), []byte{byte(VOTE_TYPE_NIL)})
+		blockRoundDetails.precommitHash.CopyFrom(getNilVotePreCommitHash(parentHash, blockStateDetails.currentRound))
 	} else {
 		if totalVotesDepositCount.Cmp(blockStateDetails.totalBlockDepositValue) >= 0 ||
-			totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*blockRoundDetails.Round*2)) {
+			totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && HasExceededTimeThreshold(blockRoundDetails.initTime,
+				int64(BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round)*2)) {
 			blockStateDetails.blockRoundMap[blockStateDetails.currentRound] = blockRoundDetails
 			cph.blockStateDetailsMap[parentHash] = blockStateDetails
 			err := cph.initializeNewBlockRound()
@@ -1359,7 +1552,7 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
 
 	if blockRoundDetails.selfAckd == true {
-		shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.validatorsDepositMap, blockStateDetails.currentRound)
+		shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound)
 		if err != nil {
 			return err
 		}
@@ -1369,6 +1562,10 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 	} else {
 		if blockRoundDetails.state != BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS {
 			return errors.New("unexpected state")
+		}
+
+		if blockStateDetails.currentRound >= MAX_ROUND_WITH_TXNS && len(blockRoundDetails.blockProposalDetails.Txns) > 0 {
+			return errors.New("unexpected transaction count")
 		}
 
 		//Find if any new transactions we don't know yet
@@ -1424,15 +1621,15 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 		if ack.ProposalAckVoteType == VOTE_TYPE_OK {
 			if ack.ProposalHash.IsEqualTo(blockRoundDetails.proposalHash) {
 				okVotesCount = okVotesCount + 1
-				okVotesDepositCount = common.SafeAddBigInt(okVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+				okVotesDepositCount = common.SafeAddBigInt(okVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 			} else {
 				mismatchedVotesCount = mismatchedVotesCount + 1
 			}
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		} else if ack.ProposalAckVoteType == VOTE_TYPE_NIL {
 			nilVotesCount = nilVotesCount + 1
-			nilVotesDepositCount = common.SafeAddBigInt(nilVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
-			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.validatorsDepositMap[val])
+			nilVotesDepositCount = common.SafeAddBigInt(nilVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
+			totalVotesDepositCount = common.SafeAddBigInt(totalVotesDepositCount, blockStateDetails.filteredValidatorsDepositMap[val])
 		} else {
 			fmt.Println("unexpected")
 			return errors.New("unexpected")
@@ -1444,17 +1641,16 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 
 	if okVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && blockRoundDetails.selfAckProposalVoteType == VOTE_TYPE_OK { //For ok votes, vote type should match
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
-		blockRoundDetails.precommitHash = crypto.Keccak256Hash(blockRoundDetails.proposalHash.Bytes(), []byte{byte(VOTE_TYPE_OK)})
+		blockRoundDetails.precommitHash.CopyFrom(getOkVotePreCommitHash(parentHash, blockRoundDetails.proposalHash, blockStateDetails.currentRound))
 		blockRoundDetails.blockVoteType = VOTE_TYPE_OK
 		blockStateDetails.ackProposalTime = Elapsed(blockStateDetails.initTime)
 	} else if nilVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 { //handle timeout differently? for nil votes, it is ok to accept NIL vote even if self vote is OK
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
-		//fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>NilVote 1")
-		blockRoundDetails.precommitHash = crypto.Keccak256Hash(ZERO_HASH.Bytes(), []byte{byte(VOTE_TYPE_NIL)})
+		blockRoundDetails.precommitHash.CopyFrom(getNilVotePreCommitHash(parentHash, blockStateDetails.currentRound))
 		blockRoundDetails.blockVoteType = VOTE_TYPE_NIL
 	} else {
 		if totalVotesDepositCount.Cmp(blockStateDetails.totalBlockDepositValue) >= 0 ||
-			totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*blockRoundDetails.Round*2)) {
+			totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round)*2)) {
 			blockStateDetails.blockRoundMap[blockStateDetails.currentRound] = blockRoundDetails
 			cph.blockStateDetailsMap[parentHash] = blockStateDetails
 			err := cph.initializeNewBlockRound()
@@ -1535,12 +1731,12 @@ func (cph *ConsensusHandler) commitBlock(parentHash common.Hash) error {
 		return cph.handleCommitPacket(cph.account.Address, blockRoundDetails.selfCommitPacket, true)
 	}
 
-	commit := &CommitDetails{
-		CommitHash: blockRoundDetails.precommitHash, //commit hash is same as precommit hash
-		Round:      blockRoundDetails.Round,
+	commitDetails := &CommitDetails{
+		Round: blockRoundDetails.Round,
 	}
+	commitDetails.CommitHash.CopyFrom(getCommitHash(blockRoundDetails.precommitHash))
 
-	data, err := rlp.EncodeToBytes(commit)
+	data, err := rlp.EncodeToBytes(commitDetails)
 
 	if err != nil {
 		return err
@@ -1566,6 +1762,19 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
+	if cph.initialized == false {
+		cph.initTime = time.Now()
+		cph.initialized = true
+		log.Info("Starting up...")
+		return errors.New("starting up")
+	}
+
+	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
+		log.Info("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime))
+		fmt.Println("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime))
+		return errors.New("starting up")
+	}
+
 	err := cph.initializeBlockStateIfRequired(parentHash)
 	if err != nil {
 		return err
@@ -1576,12 +1785,12 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	blockStateDetails := cph.blockStateDetailsMap[parentHash]
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
 
-	_, ok := blockStateDetails.validatorsDepositMap[cph.account.Address]
+	_, ok := blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
 	if ok == false {
 		return errors.New("not a validator in this block")
 	}
 
-	shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.validatorsDepositMap, blockStateDetails.currentRound)
+	shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound)
 	if err != nil {
 		return err
 	}
@@ -1589,11 +1798,11 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	cph.processOutOfOrderPackets(parentHash)
 
 	err = errors.New("not ready yet")
-	//if shouldPropose {
-	fmt.Println("parentHash", parentHash, "round", blockStateDetails.currentRound, "state", blockRoundDetails.state, "vote", blockRoundDetails.blockVoteType,
-		"shouldPropose", shouldPropose, "currTxns", len(txns), "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks,
-		"totalTxs", cph.totalTransactions, "maxTxns", cph.maxTransactionsInBlock, "blockTIme", cph.maxTransactionsBlockTime, "txns", len(txns))
-	//}
+	if shouldPropose {
+		fmt.Println("parentHash", parentHash, "round", blockStateDetails.currentRound, "state", blockRoundDetails.state, "vote", blockRoundDetails.blockVoteType,
+			"shouldPropose", shouldPropose, "currTxns", len(txns), "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks,
+			"totalTxs", cph.totalTransactions, "maxTxns", cph.maxTransactionsInBlock, "blockTIme", cph.maxTransactionsBlockTime, "txns", len(txns))
+	}
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {
@@ -1605,7 +1814,7 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 		if shouldPropose {
 			cph.proposeBlock(parentHash, txns)
 		} else {
-			if HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*blockRoundDetails.Round)) {
+			if HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round))) {
 				cph.ackBlockProposalTimeout(parentHash)
 			} else {
 				cph.requestConsensusData(blockStateDetails)
@@ -1687,42 +1896,42 @@ func (cph *ConsensusHandler) getRequestConsensusDataPacket(blockStateDetails *Bl
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		requestPacketDetails.RequestProposal = true
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS {
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.proposalAckPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorProposalAcks = append(requestPacketDetails.ValidatorProposalAcks, val)
 			}
 		}
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PRECOMMITS {
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.proposalAckPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorProposalAcks = append(requestPacketDetails.ValidatorProposalAcks, val)
 			}
 		}
 
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.precommitPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorPrecommits = append(requestPacketDetails.ValidatorPrecommits, val)
 			}
 		}
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_COMMITS {
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.proposalAckPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorProposalAcks = append(requestPacketDetails.ValidatorProposalAcks, val)
 			}
 		}
 
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.precommitPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorPrecommits = append(requestPacketDetails.ValidatorPrecommits, val)
 			}
 		}
 
-		for val, _ := range blockStateDetails.validatorsDepositMap {
+		for val, _ := range blockStateDetails.filteredValidatorsDepositMap {
 			_, ok := blockRoundDetails.commitPackets[val]
 			if ok == false {
 				requestPacketDetails.ValidatorCommits = append(requestPacketDetails.ValidatorCommits, val)
@@ -1789,6 +1998,10 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	cph.innerPacketLock.Lock()
 	defer cph.innerPacketLock.Unlock()
 
+	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
+		return nil, errors.New("startup delay")
+	}
+
 	requestDetails := RequestConsensusPacketDetails{}
 
 	err := rlp.DecodeBytes(packet.RequestData, &requestDetails)
@@ -1805,7 +2018,7 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	var packets []*eth.ConsensusPacket
 	packets = make([]*eth.ConsensusPacket, 0)
 
-	var r uint16
+	var r byte
 	for r = 1; r <= blockStateDetails.currentRound; r++ {
 		blockRoundDetails := blockStateDetails.blockRoundMap[r]
 
@@ -1833,4 +2046,16 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	}
 
 	return packets, nil
+}
+
+func getCommitHash(precommitHash common.Hash) common.Hash {
+	return crypto.Keccak256Hash(precommitHash.Bytes())
+}
+
+func getOkVotePreCommitHash(parentHash common.Hash, proposalHash common.Hash, round byte) common.Hash {
+	return crypto.Keccak256Hash(parentHash.Bytes(), proposalHash.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_OK)})
+}
+
+func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
+	return crypto.Keccak256Hash(parentHash.Bytes(), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
 }

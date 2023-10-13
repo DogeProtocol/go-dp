@@ -39,13 +39,18 @@ func TestBlockUnhashedFields(t *testing.T) {
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
-
 		blockHashBefore := headers[i].Hash()
-		headers[i].UnhashedConsensusData = []byte{byte(i)}
+		headers[i].ConsensusData = []byte{byte(i)}
 		blockHashAfter := headers[i].Hash()
+		if blockHashBefore.IsEqualTo(blockHashAfter) == true {
+			t.Fatalf("block hash check failed")
+		}
+		blockHashBefore = headers[i].Hash()
+		headers[i].UnhashedConsensusData = []byte{byte(i)}
+		blockHashAfter = headers[i].Hash()
 
 		if blockHashBefore.IsEqualTo(blockHashAfter) == false {
-			t.Fatalf("block hasb check failed")
+			t.Fatalf("block hash check failed")
 		}
 	}
 }

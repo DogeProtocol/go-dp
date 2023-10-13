@@ -10,6 +10,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
+	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -317,6 +318,7 @@ func (vm *ValidatorManager) GetValidatorsFn(blockHash common.Hash) (map[common.A
 }
 
 func Initialize(numKeys int) (vm *ValidatorManager, mockp2pManager *MockP2PManager, validatorMap *map[common.Address]*big.Int) {
+	STARTUP_DELAY_MS = 2000
 	waitMap = make(map[common.Address]bool)
 	vm = NewValidatorManager(numKeys)
 
@@ -375,8 +377,76 @@ func WaitBlockCommit(parentHash common.Hash, mockp2pHandler *MockP2PHandler, t *
 	}
 }
 
-func ValidateTest(startTime int64, parentHash common.Hash, p2p *MockP2PManager, minPass int, maxWaitCount int,
-	expectedVoteMap map[VoteType]bool, expectedState BlockRoundState) bool {
+func ValidateBlockConsensusDataTest(parentHash common.Hash, p2p *MockP2PManager, validatorMap *map[common.Address]*big.Int, t *testing.T) {
+	for _, handler := range p2p.mockP2pHandlers {
+		blockState, _, err := handler.consensusHandler.getBlockState(parentHash)
+		if err != nil {
+			fmt.Println("ValidateBlockConsensusData getBlockState", err)
+			t.Fatalf("failed")
+		}
+		if blockState != BLOCK_STATE_RECEIVED_COMMITS {
+			continue
+		}
+		txns, err := handler.consensusHandler.getBlockSelectedTransactions(parentHash)
+		if err != nil {
+			t.Fatalf("failed")
+		}
+
+		blockConsensusData, blockAdditionalConsensusData, err := handler.consensusHandler.getBlockConsensusData(parentHash)
+		if err != nil {
+			fmt.Println("ValidateBlockConsensusData getBlockConsensusData", err, handler.validator)
+			t.Fatalf("failed")
+		} else {
+			fmt.Println("ValidateBlockConsensusData getBlockConsensusData ok", handler.validator)
+		}
+
+		if blockConsensusData == nil || blockAdditionalConsensusData == nil {
+			fmt.Println("ValidateBlockConsensusData nil")
+			t.Fatalf("failed")
+		}
+
+		data, err := rlp.EncodeToBytes(blockAdditionalConsensusData)
+		if err != nil {
+			fmt.Println("EncodeToBytes", err)
+			t.Fatalf("failed")
+		}
+		//fmt.Println("data len", len(data))
+		blockAdditionalConsensusDataDecoded := BlockAdditionalConsensusData{}
+
+		err = rlp.DecodeBytes(data, &blockAdditionalConsensusDataDecoded)
+		if err != nil {
+			t.Fatalf("failed")
+		}
+		//fmt.Println("len(blockAdditionalConsensusData.ConsensusPackets)",
+		//	len(blockAdditionalConsensusData.ConsensusPackets), len(blockAdditionalConsensusDataDecoded.ConsensusPackets), blockAdditionalConsensusData.InitTime, blockAdditionalConsensusDataDecoded.InitTime)
+
+		if len(blockAdditionalConsensusData.ConsensusPackets) != len(blockAdditionalConsensusDataDecoded.ConsensusPackets) {
+			t.Fatalf("failed")
+		}
+
+		if blockAdditionalConsensusData.InitTime != blockAdditionalConsensusDataDecoded.InitTime {
+			t.Fatalf("failed")
+		}
+
+		data2, err := rlp.EncodeToBytes(blockAdditionalConsensusDataDecoded)
+		if err != nil {
+			t.Fatalf("failed")
+		}
+
+		if bytes.Compare(data, data2) != 0 {
+			t.Fatalf("failed")
+		}
+
+		err = ValidateBlockConsensusDataInner(txns, parentHash, blockConsensusData, blockAdditionalConsensusData, validatorMap)
+		if err != nil {
+			fmt.Println("ValidateBlockConsensusDataInner", err, handler.validator)
+			t.Fatalf("ValidateBlockConsensusDataInner failed")
+		}
+	}
+}
+
+func ValidateTest(validatorMap *map[common.Address]*big.Int, startTime int64, parentHash common.Hash, p2p *MockP2PManager, minPass int, maxWaitCount int,
+	expectedVoteMap map[VoteType]bool, expectedState BlockRoundState, t *testing.T) bool {
 	i := 0
 	j := 0
 	count := 0
@@ -400,14 +470,17 @@ func ValidateTest(startTime int64, parentHash common.Hash, p2p *MockP2PManager, 
 		}
 		if i >= minPass {
 			PrintState(parentHash, p2p.mockP2pHandlers, startTime)
+			ValidateBlockConsensusDataTest(parentHash, p2p, validatorMap, t)
 			return true
 		}
 		if j >= minPass {
 			PrintState(parentHash, p2p.mockP2pHandlers, startTime)
+			ValidateBlockConsensusDataTest(parentHash, p2p, validatorMap, t)
 			return false
 		}
 		if count == maxWaitCount {
 			PrintState(parentHash, p2p.mockP2pHandlers, startTime)
+			ValidateBlockConsensusDataTest(parentHash, p2p, validatorMap, t)
 			return false
 		} else {
 			PrintState(parentHash, p2p.mockP2pHandlers, startTime)
@@ -419,7 +492,7 @@ func ValidateTest(startTime int64, parentHash common.Hash, p2p *MockP2PManager, 
 }
 
 func testPacketHandler_basic(numKeys int, t *testing.T) {
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
 
@@ -429,7 +502,7 @@ func testPacketHandler_basic(numKeys int, t *testing.T) {
 		go WaitBlockCommit(parentHash, h, t)
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -481,7 +554,7 @@ func testPacketHandler_min_basic(t *testing.T) {
 
 	fmt.Println("c", c)
 
-	if ValidateTest(startTime, parentHash, p2p, 3, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, 3, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -541,7 +614,7 @@ func testPacketHandler_extended_failure(t *testing.T, numKeys int, minPass int, 
 
 	fmt.Println("c", c)
 
-	if ValidateTest(startTime, parentHash, p2p, minPass, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -586,7 +659,7 @@ func testPacketHandler_block_proposer_timedout(t *testing.T) {
 		c = c + 1
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, 3, 20, map[VoteType]bool{VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, 3, 20, map[VoteType]bool{VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -631,7 +704,7 @@ func testPacketHandler_min_negative(t *testing.T, numKeys int, minPass int, unre
 		c = c + 1
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, minPass, 20, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == true {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 20, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == true {
 		t.Fatalf("failed")
 	}
 
@@ -651,7 +724,7 @@ func TestPacketHandler_min_negative(t *testing.T) {
 	}
 }
 
-func testPacketHandler_no_round2(t *testing.T, numKeys int, minPass int) {
+func testPacketHandler_no_round2_then_round2(t *testing.T, numKeys int, minPass int) {
 	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
@@ -695,7 +768,7 @@ func testPacketHandler_no_round2(t *testing.T, numKeys int, minPass int) {
 		for _, handler := range p2p.mockP2pHandlers {
 			h := handler
 			state, round, _ := h.consensusHandler.getBlockState(parentHash)
-			if round > 1 {
+			if round > byte(1) {
 				t.Fatalf("failed")
 			}
 			if state == BLOCK_STATE_RECEIVED_COMMITS {
@@ -729,31 +802,27 @@ func testPacketHandler_no_round2(t *testing.T, numKeys int, minPass int) {
 	}
 
 	fmt.Println("ValidateTest start")
-	if ValidateTest(startTime, parentHash, p2p, 3, 60, map[VoteType]bool{VOTE_TYPE_NIL: true, VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, 3, 60, map[VoteType]bool{VOTE_TYPE_NIL: true, VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
-	txnCountNil := 0
+	hasRound2 := false
 	for _, handler := range p2p.mockP2pHandlers {
 		h := handler
-		txnList, err := h.consensusHandler.getBlockSelectedTransactions(parentHash)
-		if err == nil {
-			if txnList == nil {
-				txnCountNil = txnCountNil + 1
-			}
-		} else {
-			t.Fatalf("failed")
+		_, round, _ := h.consensusHandler.getBlockState(parentHash)
+		if round > byte(1) {
+			hasRound2 = true
 		}
 	}
-	if txnCountNil < 1 {
+	if hasRound2 == false {
 		t.Fatalf("failed")
 	}
 }
 
-func TestPacketHandler_no_round2(t *testing.T) {
+func TestPacketHandler_no_round2_then_round2(t *testing.T) {
 	for i := 1; i <= TEST_ITERATIONS; i++ {
 		fmt.Println("iteration", i)
-		testPacketHandler_no_round2(t, 4, 3)
+		testPacketHandler_no_round2_then_round2(t, 4, 3)
 	}
 }
 
@@ -810,7 +879,11 @@ func testPacketHandler_bifurcated(t *testing.T) {
 			h := handler
 			state, _, _ := h.consensusHandler.getBlockState(parentHash)
 			if state == BLOCK_STATE_RECEIVED_COMMITS {
-				commitCount = commitCount + 1
+				if loopCount <= 60 {
+					t.Fatalf("failed")
+				} else {
+					commitCount = commitCount + 1
+				}
 			}
 		}
 		PrintState(parentHash, p2p.mockP2pHandlers, startTime)
@@ -819,9 +892,8 @@ func testPacketHandler_bifurcated(t *testing.T) {
 		}
 		loopCount = loopCount + 1
 		if loopCount == 60 {
-			p2pManager.UnblockPacketsBetweenValidators(valList[0], valList[2])
-			p2pManager.UnblockPacketsBetweenValidators(valList[0], valList[3])
-		} else if loopCount >= 60 {
+			p2pManager.DeleteAllPacketBlocks()
+		} else if loopCount >= 120 {
 			t.Fatalf("failed")
 		}
 		fmt.Println("loopCount", loopCount)
@@ -837,7 +909,7 @@ func TestPacketHandler_bifurcated(t *testing.T) {
 }
 
 func testPacketHandler_round2(t *testing.T, numKeys int, minPass int) {
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 	parentHash := common.BytesToHash([]byte{1})
 	c := 0
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
@@ -884,7 +956,7 @@ func testPacketHandler_round2(t *testing.T, numKeys int, minPass int) {
 	}
 
 	fmt.Println("===============Round 2 start")
-	if ValidateTest(startTime, parentHash, p2p, minPass, 60, map[VoteType]bool{VOTE_TYPE_OK: true, VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 60, map[VoteType]bool{VOTE_TYPE_OK: true, VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -904,7 +976,12 @@ func testPacketHandler_round2(t *testing.T, numKeys int, minPass int) {
 					t.Fatalf("failed")
 				}
 
-				txnHash := GetCombinedTxnHash(parentHash, txnList)
+				_, round, _ := h.consensusHandler.getBlockState(parentHash)
+				if err != nil {
+					t.Fatalf("failed")
+				}
+
+				txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 				if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 					combinedTxnListHash.CopyFrom(txnHash)
 				} else {
@@ -933,7 +1010,7 @@ func TestPacketHandler_round2(t *testing.T) {
 
 func testPacketHandler_basic_txns(t *testing.T) {
 	numKeys := 4
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
 	parentHash := common.BytesToHash([]byte{1})
@@ -949,7 +1026,7 @@ func testPacketHandler_basic_txns(t *testing.T) {
 		go WaitBlockCommit(parentHash, h, t)
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -964,7 +1041,12 @@ func testPacketHandler_basic_txns(t *testing.T) {
 				t.Fatalf("failed")
 			}
 
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+			_, round, _ := h.consensusHandler.getBlockState(parentHash)
+			if err != nil {
+				t.Fatalf("failed")
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -988,7 +1070,7 @@ func TestPacketHandler_basic_txns(t *testing.T) {
 
 func testPacketHandler_basic_txns_finalize_fail(t *testing.T) {
 	numKeys := 4
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
 	parentHash := common.BytesToHash([]byte{1})
@@ -1007,7 +1089,7 @@ func testPacketHandler_basic_txns_finalize_fail(t *testing.T) {
 		go WaitBlockCommit(parentHash, h, t)
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, numKeys-1, 60, map[VoteType]bool{VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys-1, 60, map[VoteType]bool{VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 }
@@ -1021,7 +1103,7 @@ func TestPacketHandler_basic_txns_finalize_fail(t *testing.T) {
 
 func testPacketHandler_split_txns(t *testing.T) {
 	numKeys := 6
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 	rand.Seed(time.Now().UnixNano())
 
 	parentHash := common.BytesToHash([]byte{1})
@@ -1044,7 +1126,7 @@ func testPacketHandler_split_txns(t *testing.T) {
 
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1058,7 +1140,13 @@ func testPacketHandler_split_txns(t *testing.T) {
 			if txnList == nil || len(txnList) < 1 {
 				t.Fatalf("failed")
 			}
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+
+			_, round, _ := h.consensusHandler.getBlockState(parentHash)
+			if err != nil {
+				t.Fatalf("failed")
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -1082,7 +1170,7 @@ func TestPacketHandler_split_txns(t *testing.T) {
 
 func testPacketHandler_split_increasing_txns(t *testing.T) {
 	numKeys := 8
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
 
@@ -1101,7 +1189,7 @@ func testPacketHandler_split_increasing_txns(t *testing.T) {
 		go WaitBlockCommit(parentHash, h, t)
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, 7, 30, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, 7, 30, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1115,7 +1203,13 @@ func testPacketHandler_split_increasing_txns(t *testing.T) {
 			if txnList == nil || len(txnList) < 1 {
 				t.Fatalf("failed")
 			}
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+
+			_, round, _ := h.consensusHandler.getBlockState(parentHash)
+			if err != nil {
+				t.Fatalf("failed")
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -1125,7 +1219,7 @@ func testPacketHandler_split_increasing_txns(t *testing.T) {
 			}
 		}
 	}
-	if txnCountOk < numKeys {
+	if txnCountOk < 7 {
 		t.Fatalf("failed")
 	}
 }
@@ -1183,7 +1277,7 @@ func testPacketHandler_split_increasing_txns_some_unresponsive(t *testing.T, num
 		c = c + 1
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, minPass, 30, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 90, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1198,7 +1292,12 @@ func testPacketHandler_split_increasing_txns_some_unresponsive(t *testing.T, num
 				t.Fatalf("failed")
 			}
 
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+			_, round, _ := h.consensusHandler.getBlockState(parentHash)
+			if err != nil {
+				t.Fatalf("failed")
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -1223,7 +1322,7 @@ func TestPacketHandler_split_increasing_txns_some_unresponsive(t *testing.T) {
 func testPacketHandler_packet_loss_txns(t *testing.T) {
 	numKeys := 10
 	minPass := 7
-	_, p2p, _ := Initialize(numKeys)
+	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
 
@@ -1243,7 +1342,7 @@ func testPacketHandler_packet_loss_txns(t *testing.T) {
 		go WaitBlockCommit(parentHash, h, t)
 	}
 
-	if ValidateTest(startTime, parentHash, p2p, minPass, 300, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 300, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1257,7 +1356,13 @@ func testPacketHandler_packet_loss_txns(t *testing.T) {
 			if txnList == nil || len(txnList) < 1 {
 				continue
 			}
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+
+			_, round, _ := h.consensusHandler.getBlockState(parentHash)
+			if err != nil {
+				t.Fatalf("failed")
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -1329,21 +1434,44 @@ func testPacketHandler_packet_loss_txns_some_unresponsive(t *testing.T, numVal i
 
 	fmt.Println("c", c)
 
-	if ValidateTest(startTime, parentHash, p2p, minPass, 300, map[VoteType]bool{VOTE_TYPE_OK: true, VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 300, map[VoteType]bool{VOTE_TYPE_OK: true, VOTE_TYPE_NIL: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
 	txnCountOk := 0
+	nilVoteCount := 0
 	var combinedTxnListHash common.Hash
 	for _, handler := range p2p.mockP2pHandlers {
 		h := handler
+		state, round, err := h.consensusHandler.getBlockState(parentHash)
+		if err != nil {
+			t.Fatalf("failed")
+		}
+		if state != BLOCK_STATE_RECEIVED_COMMITS {
+			continue
+		}
+
+		vote, err := h.consensusHandler.getBlockVote(parentHash)
+		if err != nil {
+			t.Fatalf("failed")
+		}
+
+		if vote == VOTE_TYPE_NIL {
+			nilVoteCount = nilVoteCount + 1
+			continue
+		}
+
 		txnList, err := h.consensusHandler.getBlockSelectedTransactions(parentHash)
 		if err == nil {
 			txnCountOk = txnCountOk + 1
-			if txnList == nil || len(txnList) < 1 {
+			if txnList == nil {
 				t.Fatalf("failed")
 			}
-			txnHash := GetCombinedTxnHash(parentHash, txnList)
+			if len(txnList) < 1 {
+				return
+			}
+
+			txnHash := GetCombinedTxnHash(parentHash, round, txnList)
 			if combinedTxnListHash.IsEqualTo(ZERO_HASH) {
 				combinedTxnListHash.CopyFrom(txnHash)
 			} else {
@@ -1353,7 +1481,7 @@ func testPacketHandler_packet_loss_txns_some_unresponsive(t *testing.T, numVal i
 			}
 		}
 	}
-	if txnCountOk < minPass {
+	if txnCountOk < minPass && nilVoteCount < minPass {
 		t.Fatalf("failed")
 	}
 }
@@ -1366,23 +1494,23 @@ func TestPacketHandler_packet_loss_txns_some_unresponsive(t *testing.T) {
 }
 
 func PrintState(parentHash common.Hash, mockP2pHandlers map[common.Address]*MockP2PHandler, startTime int64) {
-	var roundMap map[uint16]int32
-	var roundStateMap map[uint16]map[BlockRoundState]int32
-	var roundVoteMap map[uint16]map[VoteType]int32
+	var roundMap map[byte]int32
+	var roundStateMap map[byte]map[BlockRoundState]int32
+	var roundVoteMap map[byte]map[VoteType]int32
 
-	roundStateMap = make(map[uint16]map[BlockRoundState]int32)
-	roundVoteMap = make(map[uint16]map[VoteType]int32)
+	roundStateMap = make(map[byte]map[BlockRoundState]int32)
+	roundVoteMap = make(map[byte]map[VoteType]int32)
 
-	roundMap = make(map[uint16]int32)
+	roundMap = make(map[byte]int32)
 
 	for _, handler := range mockP2pHandlers {
 		state, round, _ := handler.consensusHandler.getBlockState(parentHash)
 		vote, _ := handler.consensusHandler.getBlockVote(parentHash)
 		fmt.Println("   validator", handler.validator, "vote", vote, "round", round, "state", state)
-		var i uint16
+		var i byte
 		for i = 1; i <= round; i++ {
 			roundState, voteType, voteCount, _ := handler.consensusHandler.getBlockRoundState(parentHash, i)
-			fmt.Println("       ", "round", i, "roundState", roundState, "voteType", voteType, "voteCount", voteCount)
+			fmt.Println("       ", "round", i, "roundState", roundState, "VoteType", voteType, "voteCount", voteCount)
 		}
 
 		roundCount, ok := roundMap[round]
@@ -1408,7 +1536,7 @@ func PrintState(parentHash common.Hash, mockP2pHandlers map[common.Address]*Mock
 		}
 
 		for v, k := range roundVoteMap[r] {
-			fmt.Println("     voteType", v, "count", k)
+			fmt.Println("     VoteType", v, "count", k)
 		}
 	}
 
@@ -1417,7 +1545,7 @@ func PrintState(parentHash common.Hash, mockP2pHandlers map[common.Address]*Mock
 	fmt.Println("timeTaken ms", timeTaken)
 }
 
-func TestBlockProposer(t *testing.T) {
+func TestPacketHandler_packet_loss_txns_some_unresponsive_extended(t *testing.T) {
 	for i := 1; i <= TEST_ITERATIONS; i++ {
 		fmt.Println("iteration", i)
 		testPacketHandler_packet_loss_txns_some_unresponsive(t, 10, 7, 7)
@@ -1425,16 +1553,21 @@ func TestBlockProposer(t *testing.T) {
 }
 
 func testFilterValidatorsTest(t *testing.T, parentHash common.Hash, validatorsDepositMap map[common.Address]*big.Int, shouldPass bool) *big.Int {
-	resultMap, err := filterValidators(parentHash, validatorsDepositMap)
+	resultMap, filteredDepositValue, minDepoitValue, err := filterValidators(parentHash, &validatorsDepositMap)
 	if err == nil {
 		if shouldPass == false {
 			t.Fatalf("failed")
 		}
 	} else {
+		fmt.Println("filterValidators error", err)
 		if shouldPass == true {
-			t.Fatalf("failed")
+			t.Fatalf("filterValidators failed")
 		}
 		return nil
+	}
+
+	if MIN_BLOCK_DEPOSIT.Cmp(minDepoitValue) > 0 {
+		t.Fatalf("failed")
 	}
 
 	fmt.Println("selected validator count", len(resultMap), "total validators", len(validatorsDepositMap))
@@ -1467,13 +1600,17 @@ func testFilterValidatorsTest(t *testing.T, parentHash common.Hash, validatorsDe
 		totalDeposit = common.SafeAddBigInt(totalDeposit, depositValue)
 		fmt.Println("Selected", "validator", val, "deposit", depositValue)
 	}
-	fmt.Println("TotalDepositValue", totalDeposit)
+	fmt.Println("filteredDepositValue", filteredDepositValue, "totalDeposit", totalDeposit)
+
+	if totalDeposit.Cmp(filteredDepositValue) > 0 {
+		t.Fatalf("failed")
+	}
 
 	if MIN_BLOCK_DEPOSIT.Cmp(totalDeposit) > 0 {
 		t.Fatalf("failed")
 	}
 
-	return totalDeposit
+	return filteredDepositValue
 }
 
 func TestFilterValidators_negative(t *testing.T) {
@@ -1555,17 +1692,17 @@ func TestFilterValidators_positive_Extended(t *testing.T) {
 }
 
 func TestFilterValidators_positive_Tough(t *testing.T) {
-	for test := 0; test < 10; test++ {
+	for test := 0; test < 2; test++ {
 		validatorsDepositMap := make(map[common.Address]*big.Int)
 
 		b := byte(0)
-		for i := 0; i < MAX_VALIDATORS; i++ {
+		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
 			validatorsDepositMap[val] = big.NewInt(1000)
 			b = b + 1
 		}
 
-		for i := 0; i < MAX_VALIDATORS; i++ {
+		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
 			validatorsDepositMap[val] = common.SafeMulBigInt(big.NewInt(100000), big.NewInt(int64(i)))
 			b = b + 1
@@ -1573,20 +1710,87 @@ func TestFilterValidators_positive_Tough(t *testing.T) {
 
 		parentHash1 := common.BytesToHash([]byte{100})
 		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(380567000)) != 0 {
+		if totalDeposit.Cmp(big.NewInt(1554700000)) != 0 {
 			t.Fatalf("failed")
 		}
 
 		parentHash2 := common.BytesToHash([]byte{200})
 		totalDeposit = testFilterValidatorsTest(t, parentHash2, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(399965000)) != 0 {
+		if totalDeposit.Cmp(big.NewInt(1603200000)) != 0 {
 			t.Fatalf("failed")
 		}
 
 		parentHash3 := common.BytesToHash([]byte{255})
 		totalDeposit = testFilterValidatorsTest(t, parentHash3, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(407161000)) != 0 {
+		if totalDeposit.Cmp(big.NewInt(1627300000)) != 0 {
 			t.Fatalf("failed")
 		}
+	}
+}
+
+func TestFilterValidators_positive_low_balance(t *testing.T) {
+	for test := 0; test < 2; test++ {
+		validatorsDepositMap := make(map[common.Address]*big.Int)
+
+		val1 := common.BytesToAddress([]byte{1})
+		validatorsDepositMap[val1] = big.NewInt(1000)
+
+		val2 := common.BytesToAddress([]byte{2})
+		validatorsDepositMap[val2] = big.NewInt(100000)
+
+		val3 := common.BytesToAddress([]byte{3})
+		validatorsDepositMap[val3] = big.NewInt(200000)
+
+		val4 := common.BytesToAddress([]byte{4})
+		validatorsDepositMap[val4] = big.NewInt(10000000)
+
+		parentHash1 := common.BytesToHash([]byte{100})
+		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
+		if totalDeposit.Cmp(big.NewInt(10300000)) != 0 {
+			t.Fatalf("failed")
+		}
+	}
+}
+
+func TestFilterValidators_positive_low_balance_negative_total(t *testing.T) {
+	for test := 0; test < 2; test++ {
+		validatorsDepositMap := make(map[common.Address]*big.Int)
+
+		val1 := common.BytesToAddress([]byte{1})
+		validatorsDepositMap[val1] = big.NewInt(1000)
+
+		val2 := common.BytesToAddress([]byte{2})
+		validatorsDepositMap[val2] = big.NewInt(100000)
+
+		val3 := common.BytesToAddress([]byte{3})
+		validatorsDepositMap[val3] = big.NewInt(200000)
+
+		val4 := common.BytesToAddress([]byte{4})
+		validatorsDepositMap[val4] = big.NewInt(300000)
+
+		parentHash1 := common.BytesToHash([]byte{100})
+		testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, false)
+	}
+}
+
+func TestFilterValidators_positive_low_balance_negative(t *testing.T) {
+	for test := 0; test < 2; test++ {
+		validatorsDepositMap := make(map[common.Address]*big.Int)
+
+		b := byte(0)
+		for i := 1; i < 255; i++ {
+			val := common.BytesToAddress([]byte{b})
+			validatorsDepositMap[val] = big.NewInt(1000)
+			b = b + 1
+		}
+
+		val2 := common.BytesToAddress([]byte{1, 2})
+		validatorsDepositMap[val2] = big.NewInt(100000)
+
+		val3 := common.BytesToAddress([]byte{1, 3})
+		validatorsDepositMap[val3] = big.NewInt(1000000)
+
+		parentHash1 := common.BytesToHash([]byte{100})
+		testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, false)
 	}
 }

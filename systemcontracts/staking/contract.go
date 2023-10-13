@@ -10,8 +10,12 @@ import (
 	"strings"
 )
 
-//solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking
-//abigen --bin=c:\github\go-dp\systemcontracts\staking\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\staking.go
+//Steps after Contract is modified
+//1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking
+//2) abigen --bin=c:\github\go-dp\systemcontracts\staking\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\staking.go
+//3) copy StakingContract.bin-runtime into genesis.json
+//4) copy StakingContract.abi into stakingabi.go
+//5) copy StakingContract.bin into stakingbin.go
 
 const STAKING_CONTRACT = "0x0000000000000000000000000000000000001000"
 
@@ -51,9 +55,10 @@ type Deposit struct {
 }
 
 type Validator struct {
-	GetBalanceOfDepositor   string `json:"getBalanceOfDepositor"`
-	ListValidators          string `json:"listValidators"`
-	GetDepositorOfValidator string `json:"getDepositorOfValidator"`
+	GetBalanceOfDepositor    string `json:"getBalanceOfDepositor"`
+	ListValidators           string `json:"listValidators"`
+	GetDepositorOfValidator  string `json:"getDepositorOfValidator"`
+	GetNetBalanceOfDepositor string `json:"getNetBalanceOfDepositor"`
 }
 
 var (
@@ -137,6 +142,10 @@ func GetContract_Method_GetDepositorOfValidator() string {
 
 func GetContract_Method_GetBalanceOfDepositor() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetBalanceOfDepositor
+}
+
+func GetContract_Method_GetNetBalanceOfDepositor() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetNetBalanceOfDepositor
 }
 
 func GetContract_Method_GetDepositorCount() string {

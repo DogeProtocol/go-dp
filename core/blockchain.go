@@ -1826,6 +1826,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			lastCanon = block
 			continue
 		}
+		//Verify the block
+		err = bc.engine.VerifyBlock(bc, block)
+		if err != nil {
+			fmt.Println("VerifyBlock error", err)
+			return 0, err
+		}
+
 		// Retrieve the parent block and it's state to execute on top
 		start := time.Now()
 
