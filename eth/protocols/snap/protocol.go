@@ -59,7 +59,7 @@ const (
 var (
 	errMsgTooLarge    = errors.New("message too long")
 	errDecode         = errors.New("invalid message")
-	errInvalidMsgCode = errors.New("invalid message code")
+	errInvalidMsgCode = errors.New("invalid message code 4")
 	errBadRequest     = errors.New("bad request")
 )
 

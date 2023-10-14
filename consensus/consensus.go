@@ -72,6 +72,8 @@ type Engine interface {
 	// the input slice).
 	VerifyHeaders(chain ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
 
+	VerifyBlock(chain ChainHeaderReader, block *types.Block) error
+
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
 	VerifyUncles(chain ChainReader, block *types.Block) error
@@ -79,6 +81,11 @@ type Engine interface {
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainHeaderReader, header *types.Header) error
+
+	// HandleTransactions selects the transactions for including in the block according to the consensus rules.
+	HandleTransactions(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error)
+
+	IsBlockReadyToSeal(chain ChainHeaderReader, header *types.Header, state *state.StateDB) bool
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// but does not assemble the block.
@@ -94,6 +101,9 @@ type Engine interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	FinalizeAndAssemble(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
+
+	FinalizeAndAssembleWithConsensus(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new sealing request for the given input block and pushes

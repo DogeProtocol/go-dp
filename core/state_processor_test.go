@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"testing"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/DogeProtocol/dp/core/vm"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 // TestStateProcessorErrors tests the output from the 'core' errors
@@ -274,7 +274,7 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 	var receipts []*types.Receipt
 	// The post-state result doesn't need to be correct (this is a bad block), but we do need something there
 	// Preferably something unique. So let's use a combo of blocknum + txhash
-	hasher := sha3.NewLegacyKeccak256()
+	hasher := hashingalgorithm.NewHashState()
 	hasher.Write(header.Number.Bytes())
 	var cumulativeGas uint64
 	for _, tx := range txs {

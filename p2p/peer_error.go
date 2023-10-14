@@ -27,7 +27,7 @@ const (
 )
 
 var errorToString = map[int]string{
-	errInvalidMsgCode: "invalid message code",
+	errInvalidMsgCode: "invalid message code 1",
 	errInvalidMsg:     "invalid message",
 }
 

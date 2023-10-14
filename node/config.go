@@ -350,45 +350,51 @@ func (c *Config) instanceDir() string {
 // NodeKey retrieves the currently configured private key of the node, checking
 // first any manually set key, falling back to the one found in the configured
 // data folder. If no key can be found, a new one is generated.
-func (c *Config) NodeKey() *signaturealgorithm.PrivateKey {
+func (c *Config) NodeKey() (*signaturealgorithm.PrivateKey, error) {
 	// Use any specifically configured key.
 	if c.P2P.PrivateKey != nil {
-		return c.P2P.PrivateKey
+		return c.P2P.PrivateKey, nil
 	}
 	// Generate ephemeral key if no datadir is being used.
 	if c.DataDir == "" {
-		log.Info("Ephemeral node private key")
+		fmt.Println("Ephemeral node private key")
 		key, err := cryptobase.SigAlg.GenerateKey()
 		if err != nil {
-			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+			fmt.Println(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
-		return key
+		return key, nil
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
 	key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(keyfile)
 	if err == nil {
-		log.Info("Returning key from LoadPrivateKeyFromFile", keyfile)
-		return key
+		address, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+		if err != nil {
+			fmt.Println("Error converting address from public key", err, "keyfile", keyfile)
+			return nil, err
+		}
+
+		fmt.Println("Returning key from LoadPrivateKeyFromFile", keyfile, "address", address)
+		return key, nil
 	}
 	if err != nil {
-		log.Error("NodeKey error", err, keyfile)
+		fmt.Println("NodeKey not found, will create new one", err, "keyfile", keyfile)
 	}
 	// No persistent key found, generate and store a new one.
 	key, err = cryptobase.SigAlg.GenerateKey()
 	if err != nil {
-		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to generate node key: %v", err))
 	}
 	instanceDir := filepath.Join(c.DataDir, c.name())
 	if err := os.MkdirAll(instanceDir, 0700); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return key
+		fmt.Println(fmt.Sprintf("Failed to persist node key: %v", err))
+		return key, nil
 	}
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
 	if err := cryptobase.SigAlg.SavePrivateKeyToFile(keyfile, key); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
-	return key
+	return key, nil
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.

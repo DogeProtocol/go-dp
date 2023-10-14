@@ -786,6 +786,8 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	hash := block.Hash()
 
+	//fmt.Println("peer importblocks", "peer", peer, "block", block.Number())
+
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {

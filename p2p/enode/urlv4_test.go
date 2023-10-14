@@ -20,8 +20,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
-	"golang.org/x/crypto/sha3"
 	"net"
 	"reflect"
 	"strings"
@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	h                 = sha3.NewLegacyKeccak256()
+	h                 = hashingalgorithm.NewHashState()
 	keyTest1, _       = cryptobase.SigAlg.GenerateKey()
 	hexprvkeytest1, _ = cryptobase.SigAlg.PrivateKeyToHex(keyTest1)
 	hexpubkeytest1, _ = cryptobase.SigAlg.PublicKeyToHex(&keyTest1.PublicKey)

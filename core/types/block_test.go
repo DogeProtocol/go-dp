@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"hash"
 	"math/big"
 	"reflect"
@@ -29,13 +30,12 @@ import (
 	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 var (
 	privtestkey1, _ = cryptobase.SigAlg.GenerateKey()
 	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
-	sigtest1, _     = cryptobase.SigAlg.Sign([]byte("This is test program"), privtestkey)
+	sigtest1, _     = cryptobase.SigAlg.Sign([]byte("This is test programThis is test"), privtestkey)
 	hexsigtest1     = hex.EncodeToString(sigtest)
 )
 
@@ -239,7 +239,7 @@ type testHasher struct {
 }
 
 func newHasher() *testHasher {
-	return &testHasher{hasher: sha3.NewLegacyKeccak256()}
+	return &testHasher{hasher: hashingalgorithm.NewHashState()}
 }
 
 func (h *testHasher) Reset() {

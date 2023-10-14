@@ -18,17 +18,16 @@ package types
 
 import (
 	"bytes"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // hasherPool holds LegacyKeccak256 hashers for rlpHash.
 var hasherPool = sync.Pool{
-	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+	New: func() interface{} { return hashingalgorithm.NewHashState() },
 }
 
 // deriveBufferPool holds temporary encoder buffers for DeriveSha and TX encoding.
@@ -38,7 +37,7 @@ var encodeBufferPool = sync.Pool{
 
 // rlpHash encodes x and hashes the encoded bytes.
 func rlpHash(x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(crypto.KeccakState)
+	sha := hasherPool.Get().(hashingalgorithm.HashState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
 	rlp.Encode(sha, x)
@@ -49,7 +48,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
 func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(crypto.KeccakState)
+	sha := hasherPool.Get().(hashingalgorithm.HashState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
 	sha.Write([]byte{prefix})

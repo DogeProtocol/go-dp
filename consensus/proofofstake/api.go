@@ -18,13 +18,13 @@ package proofofstake
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -36,61 +36,22 @@ type API struct {
 
 // GetSnapshot retrieves the state snapshot at a given block.
 func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
-	if number == nil || *number == rpc.LatestBlockNumber {
-		header = api.chain.CurrentHeader()
-	} else {
-		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-	}
-	// Ensure we have an actually valid block and return its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	return api.proofofstake.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+	return nil, nil
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
 func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
-	header := api.chain.GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	return api.proofofstake.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+	return nil, nil
 }
 
 // GetSigners retrieves the list of authorized signers at the specified block.
 func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
-	if number == nil || *number == rpc.LatestBlockNumber {
-		header = api.chain.CurrentHeader()
-	} else {
-		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-	}
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-
-	snap, err := api.proofofstake.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
+	return nil, nil
 }
 
 // GetSignersAtHash retrieves the list of authorized signers at the specified block.
 func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
-	header := api.chain.GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	snap, err := api.proofofstake.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
+	return nil, nil
 }
 
 // Proposals returns the current proposals the node tries to uphold and vote on.
@@ -134,7 +95,7 @@ type status struct {
 // - the number of signers,
 // - the percentage of in-turn blocks
 func (api *API) Status() (*status, error) {
-	var (
+	/*var (
 		numBlocks = uint64(64)
 		header    = api.chain.CurrentHeader()
 		diff      = uint64(0)
@@ -176,7 +137,8 @@ func (api *API) Status() (*status, error) {
 		InturnPercent: float64(100*optimals) / float64(numBlocks),
 		SigningStatus: signStatus,
 		NumBlocks:     numBlocks,
-	}, nil
+	}, nil*/
+	return nil, nil
 }
 
 type blockNumberOrHashOrRLP struct {
@@ -230,7 +192,7 @@ func (api *API) GetSigner(rlpOrBlockNr *blockNumberOrHashOrRLP) (common.Address,
 // Validator api
 
 // GetValidators retrieves the list of authorized signers at the specified block.
-func (api *API) GetValidators() ([]common.Address, error) {
+func (api *API) GetValidators() (map[common.Address]*big.Int, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.CurrentHeader()
 	if header == nil {

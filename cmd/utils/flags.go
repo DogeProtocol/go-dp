@@ -649,6 +649,10 @@ var (
 		Name:  "nodekey",
 		Usage: "P2P node key file",
 	}
+	NodeKeyPasswordFlag = cli.StringFlag{
+		Name:  "nodekeypassword",
+		Usage: "P2P node key file",
+	}
 	NodeKeyHexFlag = cli.StringFlag{
 		Name:  "nodekeyhex",
 		Usage: "P2P node key as hex (for testing)",
@@ -797,20 +801,45 @@ func MakeDataDir(ctx *cli.Context) string {
 // from a file or as a specified hex value. If neither flags were provided, this
 // method returns nil and an emphemeral key is to be generated.
 func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
+	fmt.Println("setNodeKey")
 	var (
-		hex  = ctx.GlobalString(NodeKeyHexFlag.Name)
-		file = ctx.GlobalString(NodeKeyFileFlag.Name)
-		key  *signaturealgorithm.PrivateKey
-		err  error
+		hex      = ctx.GlobalString(NodeKeyHexFlag.Name)
+		file     = ctx.GlobalString(NodeKeyFileFlag.Name)
+		password = ctx.GlobalString(NodeKeyPasswordFlag.Name)
+		key      *signaturealgorithm.PrivateKey
+		err      error
 	)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", NodeKeyFileFlag.Name, NodeKeyHexFlag.Name)
 	case file != "":
-		if key, err = cryptobase.SigAlg.LoadPrivateKeyFromFile(file); err != nil {
-			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
+		if password != "" {
+			secretKey, err := ReadDataFile(file)
+			if err != nil {
+				Fatalf("ReadDataFile Option %q: %v", NodeKeyFileFlag.Name, err)
+			}
+
+			key, err := keystore.DecryptKey(secretKey, password)
+			if err != nil {
+				Fatalf("DecryptKey Option %q: %v", NodeKeyFileFlag.Name, err)
+			}
+			cfg.PrivateKey = key.PrivateKey
+			address, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PrivateKey.PublicKey)
+			if err != nil {
+				Fatalf("PublicKeyToAddress Option %q: %v", NodeKeyFileFlag.Name, err)
+			}
+			fmt.Println("NodeKey address is ", address)
+		} else {
+			if key, err = cryptobase.SigAlg.LoadPrivateKeyFromFile(file); err != nil {
+				Fatalf("LoadPrivateKeyFromFile Option %q: %v", NodeKeyFileFlag.Name, err)
+			}
+			cfg.PrivateKey = key
+			address, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+			if err != nil {
+				Fatalf("PublicKeyToAddress Option %q: %v", NodeKeyFileFlag.Name, err)
+			}
+			fmt.Println("NodeKey address is ", address)
 		}
-		cfg.PrivateKey = key
 	case hex != "":
 		if key, err = cryptobase.SigAlg.HexToPrivateKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
@@ -1931,4 +1960,22 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 		}
 		return action(ctx)
 	}
+}
+
+func ReadDataFile(filename string) ([]byte, error) {
+	// Open our jsonFile
+	jsonFile, err := os.Open(filename)
+	// if we os.Open returns an error then handle it
+	if err != nil {
+		fmt.Println("ReadDataFile", err.Error())
+	}
+
+	fmt.Println("Successfully Opened ", filename)
+	// defer the closing of our jsonFile so that we can parse it later on
+	defer jsonFile.Close()
+
+	// read our opened xmlFile as a byte array.
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	return byteValue, nil
 }

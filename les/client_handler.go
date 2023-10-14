@@ -18,6 +18,7 @@ package les
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -351,6 +352,8 @@ func (h *clientHandler) handleMsg(p *serverPeer) error {
 		p.fcServer.ResumeFreeze(bv)
 		p.unfreeze()
 		p.Log().Debug("Service resumed")
+	case msg.Code == ConsensusMsg:
+		fmt.Println("ConsensusMsg client handler")
 	default:
 		p.Log().Trace("Received invalid message", "code", msg.Code)
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)

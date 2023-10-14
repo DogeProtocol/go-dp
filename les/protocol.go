@@ -83,6 +83,8 @@ const (
 	// Protocol messages introduced in LPV3
 	StopMsg   = 0x16
 	ResumeMsg = 0x17
+
+	ConsensusMsg = 0x18
 )
 
 // GetBlockHeadersData represents a block header query (the request ID is not included)
@@ -225,7 +227,7 @@ func (e errCode) String() string {
 var errorToString = map[int]string{
 	ErrMsgTooLarge:             "Message too long",
 	ErrDecode:                  "Invalid message",
-	ErrInvalidMsgCode:          "Invalid message code",
+	ErrInvalidMsgCode:          "Invalid message code 5",
 	ErrProtocolVersionMismatch: "Protocol version mismatch",
 	ErrNetworkIdMismatch:       "NetworkId mismatch",
 	ErrGenesisBlockMismatch:    "Genesis block mismatch",

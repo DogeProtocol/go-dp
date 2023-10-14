@@ -19,13 +19,13 @@ package enode
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io"
 
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/p2p/enr"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // List of known secure identity schemes.
@@ -48,7 +48,7 @@ func SignV4(r *enr.Record, privkey *signaturealgorithm.PrivateKey) error {
 	cpy.Set(enr.ID("v4"))
 	cpy.Set(PqPubKey(privkey.PublicKey))
 
-	h := sha3.NewLegacyKeccak256()
+	h := hashingalgorithm.NewHashState()
 	rlp.Encode(h, cpy.AppendElements(nil))
 	sig, err := cryptobase.SigAlg.Sign(h.Sum(nil), privkey)
 	if err != nil {
@@ -68,7 +68,7 @@ func (V4ID) Verify(r *enr.Record, sig []byte) error {
 	} else if len(entry) != cryptobase.SigAlg.PublicKeyLength() {
 		return fmt.Errorf("invalid public key")
 	}
-	h := sha3.NewLegacyKeccak256()
+	h := hashingalgorithm.NewHashState()
 	rlp.Encode(h, r.AppendElements(nil))
 	if !cryptobase.SigAlg.Verify(entry, h.Sum(nil), sig) {
 		return enr.ErrInvalidSig

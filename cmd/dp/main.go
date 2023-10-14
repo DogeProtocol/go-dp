@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -130,6 +131,7 @@ var (
 		utils.DiscoveryV5Flag,
 		utils.NetrestrictFlag,
 		utils.NodeKeyFileFlag,
+		utils.NodeKeyPasswordFlag,
 		utils.NodeKeyHexFlag,
 		utils.DNSDiscoveryFlag,
 		utils.MainnetFlag,
@@ -255,6 +257,18 @@ func init() {
 
 func main() {
 	log.Info("Starting Geth")
+
+	cpuProf := os.Getenv("CPU_PROF")
+	if len(cpuProf) > 0 {
+		fmt.Println("CPU_PROF enabled. Starting CPU profiling.")
+		f, err := os.Create("cpu.prof")
+		if err != nil {
+			log.Error("profiling failed")
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

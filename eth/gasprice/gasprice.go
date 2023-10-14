@@ -19,7 +19,6 @@ package gasprice
 import (
 	"context"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
@@ -111,6 +110,7 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 	}
 }
 
+/*
 // SuggestTipCap returns a tip cap so that newly created transaction can have a
 // very high chance to be included in the following blocks.
 //
@@ -191,6 +191,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 
 	return new(big.Int).Set(price), nil
 }
+*/
 
 type results struct {
 	values []*big.Int
@@ -213,19 +214,20 @@ func (s *txSorter) Len() int { return len(s.txs) }
 func (s *txSorter) Swap(i, j int) {
 	s.txs[i], s.txs[j] = s.txs[j], s.txs[i]
 }
-func (s *txSorter) Less(i, j int) bool {
+
+/*func (s *txSorter) Less(i, j int) bool {
 	// It's okay to discard the error because a tx would never be
 	// accepted into a block with an invalid effective tip.
 	tip1, _ := s.txs[i].EffectiveGasTip(s.baseFee)
 	tip2, _ := s.txs[j].EffectiveGasTip(s.baseFee)
 	return tip1.Cmp(tip2) < 0
-}
+}*/
 
 // getBlockPrices calculates the lowest transaction gas price in a given block
 // and sends it to the result channel. If the block is empty or all transactions
 // are sent by the miner itself(it doesn't make any sense to include this kind of
 // transaction prices for sampling), nil gasprice is returned.
-func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, blockNum uint64, limit int, ignoreUnder *big.Int, result chan results, quit chan struct{}) {
+/*func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, blockNum uint64, limit int, ignoreUnder *big.Int, result chan results, quit chan struct{}) {
 	block, err := oracle.backend.BlockByNumber(ctx, rpc.BlockNumber(blockNum))
 	if block == nil {
 		select {
@@ -242,10 +244,10 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 
 	var prices []*big.Int
 	for _, tx := range sorter.txs {
-		tip, _ := tx.EffectiveGasTip(block.BaseFee())
-		if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
-			continue
-		}
+		//tip, _ := tx.EffectiveGasTip(block.BaseFee())
+		//if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
+		//	continue
+		//}
 		sender, err := types.Sender(signer, tx)
 		if err == nil && sender != block.Coinbase() {
 			prices = append(prices, tip)
@@ -254,11 +256,12 @@ func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, b
 			}
 		}
 	}
+
 	select {
 	case result <- results{prices, nil}:
 	case <-quit:
 	}
-}
+}*/
 
 type bigIntArray []*big.Int
 

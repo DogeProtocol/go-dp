@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -43,7 +44,6 @@ import (
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
 	lru "github.com/hashicorp/golang-lru"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -472,6 +472,10 @@ func (c *Clique) VerifyUncles(chain consensus.ChainReader, block *types.Block) e
 	return nil
 }
 
+func (c *Clique) VerifyBlock(chain consensus.ChainHeaderReader, block *types.Block) error {
+	return nil
+}
+
 // verifySeal checks whether the signature contained in the header satisfies the
 // consensus protocol requirements. The method accepts an optional list of parent
 // headers that aren't yet part of the local blockchain to generate the snapshots
@@ -599,9 +603,29 @@ func (c *Clique) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 	return nil
 }
 
+func (c *Clique) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
+	return false
+}
+
+func (c *Clique) HandleTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	return nil, nil
+}
+
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
 func (c *Clique) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	fmt.Println("FinalizeAndAssemble", header.Number)
+	// Finalize block
+	err := c.Finalize(chain, header, state, txs, uncles)
+	if err != nil {
+		return nil, err
+	}
+
+	// Assemble and return the final block for sealing
+	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil
+}
+
+func (c *Clique) FinalizeAndAssembleWithConsensus(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	fmt.Println("FinalizeAndAssemble", header.Number)
 	// Finalize block
 	err := c.Finalize(chain, header, state, txs, uncles)
@@ -740,9 +764,9 @@ func (c *Clique) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash(header *types.Header) (hash common.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
+	hasher := hashingalgorithm.NewHashState()
 	encodeSigHeader(hasher, header)
-	hasher.(crypto.KeccakState).Read(hash[:])
+	hasher.(hashingalgorithm.HashState).Read(hash[:])
 	return hash
 }
 

@@ -38,6 +38,71 @@ func TestBytesConversion(t *testing.T) {
 		t.Errorf("expected %x got %x", exp, hash)
 	}
 }
+func TestHashCopyFrom(t *testing.T) {
+	hash1 := BytesToHash([]byte{byte(25)})
+	var hash2 Hash
+	hash2.CopyFrom(hash1)
+
+	if hash1.IsEqualTo(hash2) == false {
+		t.Fatalf("failed")
+	}
+}
+
+func TestEqualToHash(t *testing.T) {
+	hash0 := BytesToHash([]byte{byte(0)})
+	hash1 := BytesToHash([]byte{byte(1)})
+	hash2 := BytesToHash([]byte{byte(1)})
+	hash3 := BytesToHash([]byte{byte(2)})
+
+	if hash0.IsEqualTo(hash1) == true {
+		t.Fatalf("failed")
+	}
+
+	if hash1.IsEqualTo(hash2) == false {
+		t.Fatalf("failed")
+	}
+
+	if hash2.IsEqualTo(hash3) == true {
+		t.Fatalf("failed")
+	}
+
+	if hash3.IsEqualTo(hash1) == true {
+		t.Fatalf("failed")
+	}
+}
+
+func TestAddressCopyFrom(t *testing.T) {
+	Address1 := BytesToAddress([]byte{byte(25)})
+	var Address2 Address
+	Address2.CopyFrom(Address1)
+
+	if Address1.IsEqualTo(Address2) == false {
+		t.Fatalf("failed")
+	}
+}
+
+func TestEqualToAddress(t *testing.T) {
+	Address0 := BytesToAddress([]byte{byte(0)})
+	Address1 := BytesToAddress([]byte{byte(1)})
+	Address2 := BytesToAddress([]byte{byte(1)})
+	Address3 := BytesToAddress([]byte{byte(2)})
+
+	if Address0.IsEqualTo(Address1) == true {
+		t.Fatalf("failed")
+	}
+
+	if Address1.IsEqualTo(Address2) == false {
+		t.Fatalf("failed")
+	}
+
+	if Address2.IsEqualTo(Address3) == true {
+		t.Fatalf("failed")
+	}
+
+	if Address3.IsEqualTo(Address1) == true {
+		t.Fatalf("failed")
+	}
+}
 
 func TestIsHexAddress(t *testing.T) {
 	tests := []struct {

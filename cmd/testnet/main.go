@@ -104,19 +104,20 @@ func main() {
 
 	rawURL = os.Getenv("GETH_URL")
 	accountPrimary = os.Getenv("GETH_ALLOC_ACCOUNT")
-	accountPrimaryPassword = os.Getenv("GETH_ALLOC_ACCOUNT_PASSWORD")
+	accountPrimaryPassword = os.Getenv("GETH_ACCOUNT_PASSWORD")
 	tokenInfoPath = os.Getenv("TOKENS_INFO")
 	dataFilePath = os.Getenv("GETH_DATA_PATH")
 	accountPassword = os.Getenv("GETH_ACCOUNT_PASSWORD")
 
 	account_history()
 
-	fmt.Println("Start  new account coin transaction...")
+	fmt.Println("Start new account coin transaction...")
 	go startTestCoinByNewAccount()
 
+	//fmt.Println("Start account to account coin transaction...")
+	go startTestCoinAccountByAccount()
 	/*
-		fmt.Println("Start account to account coin transaction...")
-		go startTestCoinAccountByAccount()
+
 
 		fmt.Println("Start new token...")
 		go startTestAccountByNewToken()
@@ -288,9 +289,7 @@ func startTestCoinByNewAccount() {
 
 		//Transfer fund
 		rand.Seed(time.Now().UnixNano())
-		min := int64(7)
-		max := int64(9)
-		amount := rand.Int63n(max-min) + min
+		amount := int64(100000)
 
 		trans, err := transferCoinToAccount(transAddress,
 			newAccount.Address.String(), amount, transKey.PrivateKey)
@@ -304,7 +303,8 @@ func startTestCoinByNewAccount() {
 		////accountHistory.Accounts = append(accountHistory.Accounts, acc)
 		////oldTime = time.Now()
 		//}
-		time.Sleep(185 * time.Second)
+		fmt.Println("sleeping for 30 seconds")
+		time.Sleep(30 * time.Second)
 		////time.Sleep(500 * time.Millisecond)
 	}
 }
@@ -323,28 +323,32 @@ func startTestCoinAccountByAccount() {
 
 		if accLen > 10 {
 			rand.Seed(time.Now().UnixNano())
-			min := int64(1)
+			//min := int64(1)
 
 			var max int64
+			fmt.Println("startTestCoinAccountByAccount1")
 			fmt.Sscan(accounts.Accounts[i].Amount, &max)
 
 			if max > 5 {
-				max := int64(5)
-				amount := rand.Int63n(max-min) + min
+				//max := int64(5)
+				amount := int64(100000)
 
 				//to Account selection
 				k := i + j
 				if k >= accLen {
 					k = k - accLen
 				}
-
+				fmt.Println("startTestCoinAccountByAccount2")
 				//Coin
 				secretKey, _ := ReadDataFile(accounts.Accounts[i].SecretKey)
 				key, _ := keystore.DecryptKey(secretKey, password)
 				trans, err := transferCoinToAccount(accounts.Accounts[i].Address,
 					accounts.Accounts[k].Address, amount, key.PrivateKey)
+				fmt.Println("startTestCoinAccountByAccount3")
 				if err != nil {
 					log.Println("Error occurred. transferCoinToAccount : " + trans + " : " + err.Error())
+					time.Sleep(9 * time.Second)
+					continue
 				}
 				fmt.Println("Start Transaction :")
 				fmt.Println("From", accounts.Accounts[i].Address)
@@ -364,7 +368,7 @@ func startTestCoinAccountByAccount() {
 		}
 
 		i++
-		if i >= accLen {
+		if i >= accLen && accLen > 0 {
 			accounts = accountHistory
 			accLen = len(accounts.Accounts)
 
@@ -394,10 +398,12 @@ func transferCoinToAccount(fromaddress string, toaddress string, amount int64,
 	fromAddress := common.HexToAddress(fromaddress)
 	toAddress := common.HexToAddress(toaddress)
 
+	fmt.Println("from", fromAddress, "to", toAddress, "amount", amount)
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return "1", err
 	}
+retry:
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
 		return "2", err
@@ -414,12 +420,16 @@ func transferCoinToAccount(fromaddress string, toaddress string, amount int64,
 
 	var data []byte
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), key)
+	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), key)
 	if err != nil {
 		return "4", err
 	}
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
+		if strings.Contains(err.Error(), "nonce too low") {
+			nonce = nonce + 1
+			goto retry
+		}
 		return "5", err
 	}
 	return signedTx.Hash().Hex(), nil

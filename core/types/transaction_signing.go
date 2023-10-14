@@ -18,12 +18,14 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
 	"math/big"
+	"runtime/debug"
 )
 
 var ErrInvalidChainId = errors.New("invalid chain id for signer")
@@ -126,8 +128,8 @@ func MustSignNewTx(prv *signaturealgorithm.PrivateKey, s Signer, txdata TxData) 
 	return tx
 }
 
-// Sender returns the address derived from the signature (V, R, S) using secp256k1
-// elliptic curve and an error if it failed deriving or upon an incorrect
+// Sender returns the address derived from the signature (V, R, S)
+// and an error if it failed deriving or upon an incorrect
 // signature.
 //
 // Sender may cache the address, allowing it to be used regardless of
@@ -190,7 +192,7 @@ func (s londonSigner) Sender(tx *Transaction) (common.Address, error) {
 		return s.eip2930Signer.Sender(tx)
 	}
 	V, R, S := tx.RawSignatureValues()
-	// DynamicFee txs are defined to use 0 and 1 as their recovery
+	// DynamicFee txns are defined to use 0 and 1 as their recovery
 	// id, add 27 to become equivalent to unprotected Homestead signatures.
 	V = new(big.Int).Add(V, big.NewInt(27))
 	if tx.ChainId().Cmp(s.chainId) != 0 {
@@ -272,7 +274,7 @@ func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
 		V = new(big.Int).Sub(V, s.chainIdMul)
 		V.Sub(V, big8)
 	case AccessListTxType:
-		// AL txs are defined to use 0 and 1 as their recovery
+		// AL txns are defined to use 0 and 1 as their recovery
 		// id, add 27 to become equivalent to unprotected Homestead signatures.
 		V = new(big.Int).Add(V, big.NewInt(27))
 	default:
@@ -352,7 +354,10 @@ type EIP155Signer struct {
 func NewEIP155Signer(chainId *big.Int) EIP155Signer {
 	if chainId == nil {
 		chainId = new(big.Int)
+		fmt.Println("nilchainid")
+		debug.PrintStack()
 	}
+	//fmt.Println("NewEIP155Signer", chainId)
 	return EIP155Signer{
 		chainId:    chainId,
 		chainIdMul: new(big.Int).Mul(chainId, big.NewInt(2)),
@@ -410,6 +415,7 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
+	fmt.Println("EIP155Signer txhash", "nonce", tx.Nonce(), "gasprice", tx.GasPrice(), "gas", tx.Gas(), "to", tx.To(), "value", tx.Value(), "data", tx.Data(), "chain", s.chainId)
 	return rlpHash([]interface{}{
 		tx.Nonce(),
 		tx.GasPrice(),

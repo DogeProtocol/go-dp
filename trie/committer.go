@@ -19,11 +19,10 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/crypto"
-	"golang.org/x/crypto/sha3"
 )
 
 // leafChanSize is the size of the leafCh. It's a pretty arbitrary number, to allow
@@ -45,7 +44,7 @@ type leaf struct {
 // processed sequentially - onleaf will never be called in parallel or out of order.
 type committer struct {
 	tmp sliceBuffer
-	sha crypto.KeccakState
+	sha hashingalgorithm.HashState
 
 	onleaf LeafCallback
 	leafCh chan *leaf
@@ -56,7 +55,7 @@ var committerPool = sync.Pool{
 	New: func() interface{} {
 		return &committer{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-			sha: sha3.NewLegacyKeccak256().(crypto.KeccakState),
+			sha: hashingalgorithm.NewHashState(),
 		}
 	},
 }

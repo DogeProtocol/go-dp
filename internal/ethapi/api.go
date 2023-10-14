@@ -62,24 +62,25 @@ func NewPublicEthereumAPI(b Backend) *PublicEthereumAPI {
 
 // GasPrice returns a suggestion for a gas price for legacy transactions.
 func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
-	tipcap, err := s.b.SuggestGasTipCap(ctx)
+	/*tipcap, err := s.b.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if head := s.b.CurrentHeader(); head.BaseFee != nil {
 		tipcap.Add(tipcap, head.BaseFee)
 	}
-	return (*hexutil.Big)(tipcap), err
+	return (*hexutil.Big)(tipcap), err*/
+	return (*hexutil.Big)(s.b.CurrentHeader().BaseFee), nil
 }
 
 // MaxPriorityFeePerGas returns a suggestion for a gas tip cap for dynamic fee transactions.
-func (s *PublicEthereumAPI) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
+/*func (s *PublicEthereumAPI) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
 	tipcap, err := s.b.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return (*hexutil.Big)(tipcap), err
-}
+}*/
 
 type feeHistoryResult struct {
 	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
@@ -715,6 +716,10 @@ func (s *PublicBlockChainAPI) GetHeaderByNumber(ctx context.Context, number rpc.
 	return nil, err
 }
 
+func (s *PublicBlockChainAPI) GetHeaderByNumberInner(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
+	return s.b.HeaderByNumber(ctx, number)
+}
+
 // GetHeaderByHash returns the requested header by hash.
 func (s *PublicBlockChainAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) map[string]interface{} {
 	header, _ := s.b.HeaderByHash(ctx, hash)
@@ -824,6 +829,20 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 	}
 	res := state.GetState(address, common.HexToHash(key))
 	return res[:], state.Error()
+}
+
+func (s *PublicBlockChainAPI) DoesFinalizedTransactionExist(ctx context.Context, hash common.Hash) (bool, error) {
+	// Try to return an already finalized transaction
+	tx, _, _, _, err := s.b.GetTransaction(ctx, hash)
+	if err != nil {
+		return false, err
+	}
+	if tx != nil {
+		return true, nil
+	}
+
+	// Transaction unknown, return as such
+	return false, nil
 }
 
 // OverrideAccount indicates the overriding fields of account during the execution
@@ -1631,7 +1650,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		if err != nil {
 			return nil, err
 		}
-		gasPrice := new(big.Int).Add(header.BaseFee, tx.EffectiveGasTipValue(header.BaseFee))
+		gasPrice := header.BaseFee
 		fields["effectiveGasPrice"] = hexutil.Uint64(gasPrice.Uint64())
 	}
 	// Assign receipt status or post state.

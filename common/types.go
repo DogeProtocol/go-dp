@@ -23,13 +23,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"math/rand"
 	"reflect"
 	"strings"
 
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"golang.org/x/crypto/sha3"
 )
 
 // Lengths of hashes and addresses in bytes.
@@ -148,6 +148,14 @@ func (h *Hash) SetBytes(b []byte) {
 	copy(h[HashLength-len(b):], b)
 }
 
+func (h *Hash) CopyFrom(fromHash Hash) {
+	h.SetBytes(fromHash.Bytes())
+}
+
+func (h *Hash) IsEqualTo(other Hash) bool {
+	return bytes.Compare(h.Bytes(), other.Bytes()) == 0
+}
+
 // Generate implements testing/quick.Generator.
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 	m := rand.Intn(len(h))
@@ -257,7 +265,7 @@ func (a *Address) checksumHex() []byte {
 	buf := a.hex()
 
 	// compute checksum
-	sha := sha3.NewLegacyKeccak256()
+	sha := hashingalgorithm.NewHashState()
 	sha.Write(buf[2:])
 	hash := sha.Sum(nil)
 	for i := 2; i < len(buf); i++ {
@@ -316,6 +324,14 @@ func (a *Address) SetBytes(b []byte) {
 		b = b[len(b)-AddressLength:]
 	}
 	copy(a[AddressLength-len(b):], b)
+}
+
+func (a *Address) CopyFrom(fromAddress Address) {
+	a.SetBytes(fromAddress.Bytes())
+}
+
+func (a *Address) IsEqualTo(other Address) bool {
+	return bytes.Compare(a.Bytes(), other.Bytes()) == 0
 }
 
 // MarshalText returns the hex representation of a.

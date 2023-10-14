@@ -410,12 +410,13 @@ type dialTestRound struct {
 
 func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
 	var (
-		clock    = new(mclock.Simulated)
-		iterator = newDialTestIterator()
-		dialer   = newDialTestDialer()
-		resolver = new(dialTestResolver)
-		peers    = make(map[enode.ID]*conn)
-		setupCh  = make(chan *conn)
+		clock      = new(mclock.Simulated)
+		iterator   = newDialTestIterator()
+		dialer     = newDialTestDialer()
+		resolver   = new(dialTestResolver)
+		peers      = make(map[enode.ID]*conn)
+		setupCh    = make(chan *conn)
+		peerConnCh = make(chan *enode.Node)
 	)
 
 	// Override config.
@@ -434,7 +435,7 @@ func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
 		setupCh <- conn
 		return nil
 	}
-	dialsched = newDialScheduler(config, iterator, setup)
+	dialsched = newDialScheduler(config, iterator, setup, peerConnCh)
 	defer dialsched.stop()
 
 	for i, round := range rounds {

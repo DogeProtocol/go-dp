@@ -85,13 +85,15 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend) error {
 	if args.MaxPriorityFeePerGas == nil || args.MaxFeePerGas == nil {
 		// In this clause, user left some fields unspecified.
 		if b.ChainConfig().IsLondon(head.Number) && args.GasPrice == nil {
-			if args.MaxPriorityFeePerGas == nil {
+			/*if args.MaxPriorityFeePerGas == nil {
 				tip, err := b.SuggestGasTipCap(ctx)
 				if err != nil {
 					return err
 				}
 				args.MaxPriorityFeePerGas = (*hexutil.Big)(tip)
-			}
+			}*/
+			args.MaxPriorityFeePerGas = (*hexutil.Big)(head.BaseFee)
+
 			if args.MaxFeePerGas == nil {
 				gasFeeCap := new(big.Int).Add(
 					(*big.Int)(args.MaxPriorityFeePerGas),
@@ -107,17 +109,18 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend) error {
 				return errors.New("maxFeePerGas or maxPriorityFeePerGas specified but london is not active yet")
 			}
 			if args.GasPrice == nil {
-				price, err := b.SuggestGasTipCap(ctx)
+				/*price, err := b.SuggestGasTipCap(ctx)
 				if err != nil {
 					return err
 				}
+				price := (*hexutil.Big)(0)
 				if b.ChainConfig().IsLondon(head.Number) {
 					// The legacy tx gas price suggestion should not add 2x base fee
 					// because all fees are consumed, so it would result in a spiral
 					// upwards.
 					price.Add(price, head.BaseFee)
-				}
-				args.GasPrice = (*hexutil.Big)(price)
+				}*/
+				args.GasPrice = (*hexutil.Big)(head.BaseFee)
 			}
 		}
 	}

@@ -17,16 +17,17 @@
 package proofofstake
 
 import (
-	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"math/big"
-	"testing"
-
+	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
+	"math/big"
+	"testing"
 )
 
 // This test case is a repro of an annoying bug that took us forever to catch.
@@ -125,8 +126,128 @@ func TestSealHash(t *testing.T) {
 		Extra:      make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength()),
 		BaseFee:    new(big.Int),
 	})
-	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f")
+	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f") //sha3
+	//want := common.HexToHash("0xe28be2bd8ff4897d07cd4fbb59b291de87746ac2cf264f57b3b696c3ddf9f99b") //sha3sha256
 	if have != want {
 		t.Errorf("have %x, want %x", have, want)
 	}
+}
+
+func TestFlattenTxnMap(t *testing.T) {
+	txnList, txnAddressMap := flattenTxnMap(nil)
+	if txnList != nil && txnAddressMap != nil {
+		t.Fatalf("failed")
+	}
+
+	// Generate a batch of accounts to start with
+	keys := make([]*signaturealgorithm.PrivateKey, 4)
+	for i := 0; i < len(keys); i++ {
+		keys[i], _ = cryptobase.SigAlg.GenerateKey()
+	}
+	signer := types.HomesteadSigner{}
+
+	groups := map[common.Address]types.Transactions{}
+	txnCount := 0
+	overallCount := 0
+	for _, key := range keys {
+		addr := cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
+		txnCount = txnCount + 1
+		for i := 0; i < txnCount; i++ {
+			tx, _ := types.SignTx(types.NewTransaction(uint64(i), common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+			overallCount = overallCount + 1
+			groups[addr] = append(groups[addr], tx)
+			fmt.Println("txhash", tx.Hash(), addr)
+		}
+	}
+
+	txnList, txnAddressMap = flattenTxnMap(groups)
+	if txnList == nil && txnAddressMap == nil {
+		t.Fatalf("failed")
+	}
+
+	if len(txnList) != overallCount {
+		t.Fatalf("failed")
+	}
+
+	if len(txnAddressMap) != overallCount {
+		t.Fatalf("failed")
+	}
+
+	for addr, txns := range groups {
+		for _, txn := range txns {
+			addrResult, ok := txnAddressMap[txn.Hash()]
+			if ok == false {
+				t.Fatalf("failed")
+			}
+			if addr.IsEqualTo(addrResult) == false {
+				t.Fatalf("failed")
+			}
+		}
+	}
+
+	for txnhash, addr := range txnAddressMap {
+		addrResult, ok := groups[addr]
+		if ok == false {
+			t.Fatalf("failed")
+		}
+		found := false
+		for _, t := range addrResult {
+			hash := t.Hash()
+			if hash.IsEqualTo(txnhash) {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			t.Fatalf("failed")
+		}
+	}
+
+	resultMap, err := recreateTxnMap(txnList, txnAddressMap, groups)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+
+	for k, v := range groups {
+		txns, ok := resultMap[k]
+		if ok == false {
+			t.Fatalf("failed")
+		}
+
+		for _, t1 := range v {
+			found := false
+			for _, t2 := range txns {
+				t2hash := t2.Hash()
+				if t2hash.IsEqualTo(t1.Hash()) {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				t.Fatalf("failed")
+			}
+		}
+	}
+
+	for k, v := range resultMap {
+		txns, ok := groups[k]
+		if ok == false {
+			t.Fatalf("failed")
+		}
+
+		for _, t1 := range v {
+			found := false
+			for _, t2 := range txns {
+				t2hash := t2.Hash()
+				if t2hash.IsEqualTo(t1.Hash()) {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				t.Fatalf("failed")
+			}
+		}
+	}
+
 }

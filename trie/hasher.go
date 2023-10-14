@@ -17,11 +17,10 @@
 package trie
 
 import (
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"sync"
 
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 type sliceBuffer []byte
@@ -38,7 +37,7 @@ func (b *sliceBuffer) Reset() {
 // hasher is a type used for the trie Hash operation. A hasher has some
 // internal preallocated temp space
 type hasher struct {
-	sha      crypto.KeccakState
+	sha      hashingalgorithm.HashState
 	tmp      sliceBuffer
 	parallel bool // Whether to use paralallel threads when hashing
 }
@@ -48,7 +47,7 @@ var hasherPool = sync.Pool{
 	New: func() interface{} {
 		return &hasher{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-			sha: sha3.NewLegacyKeccak256().(crypto.KeccakState),
+			sha: hashingalgorithm.NewHashState(),
 		}
 	},
 }

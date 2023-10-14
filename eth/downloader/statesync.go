@@ -18,17 +18,16 @@ package downloader
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"sync"
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/state"
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 // stateReq represents a batch of state fetch requests grouped together into
@@ -260,9 +259,9 @@ func (d *Downloader) spindownStateSync(active map[string]*stateReq, finished []*
 type stateSync struct {
 	d *Downloader // Downloader instance to access and manage current peerset
 
-	root   common.Hash        // State root currently being synced
-	sched  *trie.Sync         // State trie sync scheduler defining the tasks
-	keccak crypto.KeccakState // Keccak256 hasher to verify deliveries with
+	root   common.Hash                // State root currently being synced
+	sched  *trie.Sync                 // State trie sync scheduler defining the tasks
+	keccak hashingalgorithm.HashState // Keccak256 hasher to verify deliveries with
 
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
 	codeTasks map[common.Hash]*codeTask // Set of byte code tasks currently queued for retrieval
@@ -299,7 +298,7 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 		d:         d,
 		root:      root,
 		sched:     state.NewStateSync(root, d.stateDB, d.stateBloom, nil),
-		keccak:    sha3.NewLegacyKeccak256().(crypto.KeccakState),
+		keccak:    hashingalgorithm.NewHashState(),
 		trieTasks: make(map[common.Hash]*trieTask),
 		codeTasks: make(map[common.Hash]*codeTask),
 		deliver:   make(chan *stateReq),

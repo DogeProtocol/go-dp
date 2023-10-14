@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"strconv"
 	"strings"
@@ -37,7 +38,6 @@ import (
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // StateTest checks transaction processing without block context.
@@ -356,7 +356,7 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Messa
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewLegacyKeccak256()
+	hw := hashingalgorithm.NewHashState()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h

@@ -17,45 +17,18 @@
 package crypto
 
 import (
-	"errors"
-	"hash"
-
-	"math/big"
-
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 
 	"github.com/DogeProtocol/dp/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
-//SignatureLength indicates the byte length required to carry a signature with recovery id.
-
-// RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
-
-// DigestLength sets the signature digest exact length
-
-var (
-	secp256k1N, _  = new(big.Int).SetString("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
-	secp256k1halfN = new(big.Int).Div(secp256k1N, big.NewInt(2))
-)
-
-var errInvalidPubkey = errors.New("invalid secp256k1 public key")
-
-// KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
-// Read to get a variable amount of data from the hash state. Read is faster than Sum
-// because it doesn't copy the internal state, but also modifies the internal state.
-type KeccakState interface {
-	hash.Hash
-	Read([]byte) (int, error)
+func HashDataToBytes(data []byte) []byte {
+	return Keccak256(data)
 }
 
-// NewKeccakState creates a new KeccakState
-func NewKeccakState() KeccakState {
-	return sha3.NewLegacyKeccak256().(KeccakState)
-}
-
-// HashData hashes the provided data using the KeccakState and returns a 32 byte hash
-func HashData(kh KeccakState, data []byte) (h common.Hash) {
+func HashData(kh hashingalgorithm.HashState, data []byte) (h common.Hash) {
 	kh.Reset()
 	kh.Write(data)
 	kh.Read(h[:])
@@ -65,7 +38,7 @@ func HashData(kh KeccakState, data []byte) (h common.Hash) {
 // Keccak256 calculates and returns the Keccak256 hash of the input data.
 func Keccak256(data ...[]byte) []byte {
 	b := make([]byte, 32)
-	d := NewKeccakState()
+	d := hashingalgorithm.NewHashState()
 	for _, b := range data {
 		d.Write(b)
 	}
@@ -76,7 +49,7 @@ func Keccak256(data ...[]byte) []byte {
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
 func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	d := NewKeccakState()
+	d := hashingalgorithm.NewHashState()
 	for _, b := range data {
 		d.Write(b)
 	}

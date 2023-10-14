@@ -2,17 +2,34 @@ package proofofstake
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rpc"
-	"github.com/DogeProtocol/dp/systemcontracts"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
+	"math/big"
 )
 
-func (p *ProofOfStake) GetValidatorsAddress(blockHash common.Hash) ([]common.Address, error) {
+func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
 
-	err := systemcontracts.IsStakingContract()
+	_, err := p.GetDepositorCount(blockHash)
+	if err != nil {
+		//fmt.Println("depositor count error", err)
+	} else {
+		//fmt.Println("depositorCount", depositorCount)
+	}
+
+	_, err = p.GetTotalDepositedBalance(blockHash)
+	if err != nil {
+		//fmt.Println("totalDepositedBalance error", err)
+	} else {
+		//fmt.Println("totalDepositedBalance", totalDepositedBalance)
+	}
+
+	err = staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
@@ -20,17 +37,17 @@ func (p *ProofOfStake) GetValidatorsAddress(blockHash common.Hash) ([]common.Add
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
-	method := systemcontracts.GetContract_Method_ListValidator()
-	abiData, err := systemcontracts.GetStakingContract_ABI()
+	method := staking.GetContract_Method_ListValidators()
+	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetValidatorsAddress error getting abidata", err)
+		log.Error("GetValidators error getting abidata", err)
 		return nil, err
 	}
-	contractAddress := common.HexToAddress(systemcontracts.GetStakingContract_Address_String())
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 	// call
 	data, err := abiData.Pack(method)
 	if err != nil {
-		log.Error("Unable to pack tx for get validators", "error", err)
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
 		return nil, err
 	}
 	// block
@@ -44,14 +61,17 @@ func (p *ProofOfStake) GetValidatorsAddress(blockHash common.Hash) ([]common.Add
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
+		//fmt.Println("call error", err)
 		return nil, err
 	}
 	if len(result) == 0 {
+		//fmt.Println("result 0 length")
 		return nil, nil
 	}
 
-	_, err = abiData.Unpack("listValidator", result)
+	_, err = abiData.Unpack(method, result)
 	if err != nil {
+		log.Error("Unpack", err)
 		return nil, err
 	}
 
@@ -65,15 +85,37 @@ func (p *ProofOfStake) GetValidatorsAddress(blockHash common.Hash) ([]common.Add
 		return nil, err
 	}
 
-	valz := make([]common.Address, len(*ret0))
-	for i, a := range *out {
-		valz[i] = a
+	//valz := make([]common.Address, len(*ret0))
+
+	proposalsTxnsMap := make(map[common.Address]*big.Int)
+	//fmt.Println("len", len(*ret0))
+	for _, val := range *out {
+		//valz[i] = val
+		depositor, err := p.GetDepositorOfValidator(val, blockHash)
+		if err != nil {
+			fmt.Println("GetDepositorOfValidator failed", err)
+			continue
+		}
+
+		if depositor.IsEqualTo(ZERO_ADDRESS) {
+			return nil, errors.New("invalid depositor")
+		}
+
+		balance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
+		if err != nil {
+			fmt.Println("GetBalanceOfDepositor failed", err)
+			continue
+		}
+
+		proposalsTxnsMap[val] = balance
+		fmt.Println("validator", val, "depositor", depositor, "depositAmount", balance)
 	}
-	return valz, nil
+
+	return proposalsTxnsMap, nil
 }
 
-func (p *ProofOfStake) GetDepositor(validator common.Address, blockHash common.Hash) (common.Address, error) {
-	err := systemcontracts.IsStakingContract()
+func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHash common.Hash) (common.Address, error) {
+	err := staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return common.Address{}, err
@@ -81,13 +123,13 @@ func (p *ProofOfStake) GetDepositor(validator common.Address, blockHash common.H
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
-	method := systemcontracts.GetContract_Method_GetDepositor()
-	abiData, err := systemcontracts.GetStakingContract_ABI()
+	method := staking.GetContract_Method_GetDepositorOfValidator()
+	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetDepositor abi error", err)
+		log.Error("GetDepositorOfValidator abi error", err)
 		return common.Address{}, err
 	}
-	contractAddress := common.HexToAddress(systemcontracts.GetStakingContract_Address_String())
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 
 	// call
 	data, err := abiData.Pack(method, validator)
@@ -108,7 +150,7 @@ func (p *ProofOfStake) GetDepositor(validator common.Address, blockHash common.H
 		return common.Address{}, err
 	}
 	if len(result) == 0 {
-		return common.Address{}, err
+		return common.Address{}, errors.New("no depositor found")
 	}
 
 	var (
@@ -123,60 +165,154 @@ func (p *ProofOfStake) GetDepositor(validator common.Address, blockHash common.H
 	return *out, nil
 }
 
-func (p *ProofOfStake) GetValidators(blockHash common.Hash) ([]common.Address, error) {
-
-	err := systemcontracts.IsStakingContract()
+func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockHash common.Hash) (*big.Int, error) {
+	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT : Contract address is empty")
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
-	//blockNumber = new(big.Int).SetUint64(172)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
-	method := systemcontracts.GetContract_Method_ListValidator()
-	abiData, err := systemcontracts.GetStakingContract_ABI()
+	method := staking.GetContract_Method_GetBalanceOfDepositor()
+	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetValidators abi error", err)
+		log.Error("GetNetBalanceOfDepositor abi error", err)
 		return nil, err
 	}
-	contractAddress := common.HexToAddress(systemcontracts.GetStakingContract_Address_String())
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 
 	// call
-	data, err := abiData.Pack(method)
+	data, err := abiData.Pack(method, depositor)
 	if err != nil {
-		log.Error("Unable to pack tx for get validators", "error", err)
+		log.Error("Unable to pack tx for GetNetBalanceOfDepositor", "error", err)
 		return nil, err
 	}
 	// block
 	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
 
 	msgData := (hexutil.Bytes)(data)
-	//gas := (hexutil.Uint64)(uint64(math.MaxUint64 / 2))
 	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
 		//Gas:  &gas,
 		To:   &contractAddress,
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
+		log.Error("Call", err)
 		return nil, err
 	}
 	if len(result) == 0 {
+		return nil, errors.New("GetBalanceOfDepositor result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
 		return nil, err
 	}
 
-	var (
-		ret0 = new([]common.Address)
-	)
-	out := ret0
+	return out, nil
+}
 
-	if err := abiData.UnpackIntoInterface(out, method, result); err != nil {
+func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_GetDepositorCount()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		//fmt.Println("GetDepositorCount abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method)
+	if err != nil {
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
+		return nil, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		//fmt.Println("Call", err)
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, errors.New("GetDepositorCount result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err)
 		return nil, err
 	}
 
-	valz := make([]common.Address, len(*ret0))
-	for i, a := range *out {
-		valz[i] = a
+	return out, nil
+}
+
+func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
 	}
-	return valz, nil
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_GetTotalDepositedBalance()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		//fmt.Println("GetTotalDepositedBalance abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method)
+	if err != nil {
+		log.Error("Unable to pack tx for get filteredValidatorsDepositMap", "error", err)
+		return nil, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		//fmt.Println("Call", err)
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, errors.New("GetTotalDepositedBalance result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err)
+		return nil, err
+	}
+
+	return out, nil
 }

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/trie"
 	"math/big"
 	"runtime"
@@ -34,7 +35,6 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	mapset "github.com/deckarep/golang-set"
-	"golang.org/x/crypto/sha3"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -573,6 +573,14 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainHeaderReader, header *type
 	return nil
 }
 
+func (ethash *Ethash) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
+	return false
+}
+
+func (ethash *Ethash) VerifyBlock(chain consensus.ChainHeaderReader, block *types.Block) error {
+	return nil
+}
+
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
@@ -582,6 +590,11 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 	}
 	header.Difficulty = ethash.CalcDifficulty(chain, header.Time, parent)
 	return nil
+}
+
+// SelectTransactions selects the transactions for including in the block according to the consensus rules.
+func (ethash *Ethash) HandleTransactions(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error) {
+	return nil, nil
 }
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
@@ -603,9 +616,17 @@ func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainHeaderReader, hea
 	return types.NewBlock(header, txs, uncles, receipts, trie.NewStackTrie(nil)), nil
 }
 
+func (ethash *Ethash) FinalizeAndAssembleWithConsensus(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+	// Finalize block
+	ethash.Finalize(chain, header, state, txs, uncles)
+
+	// Header seems complete, assemble into a block and return
+	return types.NewBlock(header, txs, uncles, receipts, trie.NewStackTrie(nil)), nil
+}
+
 // SealHash returns the hash of a block prior to it being sealed.
 func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
+	hasher := hashingalgorithm.NewHashState()
 
 	enc := []interface{}{
 		header.ParentHash,

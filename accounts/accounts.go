@@ -20,12 +20,12 @@ package accounts
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/event"
-	"golang.org/x/crypto/sha3"
 )
 
 // Account represents an Ethereum account located at a specific location defined
@@ -197,7 +197,7 @@ func TextHash(data []byte) []byte {
 // This gives context to the signed message and prevents signing of transactions.
 func TextAndHash(data []byte) ([]byte, string) {
 	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), string(data))
-	hasher := sha3.NewLegacyKeccak256()
+	hasher := hashingalgorithm.NewHashState()
 	hasher.Write([]byte(msg))
 	return hasher.Sum(nil), msg
 }

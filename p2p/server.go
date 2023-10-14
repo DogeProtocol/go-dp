@@ -63,9 +63,22 @@ const (
 
 	// Maximum amount of time allowed for writing a complete message.
 	frameWriteTimeout = 60 * time.Second
+
+	maxPeers = 32
+
+	startPeerLookupLoopCount = 30
+	startPeerLookupInterval  = 10 * time.Second
+	peerLookupInterval       = 300 * time.Second
+
+	connectNodesLoopCount     = 10
+	startConnectNodesInterval = 30 * time.Second
+	connectnodesInterval      = 300 * time.Second
+	staleNodeMaxAgeInterval   = 72 * time.Hour
 )
 
 var errServerStopped = errors.New("server stopped")
+
+type RequestPeers func() error
 
 // Config holds Server options.
 type Config struct {
@@ -198,6 +211,14 @@ type Server struct {
 
 	// State of run loop and listenLoop.
 	inboundHistory expHeap
+
+	requestPeersFn RequestPeers
+	peerTicker     *time.Ticker
+	peerLoopCount  uint16
+	peerConnCh     chan *enode.Node
+
+	connectNodesTicker    *time.Ticker
+	connectNodesLoopCount uint16
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -321,7 +342,7 @@ func (srv *Server) PeerCount() int {
 // the server will connect to the node. If the connection fails for any reason, the server
 // will attempt to reconnect the peer.
 func (srv *Server) AddPeer(node *enode.Node) {
-	srv.dialsched.addStatic(node)
+	srv.dialsched.addNode(node)
 }
 
 // RemovePeer removes a node from the static node set. It also disconnects from the given
@@ -386,6 +407,24 @@ func (srv *Server) Self() *enode.Node {
 		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	}
 	return ln.Node()
+}
+
+func (srv *Server) SetRequestPeersFn(fun RequestPeers) {
+	srv.requestPeersFn = fun
+}
+
+func (srv *Server) HandlePeerList(peerList []string) error {
+	for _, peerEnr := range peerList {
+		node, err := enode.ParseNode(peerEnr)
+		if err != nil {
+			continue
+		}
+		if srv.Self().ID().String() == node.ID().String() {
+			continue
+		}
+		srv.AddPeer(node)
+	}
+	return nil
 }
 
 // Stop terminates the server and all active peer connections.
@@ -546,8 +585,7 @@ func (srv *Server) setupDiscovery() error {
 	added := make(map[string]bool)
 	for _, proto := range srv.Protocols {
 		if proto.DialCandidates != nil && !added[proto.Name] {
-
-			srv.discmix.AddSource(proto.DialCandidates)
+			srv.discmix.AddSource(proto.DialCandidates, "DialCandidates")
 			added[proto.Name] = true
 		}
 	}
@@ -598,7 +636,7 @@ func (srv *Server) setupDiscovery() error {
 			return err
 		}
 		srv.ntab = ntab
-		srv.discmix.AddSource(ntab.RandomNodes())
+		srv.discmix.AddSource(ntab.RandomNodes(), "RandomNodes")
 	}
 
 	// Discovery V5
@@ -639,9 +677,14 @@ func (srv *Server) setupDialScheduler() {
 	if config.dialer == nil {
 		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
 	}
-	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
+	srv.peerConnCh = make(chan *enode.Node)
+	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn, srv.peerConnCh)
 	for _, n := range srv.StaticNodes {
 		srv.dialsched.addStatic(n)
+	}
+
+	for _, n := range srv.BootstrapNodes {
+		srv.dialsched.addNode(n)
 	}
 }
 
@@ -687,6 +730,7 @@ func (srv *Server) setupListening() error {
 
 	srv.loopWG.Add(1)
 	go srv.listenLoop()
+	go srv.peerLoop()
 	return nil
 }
 
@@ -717,6 +761,7 @@ func (srv *Server) run() {
 	for _, n := range srv.TrustedNodes {
 		trusted[n.ID()] = true
 	}
+	go srv.connectNodes()
 
 running:
 	for {
@@ -836,6 +881,60 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 	return srv.postHandshakeChecks(peers, inboundCount, c)
 }
 
+func (srv *Server) connectNodes() {
+	srv.connectNodesTicker = time.NewTicker(startConnectNodesInterval)
+	defer srv.connectNodesTicker.Stop()
+	for {
+		select {
+		case <-srv.quit:
+			return
+		case <-srv.connectNodesTicker.C:
+			if len(srv.dialsched.peers) < maxPeers {
+				nodes := srv.nodedb.QueryNodes(maxPeers, staleNodeMaxAgeInterval)
+				if nodes == nil {
+					log.Trace("QueryNodes is nil")
+					return
+				}
+
+				log.Trace("connectNodes", "count", len(nodes))
+				for _, node := range nodes {
+					log.Trace("Adding previously connected node", "IP", node.IP())
+					srv.dialsched.addNode(node)
+				}
+			}
+
+			if srv.connectNodesLoopCount < connectNodesLoopCount {
+				srv.connectNodesLoopCount = srv.connectNodesLoopCount + 1
+			} else if srv.connectNodesLoopCount == connectNodesLoopCount { //less noisy
+				srv.connectNodesTicker.Reset(connectnodesInterval)
+			}
+		}
+	}
+}
+
+func (srv *Server) peerLoop() {
+	srv.peerTicker = time.NewTicker(startPeerLookupInterval)
+	defer srv.peerTicker.Stop()
+	for {
+		select {
+		case peerNode := <-srv.peerConnCh:
+			srv.nodedb.UpsertNode(peerNode)
+		case <-srv.quit:
+			return
+		case <-srv.peerTicker.C:
+			if len(srv.dialsched.peers) < maxPeers {
+				srv.requestPeersFn()
+			}
+
+			if srv.peerLoopCount < startPeerLookupLoopCount {
+				srv.peerLoopCount = srv.peerLoopCount + 1
+			} else if srv.peerLoopCount == startPeerLookupLoopCount { //less noisy
+				srv.peerTicker.Reset(peerLookupInterval)
+			}
+		}
+	}
+}
+
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
@@ -871,7 +970,6 @@ func (srv *Server) listenLoop() {
 			lastLog time.Time
 		)
 		for {
-
 			fd, err = srv.listener.Accept()
 
 			if netutil.IsTemporaryError(err) {

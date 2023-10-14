@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"testing"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -157,7 +157,7 @@ func BenchmarkHashing(b *testing.B) {
 		blockRlp, _ = rlp.EncodeToBytes(block)
 	}
 	var got common.Hash
-	var hasher = sha3.NewLegacyKeccak256()
+	var hasher = hashingalgorithm.NewHashState()
 	b.Run("iteratorhashing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

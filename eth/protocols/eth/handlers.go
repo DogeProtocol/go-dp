@@ -518,3 +518,89 @@ func handlePooledTransactions66(backend Backend, msg Decoder, peer *Peer) error 
 
 	return backend.Handle(peer, &txs.PooledTransactionsPacket)
 }
+
+func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
+	_, err := peer.Node().Address()
+	if err != nil {
+		//fmt.Println("handleConsensus Address error", err)
+		return err
+	}
+
+	// Block Proposal Transactions arrived, make sure we have a valid and fresh chain to handle them
+	if !backend.AcceptTxs() {
+		return nil
+	}
+
+	// Transactions can be processed, parse all of them and deliver to the pool
+	var packet ConsensusPacket
+	if err := msg.Decode(&packet); err != nil {
+		//fmt.Println("handleConsensus error", err)
+		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	}
+	err = backend.Handle(peer, &packet)
+	if err != nil {
+		log.Trace("handleConsensus", "err", err)
+	}
+	return nil
+}
+
+func handleRequestConsensus(backend Backend, msg Decoder, peer *Peer) error {
+	_, err := peer.Node().Address()
+	if err != nil {
+		return err
+	}
+
+	// Block Proposal Transactions arrived, make sure we have a valid and fresh chain to handle them
+	if !backend.AcceptTxs() {
+		return nil
+	}
+
+	// Transactions can be processed, parse all of them and deliver to the pool
+	var packet RequestConsensusDataPacket
+	if err := msg.Decode(&packet); err != nil {
+		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	}
+	err = backend.Handle(peer, &packet)
+	if err != nil {
+		log.Trace("handleRequestConsensus", "err", err)
+	}
+	return nil
+}
+
+func handleRequestPeerList(backend Backend, msg Decoder, peer *Peer) error {
+	_, err := peer.Node().Address()
+	if err != nil {
+		return err
+	}
+
+	// Transactions can be processed, parse all of them and deliver to the pool
+	var packet RequestPeerListPacket
+	if err := msg.Decode(&packet); err != nil {
+		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	}
+
+	err = backend.Handle(peer, &packet)
+	if err != nil {
+		log.Trace("handleRequestPeerList", "err", err)
+	}
+	return nil
+}
+
+func handlePeerList(backend Backend, msg Decoder, peer *Peer) error {
+	_, err := peer.Node().Address()
+	if err != nil {
+		return err
+	}
+
+	// Transactions can be processed, parse all of them and deliver to the pool
+	var packet PeerListPacket
+	if err := msg.Decode(&packet); err != nil {
+		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	}
+
+	err = backend.Handle(peer, &packet)
+	if err != nil {
+		log.Trace("handlePeerList", "err", err)
+	}
+	return nil
+}

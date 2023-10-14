@@ -41,7 +41,7 @@ func TestDeriveSha(t *testing.T) {
 		exp := types.DeriveSha(txs, new(trie.Trie))
 		got := types.DeriveSha(txs, trie.NewStackTrie(nil))
 		if !bytes.Equal(got[:], exp[:]) {
-			t.Fatalf("%d txs: got %x exp %x", len(txs), got, exp)
+			t.Fatalf("%d txns: got %x exp %x", len(txs), got, exp)
 		}
 		newTxs, err := genTxs(uint64(len(txs) + 1))
 		if err != nil {

@@ -490,7 +490,7 @@ func NewMsgFilters(filterParam string) (MsgFilters, error) {
 			}
 			n, err := strconv.ParseUint(code, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid message code: %s", code)
+				return nil, fmt.Errorf("invalid message code 6: %s", code)
 			}
 			filters[MsgFilter{Proto: proto, Code: int64(n)}] = struct{}{}
 		}

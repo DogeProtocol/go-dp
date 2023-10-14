@@ -171,7 +171,7 @@ func (c *Conn) Read() Message {
 	case (PooledTransactions{}.Code()):
 		msg = new(PooledTransactions)
 	default:
-		return errorf("invalid message code: %d", code)
+		return errorf("invalid message code 2: %d", code)
 	}
 	// if message is devp2p, decode here
 	if err := rlp.DecodeBytes(rawData, msg); err != nil {
@@ -244,7 +244,7 @@ func (c *Conn) Read66() (uint64, Message) {
 		}
 		return ethMsg.RequestId, PooledTransactions(ethMsg.PooledTransactionsPacket)
 	default:
-		msg = errorf("invalid message code: %d", code)
+		msg = errorf("invalid message code 3: %d", code)
 	}
 
 	if msg != nil {

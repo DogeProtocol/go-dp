@@ -57,7 +57,7 @@ func (b *EthAPIBackend) CurrentBlock() *types.Block {
 }
 
 func (b *EthAPIBackend) SetHead(number uint64) {
-	b.eth.handler.downloader.Cancel()
+	b.eth.handler.Downloader.Cancel()
 	b.eth.blockchain.SetHead(number)
 }
 
@@ -283,9 +283,9 @@ func (b *EthAPIBackend) Downloader() *downloader.Downloader {
 	return b.eth.Downloader()
 }
 
-func (b *EthAPIBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+/*func (b *EthAPIBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestTipCap(ctx)
-}
+}*/
 
 func (b *EthAPIBackend) FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (firstBlock *big.Int, reward [][]*big.Int, baseFee []*big.Int, gasUsedRatio []float64, err error) {
 	return b.gpo.FeeHistory(ctx, blockCount, lastBlock, rewardPercentiles)

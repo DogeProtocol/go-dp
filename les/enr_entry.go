@@ -51,12 +51,12 @@ func (eth *LightEthereum) setupDiscovery() (enode.Iterator, error) {
 		if err != nil {
 			return nil, err
 		}
-		it.AddSource(dns)
+		it.AddSource(dns, "DiscoveryURLs")
 	}
 
 	// Enable DHT.
 	if eth.udpEnabled {
-		it.AddSource(eth.p2pServer.DiscV5.RandomNodes())
+		it.AddSource(eth.p2pServer.DiscV5.RandomNodes(), "RandomNodesV5")
 	}
 
 	forkFilter := forkid.NewFilter(eth.blockchain)

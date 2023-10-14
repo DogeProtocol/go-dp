@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
 	"sort"
 	"sync"
@@ -59,12 +60,10 @@ func TestHashing(t *testing.T) {
 		}
 	}
 	var new = func() {
-		hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
 		var hash = make([]byte, 32)
 		for i := 0; i < len(bytecodes); i++ {
-			hasher.Reset()
-			hasher.Write(bytecodes[i])
-			hasher.Read(hash)
+			hashBytes := crypto.HashDataToBytes(bytecodes[i])
+			copy(hash, hashBytes)
 			want = fmt.Sprintf("%v\n%v", want, hash)
 		}
 	}
@@ -91,7 +90,15 @@ func BenchmarkHashing(b *testing.B) {
 		}
 	}
 	var new = func() {
-		hasher := sha3.NewLegacyKeccak256().(crypto.KeccakState)
+		var hash = make([]byte, 32)
+		for i := 0; i < len(bytecodes); i++ {
+			hashBytes := crypto.HashDataToBytes(bytecodes[i])
+			copy(hash, hashBytes)
+		}
+	}
+
+	var new2 = func() {
+		hasher := sha3.NewLegacyKeccak256().(hashingalgorithm.HashState)
 		var hash = make([]byte, 32)
 		for i := 0; i < len(bytecodes); i++ {
 			hasher.Reset()
@@ -99,6 +106,17 @@ func BenchmarkHashing(b *testing.B) {
 			hasher.Read(hash)
 		}
 	}
+
+	var new3 = func() {
+		hasher := hashingalgorithm.NewHashState()
+		var hash = make([]byte, 32)
+		for i := 0; i < len(bytecodes); i++ {
+			hasher.Reset()
+			hasher.Write(bytecodes[i])
+			hasher.Read(hash)
+		}
+	}
+
 	b.Run("old", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -109,6 +127,18 @@ func BenchmarkHashing(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			new()
+		}
+	})
+	b.Run("new2", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			new2()
+		}
+	})
+	b.Run("new3", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			new3()
 		}
 	})
 }

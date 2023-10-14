@@ -18,6 +18,8 @@ package ethash
 
 import (
 	"encoding/binary"
+	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"golang.org/x/crypto/sha3"
 	"hash"
 	"math/big"
 	"reflect"
@@ -31,7 +33,6 @@ import (
 	"github.com/DogeProtocol/dp/common/bitutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/log"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -123,7 +124,7 @@ func seedHash(block uint64) []byte {
 	if block < epochLength {
 		return seed
 	}
-	keccak256 := makeHasher(sha3.NewLegacyKeccak256())
+	keccak256 := makeHasher(hashingalgorithm.NewHashState())
 	for i := 0; i < int(block/epochLength); i++ {
 		keccak256(seed, seed)
 	}
