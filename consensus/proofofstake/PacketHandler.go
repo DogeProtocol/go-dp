@@ -659,7 +659,7 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 		blockConsensusData.ProposalHash.CopyFrom(blockRoundDetails.proposalHash)
 	} else {
 		blockConsensusData.BlockProposer.CopyFrom(ZERO_ADDRESS)
-		blockConsensusData.ProposalHash.CopyFrom(ZERO_HASH)
+		blockConsensusData.ProposalHash.CopyFrom(getNilVoteProposalHash(parentHash, blockStateDetails.currentRound))
 	}
 
 	blockConsensusData.PrecommitHash.CopyFrom(blockRoundDetails.precommitHash)
@@ -1469,7 +1469,8 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 			ProposalAckVoteType: VOTE_TYPE_NIL,
 			Round:               blockStateDetails.currentRound,
 		}
-		proposalAckDetails.ProposalHash.CopyFrom(ZERO_HASH)
+
+		proposalAckDetails.ProposalHash.CopyFrom(getNilVoteProposalHash(parentHash, blockStateDetails.currentRound))
 
 		data, err := rlp.EncodeToBytes(&proposalAckDetails)
 
@@ -2048,6 +2049,10 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	return packets, nil
 }
 
+func getNilVoteProposalHash(parentHash common.Hash, round byte) common.Hash {
+	return crypto.Keccak256Hash(parentHash.Bytes(), []byte("proposal"), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
+}
+
 func getCommitHash(precommitHash common.Hash) common.Hash {
 	return crypto.Keccak256Hash(precommitHash.Bytes())
 }
@@ -2057,5 +2062,5 @@ func getOkVotePreCommitHash(parentHash common.Hash, proposalHash common.Hash, ro
 }
 
 func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
-	return crypto.Keccak256Hash(parentHash.Bytes(), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
+	return crypto.Keccak256Hash(parentHash.Bytes(), []byte("precommit"), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
 }

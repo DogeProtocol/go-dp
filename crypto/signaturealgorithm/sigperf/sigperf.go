@@ -25,6 +25,10 @@ func main() {
 
 	sig4 := oqs.InitFalcon()
 	SigPerf("falconoqs", sig4)
+
+	sig5 := hybrid.CreateHybridSigGolangNativeVerify()
+	SigPerf("hybrid native", sig5)
+
 }
 
 func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {

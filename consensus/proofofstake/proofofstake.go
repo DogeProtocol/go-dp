@@ -72,6 +72,8 @@ var (
 
 	diffInTurn = big.NewInt(2) // Block difficulty for in-turn signatures
 	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
+
+	slashAmount = big.NewInt(1000)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -710,10 +712,31 @@ func (c *ProofOfStake) FinalizeAndAssemble(chain consensus.ChainHeaderReader, he
 }
 
 func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-
 	err := c.Finalize(chain, header, state, txs, uncles)
 	if err != nil {
 		return nil, err
+	}
+
+	blockConsensusData, _, err := c.consensusHandler.getBlockConsensusData(header.ParentHash)
+	if err != nil {
+		fmt.Println("getBlockConsensusData", err)
+		return nil, err
+	}
+
+	if blockConsensusData.NilvotedBlockProposers != nil && len(blockConsensusData.NilvotedBlockProposers) > 0 {
+		for _, val := range blockConsensusData.NilvotedBlockProposers {
+			depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Println("########################## depositor slashing", depositor)
+			/*slashTotal, err := c.AddDepositorSlashing(header.ParentHash, depositor, slashAmount)
+			if err != nil {
+				fmt.Println("AddDepositorSlashing err", err)
+				return nil, err
+			}
+			fmt.Println("slashed amount", slashTotal, slashAmount, depositor)*/
+		}
 	}
 
 	// Assemble and return the final block for sealing

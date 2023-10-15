@@ -316,3 +316,53 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 
 	return out, nil
 }
+
+func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash, depositor common.Address, slashedAmount *big.Int) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_AddDepositorSlashing()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("AddDepositorSlashing abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorSlashing", "error", err)
+		return nil, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		log.Error("Call", err)
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, errors.New("GetBalanceOfDepositor result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}

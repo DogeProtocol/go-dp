@@ -36,7 +36,7 @@ var (
 	ErrRecoverFailed          = errors.New("recovery failed")
 	ErrKeypairFailed          = errors.New("can not generate keypair")
 	ErrInvalidLen             = errors.New("invalid length")
-	ErrVerifyFailed           = errors.New("verify length")
+	ErrVerifyFailed           = errors.New("verify")
 	ErrRecoverPublicKeyFailed = errors.New("recover public key length")
 )
 
@@ -115,6 +115,31 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 		(*C.size_t)(unsafe.Pointer(&msgLenCheck)),
 		(*C.uchar)(unsafe.Pointer(&sigExtracted[0])),
 		(C.size_t)(uint64(len(sigExtracted))),
+		(*C.uchar)(unsafe.Pointer(&publicKey[0])))
+
+	if rv != OK {
+		return ErrVerifyFailed
+	}
+
+	if msgLenCheck != len(message) {
+		return ErrVerifyFailed
+	}
+	if bytes.Compare(message, messageCheck[:msgLenCheck]) != 0 {
+		return ErrVerifyFailed
+	}
+
+	return nil
+}
+
+func VerifyDirect(message []byte, signature []byte, publicKey []byte, sigLen uint16) error {
+	msgLenCheck := 0
+
+	messageCheck := make([]byte, CRYPTO_SIGNATURE_BYTES+len(message))
+
+	rv := C.crypto_sign_falcon_open((*C.uchar)(unsafe.Pointer(&messageCheck[0])),
+		(*C.size_t)(unsafe.Pointer(&msgLenCheck)),
+		(*C.uchar)(unsafe.Pointer(&signature[0])),
+		(C.size_t)(uint64(sigLen)),
 		(*C.uchar)(unsafe.Pointer(&publicKey[0])))
 
 	if rv != OK {

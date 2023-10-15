@@ -270,6 +270,7 @@ func (s FalconSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (
 func (s FalconSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {
+
 		return false
 	}
 

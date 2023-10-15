@@ -59,6 +59,8 @@ type Validator struct {
 	ListValidators           string `json:"listValidators"`
 	GetDepositorOfValidator  string `json:"getDepositorOfValidator"`
 	GetNetBalanceOfDepositor string `json:"getNetBalanceOfDepositor"`
+	AddDepositorSlashing     string `json:"addDepositorSlashing"`
+	AddDepositorReward       string `json:"addDepositorReward"`
 }
 
 var (
@@ -154,6 +156,14 @@ func GetContract_Method_GetDepositorCount() string {
 
 func GetContract_Method_GetTotalDepositedBalance() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetTotalDepositedBalance
+}
+
+func GetContract_Method_AddDepositorSlashing() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorSlashing
+}
+
+func GetContract_Method_AddDepositorReward() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorReward
 }
 
 func IsStakingContractCreated(currentBlockNumber uint64) bool {

@@ -152,6 +152,35 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("Verify negative failed")
 	}
 
+	//Deep signature change test
+	maxFalconSigSize := 600 //todo: in hybrid-pqc lib, add zero check for padded signatures
+	for i := 0; i < maxFalconSigSize; i++ {
+		sigTemp := make([]byte, len(signature2))
+		copy(sigTemp, signature2)
+		sigTemp[i] = sigTemp[i] + 1
+		if sig.Verify(pubBytes1, digestHash2, sigTemp) != false {
+			t.Fatal("Verify signature change negative failed", i)
+		}
+	}
+
+	if sig.Verify(pubBytes1, digestHash2, signature2) != true {
+		t.Fatal("Verify failed")
+	}
+
+	//Deep public key change test
+	for i := 0; i < len(pubBytes1); i++ {
+		pubTemp := make([]byte, len(pubBytes1))
+		copy(pubTemp, pubBytes1)
+		pubTemp[i] = pubTemp[i] + 1
+		if sig.Verify(pubTemp, digestHash2, signature2) != false {
+			t.Fatal("Verify signature change negative failed")
+		}
+	}
+
+	if sig.Verify(pubBytes1, digestHash2, signature2) != true {
+		t.Fatal("Verify failed")
+	}
+
 	sigExtracted, pubExtracted, err := sig.PublicKeyAndSignatureFromCombinedSignature(digestHash1, signature1)
 	if err != nil {
 		t.Fatal(err)

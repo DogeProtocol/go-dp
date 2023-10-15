@@ -233,6 +233,7 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 	if voteType == VOTE_TYPE_OK {
 		proposalHash = GetCombinedTxnHash(parentHash, round, txns)
 	} else {
+		proposalHash.CopyFrom(getNilVoteProposalHash(parentHash, round))
 		if txns != nil && len(txns) > 0 {
 			return errors.New("invalid transactions with nil vote")
 		}
@@ -249,13 +250,20 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 		}
 
 		if proposalAckDetails.ProposalAckVoteType == VOTE_TYPE_NIL {
-			if proposalAckDetails.ProposalHash.IsEqualTo(ZERO_HASH) == false {
-				return errors.New("invalid proposal hash, not zero hash when vote is nil")
+			if proposalAckDetails.ProposalHash.IsEqualTo(proposalHash) == false { //can be OK VOTE as well
+				if voteType != VOTE_TYPE_OK { //can be ok VOTE as well
+					fmt.Println("proposal hash 2", proposalHash, proposalAckDetails.ProposalHash)
+					return errors.New("invalid proposal hash")
+				}
+				continue
 			}
 			nilVotesDepositValue = common.SafeAddBigInt(nilVotesDepositValue, depositValue)
 		} else if proposalAckDetails.ProposalAckVoteType == VOTE_TYPE_OK {
 			if proposalAckDetails.ProposalHash.IsEqualTo(proposalHash) == false {
-				return errors.New("invalid proposal hash")
+				if voteType != VOTE_TYPE_NIL { //can be NIL VOTE as well
+					//todo: slash block proposer?
+					continue
+				}
 			}
 			okVotesDepositValue = common.SafeAddBigInt(okVotesDepositValue, depositValue)
 		} else {
@@ -401,11 +409,11 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 			return errors.New("ValidateBlockConsensusData BlockProposer false")
 		}
 
-		if blockConsensusData.ProposalHash.IsEqualTo(ZERO_HASH) == false {
+		if blockConsensusData.ProposalHash.IsEqualTo(getNilVoteProposalHash(parentHash, blockConsensusData.Round)) == false {
 			return errors.New("proposal hash check failed")
 		}
 
-		precommitHash := crypto.Keccak256Hash(parentHash.Bytes(), ZERO_HASH.Bytes(), []byte{blockConsensusData.Round}, []byte{byte(VOTE_TYPE_NIL)})
+		precommitHash := getNilVotePreCommitHash(parentHash, blockConsensusData.Round)
 		if blockConsensusData.PrecommitHash.IsEqualTo(precommitHash) == false {
 			return errors.New("precommitHash hash check failed")
 		}
