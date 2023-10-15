@@ -11,9 +11,9 @@ func testHybridSigBasic(t *testing.T, NativeGolangVerify bool) {
 	var sig signaturealgorithm.SignatureAlgorithm
 
 	if NativeGolangVerify {
-		sig = CreateHybridSigGolangNativeVerify()
+		sig = CreateHybridSig(true)
 	} else {
-		sig = CreateHybridSig()
+		sig = CreateHybridSig(false)
 	}
 	signaturealgorithm.SignatureAlgorithmTest(t, sig)
 }
@@ -26,9 +26,9 @@ func TestHybridSig_Basic(t *testing.T) {
 func testBase64(t *testing.T, NativeGolangVerify bool) {
 	var sig signaturealgorithm.SignatureAlgorithm
 	if NativeGolangVerify {
-		sig = CreateHybridSigGolangNativeVerify()
+		sig = CreateHybridSig(true)
 	} else {
-		sig = CreateHybridSig()
+		sig = CreateHybridSig(false)
 	}
 
 	serverSigningPublicKey := "+T2p1FPqhulBBu/r6kAicodQpN0tBUU6uz8D/ZHhaRsJGCj0uFZnvKloVIkWAIdkCqyrKmMyG27QVX+A1WKs+EkKp5Eb4n+VgNG2W0ILcO2s6FmlpRqSXI2pMHi7gm5jP3xoJhvY9kGStVAtW/OeWPFqVpYmaiK6YJbadl6+BvHl1AIZdQEYNVtQt0mJWIEtp0rWBKfgala0eQJCEonBIKkiGL6EyWZtPkh8I9WrHroEs0+Ope2SGR4PWELxflPaSEUPBOXbUqacIe48wk0ZcRJQTZGbCKue4t0rSuzfGCgQy5wW+JzEK1dZg2pRtVAy+UjhqVoq6+sckyiKvEM5zeokhu6A7FA9WhE29qlI85xupcHVyb67uFRX9ONBRoUzQYNtgGpllLao2iRDrD1Ifl+IqVKGROWUO2BiojatWxpgPHAVLwakkji0K6dJDHg5Y2MMw8USHARHjSFAabLwhxIc/Q1ONZo7FCuBoMPwWUmqaS4W+riOxBkVBBcZXn4K1vODzKm+uSxN6z6FNVDi2DOACeaR5g5C2h2tZChMdONbM69FPulVjDKOQE/0Y2R+YISMyeqaKCoJwaMOnW+SNIuXdyF7FDZESVAiKI8pildDzKWBSJy3M8tCT45N6uZBoRSlFibohH0yCXhp7Qftbq5eGLpeZyJaKfTZX304irxpqErDVGyvBfMKGWW58fplwkkM8W1p1B4+WCpxMIgXrlLl6fkdCpg/7VJhtIY0TKGXJFKKB524Mqd0mtwjZnXm0goVcM33JNMejnIJeImPwEJ2sldSgSIWoD0cy+Gfu6HFXKr9w9iNJqFwotb7n3lo0yekF24odQsow8m2Lu5o2FiQJGrsVHuMhx7KNqltYKeIisv4Eq+lNu3tQWvF2QOFRlTEBmuOHUzXZ52+YQbIYZ1ZKJShyHsZnWAC/r5nrCPsJsoMa9Pbc7qNaCizQYSH5HCmABnCaXkeOrRsfiRQttjgkqk8SS95mCkvPDLEBpFRImiicKnYJI4rWaarkQzxiDWpNnVIbbP6+5CSAe+ZPZB10M6zIHad+YiaNb+F9DENxlKM5C+0YF8UZwbGM+yOUgKGt6gthFp0FJZm8GKBO6kwRQuHfiV54CbLbe0WHaJDSu7Omi5JREQbHo3EaoFTbnw24QYVr2xKbopbs2wbJV1RrqPJbewgpNVi8kvzLWY0A7RbK4Pqs3ZsJMWeEt7p/onGO5laU3PA6XSdU6C5i00="

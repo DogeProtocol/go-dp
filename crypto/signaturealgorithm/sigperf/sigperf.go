@@ -10,28 +10,62 @@ import (
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"sync"
 	"time"
 )
 
 func main() {
-	sig1 := hybrid.CreateHybridSig()
-	SigPerf("hybrid", sig1)
-
+	sig1 := hybrid.CreateHybridSig(false)
 	sig2 := oqs.InitDilithium()
-	SigPerf("dilithiumoqs", sig2)
-
 	sig3 := falcon.CreateFalconSig()
-	SigPerf("falcon", sig3)
-
 	sig4 := oqs.InitFalcon()
-	SigPerf("falconoqs", sig4)
+	sig5 := hybrid.CreateHybridSig(true)
 
-	sig5 := hybrid.CreateHybridSigGolangNativeVerify()
-	SigPerf("hybrid native", sig5)
+	if len(os.Args) > 2 {
+		var wg sync.WaitGroup
 
+		fmt.Println("Multi routine test start")
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("hybrid", sig1, &wg)
+		}
+		wg.Wait()
+
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("dilithiumoqs", sig2, &wg)
+		}
+		wg.Wait()
+
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("falcon", sig3, &wg)
+		}
+		wg.Wait()
+
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("falconoqs", sig4, &wg)
+		}
+		wg.Wait()
+
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("hybrid native", sig5, &wg)
+		}
+		wg.Wait()
+	}
+
+	fmt.Println("Multi routine test done")
+
+	SigPerf("hybrid", sig1, nil)
+	SigPerf("dilithiumoqs", sig2, nil)
+	SigPerf("falcon", sig3, nil)
+	SigPerf("falconoqs", sig4, nil)
+	SigPerf("hybrid native", sig5, nil)
 }
 
-func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
+func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm, wg *sync.WaitGroup) {
 	fmt.Println("SigPerf", name)
 	f, err := os.Create(name + ".prof")
 	if err != nil {
@@ -69,7 +103,7 @@ func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
 		return
 	}
 
-	fmt.Println("Running verify...", count)
+	fmt.Println("Running verify...", name, count)
 	start := time.Now()
 	for i := 0; i < count; i++ {
 		if sig.Verify(pubBytes, digestHash, signature) != true {
@@ -78,5 +112,8 @@ func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
 		}
 	}
 	duration := time.Since(start)
-	fmt.Println("Verify Time Taken", duration)
+	fmt.Println("Verify Time Taken", "sigalg", name, "iterations", count, "totaltime ms", duration.Milliseconds(), "avg time ms", float64(duration.Milliseconds())/float64(count))
+	if wg != nil {
+		wg.Done()
+	}
 }

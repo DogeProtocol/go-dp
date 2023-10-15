@@ -20,7 +20,7 @@ func main() {
 	fmt.Println("Perf starting 2")
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
-	sig := hybrid.CreateHybridSig()
+	sig := hybrid.CreateHybridSig(true)
 	keypair, err := sig.GenerateKey()
 	if err != nil {
 		fmt.Println("GenerateKey failed", err)

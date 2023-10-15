@@ -40,21 +40,15 @@ type HybridSig struct {
 	NativeGolangVerify           bool
 }
 
-func CreateHybridSig() HybridSig {
+func CreateHybridSig(mativeGolangVerify bool) HybridSig {
 	return HybridSig{sigName: SIG_NAME,
 		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
 		privateKeyLength:             CRYPTO_SECRETKEY_BYTES,
 		signatureLength:              CRYPTO_SIGNATURE_BYTES,
 		signatureWithPublicKeyLength: CRYPTO_PUBLICKEY_BYTES + CRYPTO_SIGNATURE_BYTES + common.LengthByteSize + common.LengthByteSize,
-		NativeGolangVerify:           true,
+		NativeGolangVerify:           mativeGolangVerify,
 	}
-}
-
-func CreateHybridSigGolangNativeVerify() HybridSig {
-	sig := CreateHybridSig()
-	sig.NativeGolangVerify = true
-	return sig
 }
 
 func (s HybridSig) SignatureName() string {

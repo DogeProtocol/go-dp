@@ -5,7 +5,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/hybrid"
 )
 
-var SigAlg = hybrid.CreateHybridSig()
+var SigAlg = hybrid.CreateHybridSig(true)
 
 var DRNG = &ChaCha20.ChaCha20DRNGInitializer{}
 
