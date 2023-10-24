@@ -18,6 +18,7 @@ package proofofstake
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
@@ -26,6 +27,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math/big"
 	"testing"
 )
@@ -250,4 +252,30 @@ func TestFlattenTxnMap(t *testing.T) {
 		}
 	}
 
+}
+
+func encCall(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return abi.Pack(method, args...)
+}
+
+func encCallOuter(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return encCall(abi, method, args...)
+}
+
+func TestPack(t *testing.T) {
+	method := staking.GetContract_Method_AddDepositorSlashing()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		fmt.Println("AddDepositorSlashing abi error", err)
+		t.Fatalf("failed")
+	}
+
+	// call
+	slashedAmount := big.NewInt(10)
+	_, err = encCallOuter(&abiData, method, ZERO_ADDRESS, slashedAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		fmt.Println("Unable to pack AddDepositorSlashing", "error", err)
+		t.Fatalf("failed")
+	}
 }

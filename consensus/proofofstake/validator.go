@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rpc"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
+	"math"
 	"math/big"
 )
 
@@ -317,14 +321,21 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	return out, nil
 }
 
-func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash, depositor common.Address, slashedAmount *big.Int) (*big.Int, error) {
+func encodeCall(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return abi.Pack(method, args...)
+}
+
+func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
+	depositor common.Address, slashedAmount *big.Int,
+	state *state.StateDB, header *types.Header) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // cancel when we are finished consuming integers
+
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel() // cancel when we are finished consuming integers
 
 	method := staking.GetContract_Method_AddDepositorSlashing()
 	abiData, err := staking.GetStakingContract_ABI()
@@ -335,26 +346,113 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash, depositor com
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 
 	// call
-	data, err := abiData.Pack(method, depositor, slashedAmount)
+	data, err := encodeCall(&abiData, method, depositor, slashedAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
 	if err != nil {
 		log.Error("Unable to pack AddDepositorSlashing", "error", err)
 		return nil, err
 	}
 	// block
-	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
 
 	msgData := (hexutil.Bytes)(data)
-	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
 		//Gas:  &gas,
+		From: &from,
 		To:   &contractAddress,
 		Data: &msgData,
-	}, blockNr, nil)
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64, header.BaseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
 	if err != nil {
 		log.Error("Call", err)
 		return nil, err
-	}
+	}*/
+
 	if len(result) == 0 {
-		return nil, errors.New("GetBalanceOfDepositor result is 0")
+		return nil, errors.New("AddDepositorSlashing result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
+	depositor common.Address, rewardAmount *big.Int,
+	state *state.StateDB, header *types.Header) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
+	}
+
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_AddDepositorReward()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("AddDepositorReward abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := encodeCall(&abiData, method, depositor, rewardAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorReward", "error", err)
+		return nil, err
+	}
+	// block
+	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
+		//Gas:  &gas,
+		From: &from,
+		To:   &contractAddress,
+		Data: &msgData,
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64, header.BaseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
+	if err != nil {
+		log.Error("Call", err)
+		return nil, err
+	}*/
+
+	if len(result) == 0 {
+		return nil, errors.New("AddDepositorReward result is 0")
 	}
 
 	var out *big.Int

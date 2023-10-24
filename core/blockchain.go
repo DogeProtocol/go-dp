@@ -20,7 +20,10 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"io"
+	"math"
 	"math/big"
 	mrand "math/rand"
 	"sort"
@@ -2525,4 +2528,56 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) getNoGasEVM(msg Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+	from := msg.From()
+	if from.IsEqualTo(common.ZERO_ADDRESS) == false {
+		return nil, nil, errors.New("NoGasEVM needs ZERO_ADDRESS sender")
+	}
+	vmError := func() error { return nil }
+	vmConfig := &vm.Config{NoBaseFee: true, OverrideGasFailure: true}
+
+	txContext := NewEVMTxContext(msg)
+	context := NewEVMBlockContext(header, bc, nil)
+	return vm.NewEVM(context, txContext, state, bc.Config(), *vmConfig), vmError, nil
+}
+
+// revertError is an API error that encompassas an EVM revertal with JSON error
+// code and a binary data blob.
+type revertError struct {
+	error
+	reason string // revert reason hex encoded
+}
+
+func newRevertError(result *ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert(result.Revert())
+	err := errors.New("execution reverted")
+	if errUnpack == nil {
+		err = fmt.Errorf("execution reverted: %v", reason)
+	}
+	return &revertError{
+		error:  err,
+		reason: hexutil.Encode(result.Revert()),
+	}
+}
+
+func (bc *BlockChain) ExecuteNoGas(msg Message, state *state.StateDB, header *types.Header) (hexutil.Bytes, error) {
+	evm, vmError, err := bc.getNoGasEVM(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	gp := new(GasPool).AddGas(math.MaxUint64)
+	result, err := ApplyMessage(evm, msg, gp)
+	if err := vmError(); err != nil {
+		return nil, err
+	}
+
+	// If the result contains a revert reason, try to unpack and return it.
+	if len(result.Revert()) > 0 {
+		return nil, newRevertError(result)
+	}
+
+	return result.Return(), result.Err
 }

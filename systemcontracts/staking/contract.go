@@ -70,9 +70,12 @@ var (
 			GetTotalDepositedBalance: "getTotalDepositedBalance",
 		},
 		Validators: &Validator{
-			GetBalanceOfDepositor:   "getBalanceOfDepositor",
-			ListValidators:          "listValidators",
-			GetDepositorOfValidator: "getDepositorOfValidator",
+			GetBalanceOfDepositor:    "getBalanceOfDepositor",
+			ListValidators:           "listValidators",
+			GetDepositorOfValidator:  "getDepositorOfValidator",
+			GetNetBalanceOfDepositor: "getNetBalanceOfDepositor",
+			AddDepositorSlashing:     "addDepositorSlashing",
+			AddDepositorReward:       "addDepositorReward",
 		},
 	}
 )

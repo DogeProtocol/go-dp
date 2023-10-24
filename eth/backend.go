@@ -243,6 +243,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eng.SetP2PHandler(eth.handler)
 		var consensusHandler handler.ConsensusHandler = eng.GetConsensusPacketHandler()
 		eth.handler.SetConsensusHandler(consensusHandler)
+		eng.SetBlockchain(eth.blockchain)
 	}
 
 	eth.p2pServer.SetRequestPeersFn(eth.handler.RequestPeerList)

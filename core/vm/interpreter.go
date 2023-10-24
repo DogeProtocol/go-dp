@@ -36,6 +36,8 @@ type Config struct {
 	JumpTable [256]*operation // EVM instruction table, automatically populated if unset
 
 	ExtraEips []int // Additional EIPS that are to be enabled
+
+	OverrideGasFailure bool
 }
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
@@ -56,6 +58,8 @@ type EVMInterpreter struct {
 
 	readOnly   bool   // Whether to throw on stateful modifications
 	returnData []byte // Last CALL's return data for subsequent reuse
+
+	overrideGasFailure bool //warning do not set this to true, unless it is for local VM execution
 }
 
 // NewEVMInterpreter returns a new instance of the Interpreter.
@@ -96,9 +100,14 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	}
 
 	return &EVMInterpreter{
-		evm: evm,
-		cfg: cfg,
+		evm:                evm,
+		cfg:                cfg,
+		overrideGasFailure: cfg.OverrideGasFailure,
 	}
+}
+
+func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
+	return in.runInternal(contract, input, readOnly)
 }
 
 // Run loops and evaluates the contract's code with the given input data and returns
@@ -107,7 +116,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 // It's important to note that any errors returned by the interpreter should be
 // considered a revert-and-consume-all-gas operation except for
 // ErrExecutionReverted which means revert-and-keep-gas-left.
-func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
+func (in *EVMInterpreter) runInternal(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
 
 	// Increment the call depth which is restricted to 1024
 	in.evm.depth++
@@ -209,7 +218,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		}
 		// Static portion of gas
 		cost = operation.constantGas // For tracing
-		if !contract.UseGas(operation.constantGas) {
+		if !in.overrideGasFailure && !contract.UseGas(operation.constantGas) {
 			return nil, ErrOutOfGas
 		}
 
@@ -232,7 +241,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Dynamic portion of gas
 		// consume the gas and return an error if not enough gas is available.
 		// cost is explicitly set so that the capture state defer method can get the proper cost
-		if operation.dynamicGas != nil {
+		if !in.overrideGasFailure && operation.dynamicGas != nil {
 			var dynamicCost uint64
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
 			cost += dynamicCost // total cost, for debug tracing

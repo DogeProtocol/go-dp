@@ -43,6 +43,9 @@ const (
 var (
 	hashT    = reflect.TypeOf(Hash{})
 	addressT = reflect.TypeOf(Address{})
+
+	ZERO_HASH    Hash    = BytesToHash([]byte{0})
+	ZERO_ADDRESS Address = BytesToAddress([]byte{0})
 )
 
 type HashDynamic []byte
