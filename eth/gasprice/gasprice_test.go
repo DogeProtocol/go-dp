@@ -18,13 +18,13 @@ package gasprice
 
 import (
 	"context"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
@@ -108,7 +108,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	} else {
 		gspec.Config.LondonBlock = nil
 	}
-	engine := ethash.NewFaker()
+	engine := mockconsensus.NewMockConsensus()
 	db := rawdb.NewMemoryDatabase()
 	genesis, _ := gspec.Commit(db)
 

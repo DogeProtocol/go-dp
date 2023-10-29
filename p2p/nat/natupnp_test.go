@@ -17,7 +17,6 @@
 package nat
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -25,8 +24,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/huin/goupnp/httpu"
 )
 
 func TestUPNP_DDWRT(t *testing.T) {
@@ -184,8 +181,7 @@ func TestUPNP_DDWRT(t *testing.T) {
 type fakeIGD struct {
 	t *testing.T // for logging
 
-	listener      net.Listener
-	mcastListener *net.UDPConn
+	listener net.Listener
 
 	// This should be a complete HTTP response (including headers).
 	// It is sent as the response to any sspd packet. Any occurrence
@@ -197,18 +193,6 @@ type fakeIGD struct {
 	// As with ssdpResp, "{{listenAddr}}" is replaced with the TCP
 	// listen address.
 	httpResps map[string]string
-}
-
-// httpu.Handler
-func (dev *fakeIGD) ServeMessage(r *http.Request) {
-	dev.t.Logf(`HTTPU request %s %s`, r.Method, r.RequestURI)
-	conn, err := net.Dial("udp4", r.RemoteAddr)
-	if err != nil {
-		fmt.Printf("reply Dial error: %v", err)
-		return
-	}
-	defer conn.Close()
-	io.WriteString(conn, dev.replaceListenAddr(dev.ssdpResp))
 }
 
 // http.Handler
@@ -230,20 +214,13 @@ func (dev *fakeIGD) listen() (err error) {
 	if dev.listener, err = net.Listen("tcp", "127.0.0.1:0"); err != nil {
 		return err
 	}
-	laddr := &net.UDPAddr{IP: net.ParseIP("239.255.255.250"), Port: 1900}
-	if dev.mcastListener, err = net.ListenMulticastUDP("udp", nil, laddr); err != nil {
-		dev.listener.Close()
-		return err
-	}
 	return nil
 }
 
 func (dev *fakeIGD) serve() {
-	go httpu.Serve(dev.mcastListener, dev)
 	go http.Serve(dev.listener, dev)
 }
 
 func (dev *fakeIGD) close() {
-	dev.mcastListener.Close()
 	dev.listener.Close()
 }

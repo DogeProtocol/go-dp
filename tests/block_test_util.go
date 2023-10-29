@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"math/big"
 	"os"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/state"
@@ -118,9 +118,9 @@ func (t *BlockTest) Run(snapshotter bool) error {
 	}
 	var engine consensus.Engine
 	if t.json.SealEngine == "NoProof" {
-		engine = ethash.NewFaker()
+		engine = mockconsensus.NewMockConsensus()
 	} else {
-		engine = ethash.NewShared()
+		engine = mockconsensus.NewMockConsensus() //todo: shared
 	}
 	cache := &core.CacheConfig{TrieCleanLimit: 0}
 	if snapshotter {

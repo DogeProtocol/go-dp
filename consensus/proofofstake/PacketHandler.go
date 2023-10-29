@@ -71,7 +71,7 @@ const REQUEST_CONSENSUS_DATA_PERCENT = 20
 const BLOCK_CLEANUP_TIME_MS = 900
 const MAX_ROUND_WITH_TXNS = 4
 
-var STARTUP_DELAY_MS = int64(1200)
+var STARTUP_DELAY_MS = int64(120000)
 
 type BlockRoundState byte
 type VoteType byte

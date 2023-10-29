@@ -91,7 +91,7 @@ func (n *upnp) AddMapping(protocol string, extport, intport int, desc string, li
 }
 
 func (n *upnp) internalAddress() (net.IP, error) {
-	devaddr, err := net.ResolveUDPAddr("udp4", n.dev.URLBase.Host)
+	devaddr, err := net.ResolveTCPAddr("tcp4", n.dev.URLBase.Host)
 	if err != nil {
 		return nil, err
 	}

@@ -875,13 +875,6 @@ func (c *ProofOfStake) CalcDifficulty(chain consensus.ChainHeaderReader, time ui
 	return big.NewInt(parent.Number.Int64() + 1)
 }
 
-func calcDifficulty(snap *Snapshot, validator common.Address) *big.Int {
-	if snap.inturn(snap.Number+1, validator) {
-		return new(big.Int).Set(diffInTurn)
-	}
-	return new(big.Int).Set(diffNoTurn)
-}
-
 // SealHash returns the hash of a block prior to it being sealed.
 func (c *ProofOfStake) SealHash(header *types.Header) common.Hash {
 	return SealHash(header)

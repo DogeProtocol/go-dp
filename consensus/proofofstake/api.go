@@ -21,8 +21,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/core/types"
-	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
 	"math/big"
 )
@@ -32,113 +30,6 @@ import (
 type API struct {
 	chain        consensus.ChainHeaderReader
 	proofofstake *ProofOfStake
-}
-
-// GetSnapshot retrieves the state snapshot at a given block.
-func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
-	return nil, nil
-}
-
-// GetSnapshotAtHash retrieves the state snapshot at a given block.
-func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
-	return nil, nil
-}
-
-// GetSigners retrieves the list of authorized signers at the specified block.
-func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
-	return nil, nil
-}
-
-// GetSignersAtHash retrieves the list of authorized signers at the specified block.
-func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
-	return nil, nil
-}
-
-// Proposals returns the current proposals the node tries to uphold and vote on.
-func (api *API) Proposals() map[common.Address]bool {
-	api.proofofstake.lock.RLock()
-	defer api.proofofstake.lock.RUnlock()
-
-	proposals := make(map[common.Address]bool)
-	for address, auth := range api.proofofstake.proposals {
-		proposals[address] = auth
-	}
-	return proposals
-}
-
-// Propose injects a new authorization proposal that the signer will attempt to
-// push through.
-func (api *API) Propose(address common.Address, auth bool) {
-	api.proofofstake.lock.Lock()
-	defer api.proofofstake.lock.Unlock()
-
-	api.proofofstake.proposals[address] = auth
-}
-
-// Discard drops a currently running proposal, stopping the signer from casting
-// further votes (either for or against).
-func (api *API) Discard(address common.Address) {
-	api.proofofstake.lock.Lock()
-	defer api.proofofstake.lock.Unlock()
-
-	delete(api.proofofstake.proposals, address)
-}
-
-type status struct {
-	InturnPercent float64                `json:"inturnPercent"`
-	SigningStatus map[common.Address]int `json:"sealerActivity"`
-	NumBlocks     uint64                 `json:"numBlocks"`
-}
-
-// Status returns the status of the last N blocks,
-// - the number of active signers,
-// - the number of signers,
-// - the percentage of in-turn blocks
-func (api *API) Status() (*status, error) {
-	/*var (
-		numBlocks = uint64(64)
-		header    = api.chain.CurrentHeader()
-		diff      = uint64(0)
-		optimals  = 0
-	)
-	snap, err := api.proofofstake.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		signers = snap.signers()
-		end     = header.Number.Uint64()
-		start   = end - numBlocks
-	)
-	if numBlocks > end {
-		start = 1
-		numBlocks = end - start
-	}
-	signStatus := make(map[common.Address]int)
-	for _, s := range signers {
-		signStatus[s] = 0
-	}
-	for n := start; n < end; n++ {
-		h := api.chain.GetHeaderByNumber(n)
-		if h == nil {
-			return nil, fmt.Errorf("missing block %d", n)
-		}
-		if h.Difficulty.Cmp(diffInTurn) == 0 {
-			optimals++
-		}
-		diff += h.Difficulty.Uint64()
-		sealer, err := api.proofofstake.Author(h)
-		if err != nil {
-			return nil, err
-		}
-		signStatus[sealer]++
-	}
-	return &status{
-		InturnPercent: float64(100*optimals) / float64(numBlocks),
-		SigningStatus: signStatus,
-		NumBlocks:     numBlocks,
-	}, nil*/
-	return nil, nil
 }
 
 type blockNumberOrHashOrRLP struct {
@@ -162,35 +53,6 @@ func (sb *blockNumberOrHashOrRLP) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetSigner returns the signer for a specific proofofstake block.
-// Can be called with either a blocknumber, blockhash or an rlp encoded blob.
-// The RLP encoded blob can either be a block or a header.
-func (api *API) GetSigner(rlpOrBlockNr *blockNumberOrHashOrRLP) (common.Address, error) {
-	if len(rlpOrBlockNr.RLP) == 0 {
-		blockNrOrHash := rlpOrBlockNr.BlockNumberOrHash
-		var header *types.Header
-		if blockNrOrHash == nil {
-			header = api.chain.CurrentHeader()
-		} else if hash, ok := blockNrOrHash.Hash(); ok {
-			header = api.chain.GetHeaderByHash(hash)
-		} else if number, ok := blockNrOrHash.Number(); ok {
-			header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-		}
-		return api.proofofstake.Author(header)
-	}
-	block := new(types.Block)
-	if err := rlp.DecodeBytes(rlpOrBlockNr.RLP, block); err == nil {
-		return api.proofofstake.Author(block.Header())
-	}
-	header := new(types.Header)
-	if err := rlp.DecodeBytes(rlpOrBlockNr.RLP, header); err != nil {
-		return common.Address{}, err
-	}
-	return api.proofofstake.Author(header)
-}
-
-// Validator api
-
 // GetValidators retrieves the list of authorized signers at the specified block.
 func (api *API) GetValidators() (map[common.Address]*big.Int, error) {
 	// Retrieve the requested block number (or current if none requested)
@@ -204,68 +66,3 @@ func (api *API) GetValidators() (map[common.Address]*big.Int, error) {
 	}
 	return validators, nil
 }
-
-/*
-// GetDepositBalance retrieves the list of authorized signers at the specified block.
-func (api *API) GetDepositBalance(validator common.Address) (*big.Int, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	balance, err := api.proofofstake.GetDepositBalance(header.ParentHash, validator)
-	if err != nil {
-		return nil, err
-	}
-	return balance, nil
-}
-
-
-// GetDeposit retrieves the list of authorized signers at the specified block.
-func (api *API) GetDeposit(validator common.Address) (AccountTransactions, error) {
-	var accountTransactions AccountTransactions
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return accountTransactions, errUnknownBlock
-	}
-	transaction, err := api.proofofstake.GetDeposit(header.ParentHash, validator)
-	if err != nil {
-		return accountTransactions, err
-	}
-	return transaction, nil
-}
-
-// GetReward retrieves the list of authorized signers at the specified block.
-func (api *API) GetReward(validator common.Address) (AccountTransactions, error) {
-	var accountTransactions AccountTransactions
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return accountTransactions, errUnknownBlock
-	}
-	transaction, err := api.proofofstake.GetReward(header.ParentHash, validator)
-	if err != nil {
-		return accountTransactions, err
-	}
-	return transaction, nil
-}
-
-// GetWithdraw retrieves the list of authorized signers at the specified block.
-func (api *API) GetWithdraw(validator common.Address) (AccountTransactions, error) {
-	var accountTransactions AccountTransactions
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return accountTransactions, errUnknownBlock
-	}
-	transaction, err := api.proofofstake.GetWithdraw(header.ParentHash, validator)
-	if err != nil {
-		return accountTransactions, err
-	}
-	return transaction, nil
-}*/

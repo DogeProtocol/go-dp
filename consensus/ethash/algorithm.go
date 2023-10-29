@@ -18,8 +18,6 @@ package ethash
 
 import (
 	"encoding/binary"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
-	"golang.org/x/crypto/sha3"
 	"hash"
 	"math/big"
 	"reflect"
@@ -33,6 +31,7 @@ import (
 	"github.com/DogeProtocol/dp/common/bitutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/log"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -57,6 +56,13 @@ func cacheSize(block uint64) uint64 {
 		return cacheSizes[epoch]
 	}
 	return calcCacheSize(epoch)
+}
+
+// isLittleEndian returns whether the local system is running in little or big
+// endian byte order.
+func isLittleEndian() bool {
+	n := uint32(0x01020304)
+	return *(*byte)(unsafe.Pointer(&n)) == 0x04
 }
 
 // calcCacheSize calculates the cache size for epoch. The cache size grows linearly,
@@ -117,6 +123,12 @@ func makeHasher(h hash.Hash) hasher {
 	}
 }
 
+// SeedHash is the seed to use for generating a verification cache and the mining
+// dataset.
+func SeedHash(block uint64) []byte {
+	return seedHash(block)
+}
+
 // seedHash is the seed to use for generating a verification cache and the mining
 // dataset.
 func seedHash(block uint64) []byte {
@@ -124,7 +136,7 @@ func seedHash(block uint64) []byte {
 	if block < epochLength {
 		return seed
 	}
-	keccak256 := makeHasher(hashingalgorithm.NewHashState())
+	keccak256 := makeHasher(sha3.NewLegacyKeccak256())
 	for i := 0; i < int(block/epochLength); i++ {
 		keccak256(seed, seed)
 	}

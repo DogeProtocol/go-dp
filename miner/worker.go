@@ -453,8 +453,7 @@ func (w *worker) newWorkLoop(blockerTimerPhaseInterval time.Duration) {
 				//} else if atomic.LoadInt32(&w.currentBlockPhase) == 2 {
 				//commit(true, commitInterruptResubmit)
 				//}
-				/*if (w.chainConfig.Clique == nil || w.chainConfig.Clique.Period > 0) ||
-					(w.chainConfig.ProofOfStake == nil || w.chainConfig.ProofOfStake.Period > 0) {
+				/*if(w.chainConfig.ProofOfStake == nil || w.chainConfig.ProofOfStake.Period > 0) {
 					// Short circuit if no new transaction arrives.
 					if atomic.LoadInt32(&w.newTxs) == 0 {
 						timer.Reset(blockerTimerPhaseInterval)
@@ -598,8 +597,7 @@ func (w *worker) mainLoop() {
 				// Special case, if the consensus engine is 0 period clique(dev mode),
 				// submit mining work here since all empty submission will be rejected
 				// by clique. Of course the advance sealing(empty submission) is disabled.
-				if (w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0) ||
-					(w.chainConfig.ProofOfStake != nil && w.chainConfig.ProofOfStake.Period == 0) {
+				if w.chainConfig.ProofOfStake != nil && w.chainConfig.ProofOfStake.Period == 0 {
 					w.commitNewWork(nil, true, time.Now().Unix())
 				}
 			}

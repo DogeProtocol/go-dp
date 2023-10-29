@@ -65,16 +65,6 @@ type TCP6 uint16
 
 func (v TCP6) ENRKey() string { return "tcp6" }
 
-// UDP is the "udp" key, which holds the UDP port of the node.
-type UDP uint16
-
-func (v UDP) ENRKey() string { return "udp" }
-
-// UDP is the "udp" key, which holds the IPv6-specific UDP port of the node.
-type UDP6 uint16
-
-func (v UDP6) ENRKey() string { return "udp6" }
-
 // ID is the "id" key, which holds the name of the identity scheme.
 type ID string
 

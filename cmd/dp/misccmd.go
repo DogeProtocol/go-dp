@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/DogeProtocol/dp/cmd/utils"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/params"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -41,19 +40,6 @@ var (
 		Value: fmt.Sprintf("Geth/v%v/%v-%v/%v",
 			params.VersionWithCommit(gitCommit, gitDate),
 			runtime.GOOS, runtime.GOARCH, runtime.Version()),
-	}
-	makecacheCommand = cli.Command{
-		Action:    utils.MigrateFlags(makecache),
-		Name:      "makecache",
-		Usage:     "Generate ethash verification cache (for testing)",
-		ArgsUsage: "<blockNum> <outputDir>",
-		Category:  "MISCELLANEOUS COMMANDS",
-		Description: `
-The makecache command generates an ethash cache in <outputDir>.
-
-This command exists to support the system testing project.
-Regular users do not need to execute it.
-`,
 	}
 	makedagCommand = cli.Command{
 		Action:    utils.MigrateFlags(makedag),
@@ -108,11 +94,11 @@ func makecache(ctx *cli.Context) error {
 	if len(args) != 2 {
 		utils.Fatalf(`Usage: geth makecache <block number> <outputdir>`)
 	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
+	_, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {
 		utils.Fatalf("Invalid block number: %v", err)
 	}
-	ethash.MakeCache(block, args[1])
+	//ethash.MakeCache(block, args[1]) //todo
 
 	return nil
 }
@@ -123,11 +109,11 @@ func makedag(ctx *cli.Context) error {
 	if len(args) != 2 {
 		utils.Fatalf(`Usage: geth makedag <block number> <outputdir>`)
 	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
+	_, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {
 		utils.Fatalf("Invalid block number: %v", err)
 	}
-	ethash.MakeDataset(block, args[1])
+	//ethash.MakeDataset(block, args[1]) //todo
 
 	return nil
 }

@@ -38,7 +38,6 @@ import (
 	"github.com/DogeProtocol/dp/eth/downloader"
 	ethproto "github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/event"
-	"github.com/DogeProtocol/dp/les"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/miner"
 	"github.com/DogeProtocol/dp/node"
@@ -474,7 +473,7 @@ func (s *Service) login(conn *connWrapper) error {
 	if info := infos.Protocols["eth"]; info != nil {
 		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
 	} else {
-		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
+		return errors.New("unknown")
 	}
 	auth := &authMsg{
 		ID: s.node,

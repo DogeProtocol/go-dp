@@ -71,33 +71,16 @@ func TestGetSetIPv6(t *testing.T) {
 	assert.Equal(t, ip, ip2)
 }
 
-// TestGetSetUDP tests encoding/decoding and setting/getting of the UDP key.
-func TestGetSetUDP(t *testing.T) {
-	port := UDP(30309)
-	var r Record
-	r.Set(port)
-
-	var port2 UDP
-	require.NoError(t, r.Load(&port2))
-	assert.Equal(t, port, port2)
-}
-
 func TestLoadErrors(t *testing.T) {
 	var r Record
 	ip4 := IPv4{127, 0, 0, 1}
 	r.Set(ip4)
 
 	// Check error for missing keys.
-	var udp UDP
-	err := r.Load(&udp)
-	if !IsNotFound(err) {
-		t.Error("IsNotFound should return true for missing key")
-	}
-	assert.Equal(t, &KeyError{Key: udp.ENRKey(), Err: errNotFound}, err)
 
 	// Check error for invalid keys.
 	var list []uint
-	err = r.Load(WithEntry(ip4.ENRKey(), &list))
+	err := r.Load(WithEntry(ip4.ENRKey(), &list))
 	kerr, ok := err.(*KeyError)
 	if !ok {
 		t.Fatalf("expected KeyError, got %T", err)
@@ -172,11 +155,11 @@ func TestSeq(t *testing.T) {
 	var r Record
 
 	assert.Equal(t, uint64(0), r.Seq())
-	r.Set(UDP(1))
+	r.Set(TCP(1))
 	assert.Equal(t, uint64(0), r.Seq())
 	signTest([]byte{5}, &r)
 	assert.Equal(t, uint64(0), r.Seq())
-	r.Set(UDP(2))
+	r.Set(TCP(2))
 	assert.Equal(t, uint64(1), r.Seq())
 }
 
@@ -198,7 +181,7 @@ func TestGetSetOverwrite(t *testing.T) {
 // TestSignEncodeAndDecode tests signing, RLP encoding and RLP decoding of a record.
 func TestSignEncodeAndDecode(t *testing.T) {
 	var r Record
-	r.Set(UDP(30303))
+	r.Set(TCP(30303))
 	r.Set(IPv4{127, 0, 0, 1})
 	require.NoError(t, signTest([]byte{5}, &r))
 

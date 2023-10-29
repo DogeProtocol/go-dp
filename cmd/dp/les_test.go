@@ -152,7 +152,7 @@ func startGethWithIpc(t *testing.T, name string, args ...string) *gethrpc {
 }
 
 func initGeth(t *testing.T) string {
-	args := []string{"--networkid=42", "init", "./testdata/clique.json"}
+	args := []string{"--networkid=42", "init", "./testdata/proofofstake.json"}
 	t.Logf("Initializing geth: %v ", args)
 	g := runGeth(t, args...)
 	datadir := g.Datadir

@@ -124,7 +124,7 @@ func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Pe
 	go peer.broadcastRequestConsensusDataMessages()
 	go peer.broadcastRequestPeerListMessages()
 	go peer.broadcastPeerListMessages()
-	if version >= ETH65 {
+	if version >= ETH66 {
 		go peer.announceTransactions()
 	}
 	return peer

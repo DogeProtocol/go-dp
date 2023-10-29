@@ -64,7 +64,7 @@ func (h *P2PHandler) syncTransactions(p *eth.Peer) {
 	// The eth/65 protocol introduces proper transaction announcements, so instead
 	// of dripping transactions across multiple peers, just send the entire list as
 	// an announcement and let the remote side decide what they need (likely nothing).
-	if p.Version() >= eth.ETH65 {
+	if p.Version() >= eth.ETH66 {
 		hashes := make([]common.Hash, len(txs))
 		for i, tx := range txs {
 			hashes[i] = tx.Hash()
@@ -95,7 +95,7 @@ func (h *P2PHandler) txsyncLoop64() {
 
 	// send starts a sending a pack of transactions from the sync.
 	send := func(s *txsync) {
-		if s.p.Version() >= eth.ETH65 {
+		if s.p.Version() >= eth.ETH66 {
 			panic("initial transaction syncer running on eth/65+")
 		}
 		// Fill pack with transactions up to the target size.
@@ -256,10 +256,6 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 		return nil
 	}
 	mode, ourTD := cs.modeAndLocalHead()
-	if mode == downloader.FastSync && atomic.LoadUint32(&cs.handler.snapSync) == 1 {
-		// Fast sync via the snap protocol
-		mode = downloader.SnapSync
-	}
 	op := peerToSyncOp(mode, peer)
 	if op.td.Cmp(ourTD) <= 0 {
 		return nil // We're in sync.
@@ -302,7 +298,7 @@ func (cs *chainSyncer) startSync(op *chainSyncOp) {
 
 // doSync synchronizes the local blockchain with a remote peer.
 func (h *P2PHandler) doSync(op *chainSyncOp) error {
-	if op.mode == downloader.FastSync || op.mode == downloader.SnapSync {
+	if op.mode == downloader.FastSync {
 		// Before launch the fast sync, we have to ensure user uses the same
 		// txlookup limit.
 		// The main concern here is: during the fast sync Geth won't index the

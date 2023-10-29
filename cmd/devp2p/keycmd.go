@@ -45,7 +45,7 @@ var (
 		Usage:     "Creates an enode URL from a node key file",
 		ArgsUsage: "keyfile",
 		Action:    keyToURL,
-		Flags:     []cli.Flag{hostFlag, tcpPortFlag, udpPortFlag},
+		Flags:     []cli.Flag{hostFlag, tcpPortFlag},
 	}
 )
 
@@ -58,11 +58,6 @@ var (
 	tcpPortFlag = cli.IntFlag{
 		Name:  "tcp",
 		Usage: "TCP port of the node",
-		Value: 30303,
-	}
-	udpPortFlag = cli.IntFlag{
-		Name:  "udp",
-		Usage: "UDP port of the node",
 		Value: 30303,
 	}
 )
@@ -89,7 +84,6 @@ func keyToURL(ctx *cli.Context) error {
 		file = ctx.Args().Get(0)
 		host = ctx.String(hostFlag.Name)
 		tcp  = ctx.Int(tcpPortFlag.Name)
-		udp  = ctx.Int(udpPortFlag.Name)
 	)
 	key, err := cryptobase.SigAlg.LoadPrivateKeyFromFile(file)
 	if err != nil {
@@ -99,7 +93,7 @@ func keyToURL(ctx *cli.Context) error {
 	if ip == nil {
 		return fmt.Errorf("invalid IP address %q", host)
 	}
-	node := enode.NewV4(&key.PublicKey, ip, tcp, udp)
+	node := enode.NewV4(&key.PublicKey, ip, tcp)
 	fmt.Println(node.URLv4())
 	return nil
 }

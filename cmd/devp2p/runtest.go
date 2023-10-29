@@ -17,12 +17,10 @@
 package main
 
 import (
-	"os"
-
-	"github.com/DogeProtocol/dp/cmd/devp2p/internal/v4test"
 	"github.com/DogeProtocol/dp/internal/utesting"
 	"github.com/DogeProtocol/dp/log"
 	"gopkg.in/urfave/cli.v1"
+	"os"
 )
 
 var (
@@ -33,17 +31,6 @@ var (
 	testTAPFlag = cli.BoolFlag{
 		Name:  "tap",
 		Usage: "Output TAP",
-	}
-	// These two are specific to the discovery tests.
-	testListen1Flag = cli.StringFlag{
-		Name:  "listen1",
-		Usage: "IP address of the first tester",
-		Value: v4test.Listen1,
-	}
-	testListen2Flag = cli.StringFlag{
-		Name:  "listen2",
-		Usage: "IP address of the second tester",
-		Value: v4test.Listen2,
 	}
 )
 

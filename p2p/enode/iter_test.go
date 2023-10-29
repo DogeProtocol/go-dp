@@ -99,9 +99,9 @@ func TestFairMix(t *testing.T) {
 
 func testMixerFairness(t *testing.T) {
 	mix := NewFairMix(1 * time.Second)
-	mix.AddSource(&genIter{index: 1})
-	mix.AddSource(&genIter{index: 2})
-	mix.AddSource(&genIter{index: 3})
+	mix.AddSource(&genIter{index: 1}, "test")
+	mix.AddSource(&genIter{index: 2}, "test")
+	mix.AddSource(&genIter{index: 3}, "test")
 	defer mix.Close()
 
 	nodes := ReadNodes(mix, 500)
@@ -121,8 +121,8 @@ func testMixerFairness(t *testing.T) {
 // the 'fair' choice doesn't return a node within the timeout.
 func TestFairMixNextFromAll(t *testing.T) {
 	mix := NewFairMix(1 * time.Millisecond)
-	mix.AddSource(&genIter{index: 1})
-	mix.AddSource(CycleNodes(nil))
+	mix.AddSource(&genIter{index: 1}, "test")
+	mix.AddSource(CycleNodes(nil), "test")
 	defer mix.Close()
 
 	nodes := ReadNodes(mix, 500)
@@ -148,7 +148,7 @@ func TestFairMixEmpty(t *testing.T) {
 		ch <- mix.Node()
 	}()
 
-	mix.AddSource(CycleNodes([]*Node{testN}))
+	mix.AddSource(CycleNodes([]*Node{testN}), "test")
 	if n := <-ch; n != testN {
 		t.Errorf("got wrong node: %v", n)
 	}
@@ -158,7 +158,7 @@ func TestFairMixEmpty(t *testing.T) {
 func TestFairMixRemoveSource(t *testing.T) {
 	mix := NewFairMix(1 * time.Second)
 	source := make(blockingIter)
-	mix.AddSource(source)
+	mix.AddSource(source, "test")
 
 	sig := make(chan *Node)
 	go func() {
@@ -172,7 +172,7 @@ func TestFairMixRemoveSource(t *testing.T) {
 	source.Close()
 
 	wantNode := testNode(0, 0)
-	mix.AddSource(CycleNodes([]*Node{wantNode}))
+	mix.AddSource(CycleNodes([]*Node{wantNode}), "test")
 	n := <-sig
 
 	if len(mix.sources) != 1 {
@@ -206,8 +206,8 @@ func TestFairMixClose(t *testing.T) {
 
 func testMixerClose(t *testing.T) {
 	mix := NewFairMix(-1)
-	mix.AddSource(CycleNodes(nil))
-	mix.AddSource(CycleNodes(nil))
+	mix.AddSource(CycleNodes(nil), "test")
+	mix.AddSource(CycleNodes(nil), "test")
 
 	done := make(chan struct{})
 	go func() {
