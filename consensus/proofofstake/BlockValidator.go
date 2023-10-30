@@ -231,8 +231,10 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 
 	var proposalHash common.Hash
 	if voteType == VOTE_TYPE_OK {
+		fmt.Println("GetCombinedTxnHash a", parentHash, round, len(txns))
 		proposalHash = GetCombinedTxnHash(parentHash, round, txns)
 	} else {
+		fmt.Println("GetCombinedTxnHash b", parentHash, round)
 		proposalHash.CopyFrom(getNilVoteProposalHash(parentHash, round))
 		if txns != nil && len(txns) > 0 {
 			return errors.New("invalid transactions with nil vote")
@@ -248,6 +250,7 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 		if proposalAckDetails.Round != round {
 			return errors.New("invalid round")
 		}
+		fmt.Println("val dep", v, depositValue, proposalAckDetails.ProposalAckVoteType, proposalAckDetails.ProposalHash)
 
 		if proposalAckDetails.ProposalAckVoteType == VOTE_TYPE_NIL {
 			if proposalAckDetails.ProposalHash.IsEqualTo(proposalHash) == false { //can be OK VOTE as well
@@ -261,9 +264,9 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 		} else if proposalAckDetails.ProposalAckVoteType == VOTE_TYPE_OK {
 			if proposalAckDetails.ProposalHash.IsEqualTo(proposalHash) == false {
 				if voteType != VOTE_TYPE_NIL { //can be NIL VOTE as well
-					//todo: slash block proposer?
-					continue
+					fmt.Println("proposal hash 1", proposalHash, proposalAckDetails.ProposalHash, voteType)
 				}
+				continue
 			}
 			okVotesDepositValue = common.SafeAddBigInt(okVotesDepositValue, depositValue)
 		} else {
@@ -276,6 +279,8 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 		}
 	}
 
+	fmt.Println("minDepositRequired", minDepositRequired, "okVotesDepositValue", okVotesDepositValue, "nilVotesDepositValue", nilVotesDepositValue,
+		"voteType", voteType, "proposalAckDetails", len(packetMap.proposalAckDetailsMap), "txns", len(txns))
 	var precommitHash common.Hash
 	if voteType == VOTE_TYPE_NIL {
 		if okVotesDepositValue.Cmp(minDepositRequired) >= 0 {
@@ -344,7 +349,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 		return errors.New("ValidateBlockConsensusData round min")
 	}
 
-	if blockConsensusData.Round > MAX_ROUND_WITH_TXNS {
+	if blockConsensusData.Round > MAX_ROUND_WITH_TXNS { //todo: is this valid?
 		return errors.New("ValidateBlockConsensusData round max")
 	}
 
@@ -353,10 +358,10 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 	}
 
 	nilVotedProposers := make(map[common.Address]bool)
-	if blockConsensusData.NilvotedBlockProposers != nil {
-		for _, proposer := range blockConsensusData.NilvotedBlockProposers {
+	if blockConsensusData.SlashedBlockProposers != nil {
+		for _, proposer := range blockConsensusData.SlashedBlockProposers {
 			nilVotedProposers[proposer] = true
-			fmt.Println("proposer nilvoted", proposer)
+			fmt.Println("proposer slashed", proposer)
 		}
 	}
 
@@ -405,6 +410,12 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 	//fmt.Println("packetRoundMap", len(packetRoundMap))
 
 	if blockConsensusData.VoteType == VOTE_TYPE_NIL {
+		if len(txns) > 0 {
+			return errors.New("txns in a NIL block")
+		}
+		if blockConsensusData.SelectedTransactions != nil && len(blockConsensusData.SelectedTransactions) > 0 {
+			return errors.New("SelectedTransactions in a NIL vote")
+		}
 		if blockConsensusData.BlockProposer.IsEqualTo(ZERO_ADDRESS) == false {
 			return errors.New("ValidateBlockConsensusData BlockProposer false")
 		}
@@ -437,7 +448,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 		}
 
 		packetMap := packetRoundMap[blockConsensusData.Round]
-		err = ValidatePackets(parentHash, blockConsensusData.Round, packetMap, VOTE_TYPE_NIL, &filteredValidatorDepositMap, totalBlockDepositValue, minDepositRequired, txns)
+		err = ValidatePackets(parentHash, blockConsensusData.Round, packetMap, VOTE_TYPE_NIL, &filteredValidatorDepositMap, totalBlockDepositValue, minDepositRequired, blockConsensusData.SelectedTransactions)
 		if err != nil {
 			return err
 		}
@@ -457,6 +468,27 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 			return errors.New("ValidateBlockConsensusData ProposalHash zero_hash")
 		}
 
+		if blockConsensusData.SelectedTransactions == nil {
+			if len(txns) > 0 {
+				return errors.New("ValidateBlockConsensusData txns is non-empty but SelectedTransactions is nil")
+			}
+		} else {
+			var selectedTxnsMap map[common.Hash]bool
+			selectedTxnsMap = make(map[common.Hash]bool)
+			for _, txn := range blockConsensusData.SelectedTransactions {
+				selectedTxnsMap[txn] = true
+			}
+			if txns != nil {
+				for _, txn := range txns {
+					_, ok := selectedTxnsMap[txn]
+					if ok == false {
+						fmt.Println("ValidateBlockConsensusData txn", txn)
+						return errors.New("ValidateBlockConsensusData txns should be a subset of blockConsensusData.SelectedTransactions")
+					}
+				}
+			}
+		}
+
 		if blockConsensusData.Round > 1 {
 			for r := byte(1); r < blockConsensusData.Round; r++ {
 				_, ok := nilVotedProposers[roundBlockValidators[r]]
@@ -465,17 +497,18 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 					return errors.New("nilVotedProposers 2")
 				}
 			}
-			if len(blockConsensusData.NilvotedBlockProposers) < int(blockConsensusData.Round-1) {
-				fmt.Println("NilvotedBlockProposers", len(nilVotedProposers), int(blockConsensusData.Round))
-				return errors.New("ValidateBlockConsensusData NilvotedBlockProposers length")
+			if len(blockConsensusData.SlashedBlockProposers) < int(blockConsensusData.Round-1) {
+				fmt.Println("SlashedBlockProposers", len(nilVotedProposers), int(blockConsensusData.Round))
+				return errors.New("ValidateBlockConsensusData SlashedBlockProposers length")
 			}
 		}
 
 		packetMap := packetRoundMap[blockConsensusData.Round]
-		err = ValidatePackets(parentHash, blockConsensusData.Round, packetMap, VOTE_TYPE_OK, &filteredValidatorDepositMap, totalBlockDepositValue, minDepositRequired, txns)
+		err = ValidatePackets(parentHash, blockConsensusData.Round, packetMap, VOTE_TYPE_OK, &filteredValidatorDepositMap, totalBlockDepositValue, minDepositRequired, blockConsensusData.SelectedTransactions)
 		if err != nil {
 			return err
 		}
+
 	} else {
 		fmt.Println("ValidateBlockConsensusData unexpected vote type")
 		return errors.New("ValidateBlockConsensusData unexpected vote type")

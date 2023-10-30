@@ -1298,6 +1298,12 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		} else {
 			result.GasPrice = nil
 		}
+	case types.DefaultFeeTxType:
+		al := tx.AccessList()
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		price := (*hexutil.Big)(tx.GasPrice())
+		result.GasPrice = price
 	}
 	return result
 }

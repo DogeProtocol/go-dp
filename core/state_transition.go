@@ -224,7 +224,7 @@ func (st *StateTransition) preCheck() error {
 	// Make sure that transaction gasFeeCap is greater than the baseFee (post london)
 	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
 		// Skip the checks if gas fields are zero and baseFee was explicitly disabled (eth_call)
-		if !st.evm.Config.NoBaseFee || st.gasFeeCap.BitLen() > 0 {
+		/*if !st.evm.Config.NoBaseFee || st.gasFeeCap.BitLen() > 0 {
 			if l := st.gasFeeCap.BitLen(); l > 256 {
 				return fmt.Errorf("%w: address %v, maxFeePerGas bit length: %d", ErrFeeCapVeryHigh,
 					st.msg.From().Hex(), l)
@@ -235,7 +235,7 @@ func (st *StateTransition) preCheck() error {
 				return fmt.Errorf("%w: address %v, maxFeePerGas: %s baseFee: %s", ErrFeeCapTooLow,
 					st.msg.From().Hex(), st.gasFeeCap, st.evm.Context.BaseFee)
 			}
-		}
+		}*/
 	}
 	return st.buyGas()
 }

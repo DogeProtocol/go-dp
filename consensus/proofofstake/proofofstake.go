@@ -578,8 +578,8 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 	}
 
 	if blockConsensusData.Round > 1 {
-		if len(blockConsensusData.NilvotedBlockProposers) < int(blockConsensusData.Round-1) {
-			return errors.New("ValidateBlockConsensusData NilvotedBlockProposers length")
+		if len(blockConsensusData.SlashedBlockProposers) < int(blockConsensusData.Round-1) {
+			return errors.New("ValidateBlockConsensusData SlashedBlockProposers length")
 		}
 	}
 
@@ -634,19 +634,27 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 	currentNumber := uint64(c.ethAPI.BlockNumber())
 	currentHeader, err := c.ethAPI.GetHeaderByNumberInner(ctx, rpc.BlockNumber(currentNumber))
 	if err != nil {
+		fmt.Println("VerifyBlock 1", err)
 		return err
 	}
 
 	if number != currentNumber+1 || header.ParentHash.IsEqualTo(currentHeader.Hash()) == false {
+		fmt.Println("VerifyBlock 2", err)
 		return err
 	}
 
 	validatorDepositMap, err := c.GetValidators(header.ParentHash)
 	if err != nil {
+		fmt.Println("VerifyBlock 3", err)
 		return err
 	}
 
-	return ValidateBlockConsensusData(block, &validatorDepositMap)
+	err = ValidateBlockConsensusData(block, &validatorDepositMap)
+	if err != nil {
+		fmt.Println("ValidateBlockConsensusData", err)
+	}
+
+	return err
 }
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
@@ -677,8 +685,8 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		return err
 	}
 
-	if blockConsensusData.NilvotedBlockProposers != nil && len(blockConsensusData.NilvotedBlockProposers) > 0 {
-		for _, val := range blockConsensusData.NilvotedBlockProposers {
+	if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 {
+		for _, val := range blockConsensusData.SlashedBlockProposers {
 			depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
 			if err != nil {
 				return err
@@ -770,8 +778,8 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 			return nil, err
 		}
 
-		if blockConsensusData.NilvotedBlockProposers != nil && len(blockConsensusData.NilvotedBlockProposers) > 0 {
-			for _, val := range blockConsensusData.NilvotedBlockProposers {
+		if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 {
+			for _, val := range blockConsensusData.SlashedBlockProposers {
 				depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
 				if err != nil {
 					return nil, err

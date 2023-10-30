@@ -188,7 +188,7 @@ func NewLondonSigner(chainId *big.Int) Signer {
 }
 
 func (s londonSigner) Sender(tx *Transaction) (common.Address, error) {
-	if tx.Type() != DynamicFeeTxType {
+	if tx.Type() != DynamicFeeTxType && tx.Type() != DefaultFeeTxType {
 		return s.eip2930Signer.Sender(tx)
 	}
 	V, R, S := tx.RawSignatureValues()
@@ -207,6 +207,23 @@ func (s londonSigner) Equal(s2 Signer) bool {
 }
 
 func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
+	txdata1, ok1 := tx.inner.(*DefaultFeeTx)
+	if ok1 {
+		// Check that chain ID of tx matches the signer. We also accept ID zero here,
+		// because it indicates that the chain ID was not specified in the tx.
+		if txdata1.ChainID.Sign() != 0 && txdata1.ChainID.Cmp(s.chainId) != 0 {
+			return nil, nil, nil, ErrInvalidChainId
+		}
+		sigHash := s.Hash(tx)
+		R, S, _, err = decodeSignature(sigHash.Bytes(), sig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		V = big.NewInt(1)
+		return R, S, V, nil
+	}
+
 	txdata, ok := tx.inner.(*DynamicFeeTx)
 	if !ok {
 		return s.eip2930Signer.SignatureValues(tx, sig)
@@ -229,6 +246,21 @@ func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s londonSigner) Hash(tx *Transaction) common.Hash {
+	if tx.Type() == DefaultFeeTxType {
+		return prefixedRlpHash(
+			tx.Type(),
+			[]interface{}{
+				s.chainId,
+				tx.Nonce(),
+				tx.To(),
+				tx.Gas(),
+				tx.MaxGasTier(),
+				tx.Value(),
+				tx.Data(),
+				tx.AccessList(),
+			})
+	}
+
 	if tx.Type() != DynamicFeeTxType {
 		return s.eip2930Signer.Hash(tx)
 	}
@@ -443,6 +475,7 @@ func (s HomesteadSigner) Equal(s2 Signer) bool {
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
+	fmt.Println("SignatureValues HomesteadSigner")
 	return hs.FrontierSigner.SignatureValues(tx, sig)
 }
 
@@ -476,6 +509,7 @@ func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
+	fmt.Println("SignatureValues FrontierSigner")
 	if tx.Type() != LegacyTxType {
 		return nil, nil, nil, ErrTxTypeNotSupported
 	}
