@@ -100,14 +100,14 @@ func (h *EthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 		return h.txFetcher.Enqueue(peer.ID(), *packet, true)
 
 	case *eth.ConsensusPacket:
-		if h.consensusHandler != nil && h.consensusHandler != nil {
+		if h.consensusHandler != nil {
 			return h.consensusHandler.Handler.HandleConsensusPacket(packet)
 		} else {
 			return nil
 		}
 
 	case *eth.RequestConsensusDataPacket:
-		if h.consensusHandler != nil && h.consensusHandler != nil {
+		if h.consensusHandler != nil {
 			packets, err := h.consensusHandler.Handler.HandleRequestConsensusDataPacket(packet)
 			if err != nil {
 				return err

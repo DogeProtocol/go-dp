@@ -1280,10 +1280,6 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	switch tx.Type() {
-	case types.AccessListTxType:
-		al := tx.AccessList()
-		result.Accesses = &al
-		result.ChainID = (*hexutil.Big)(tx.ChainId())
 	case types.DynamicFeeTxType:
 		al := tx.AccessList()
 		result.Accesses = &al

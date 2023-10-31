@@ -318,20 +318,20 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	}
 	signer := types.LatestSigner(ethConf.Genesis.Config)
 
-	legacyTx, _ := types.SignNewTx(key, signer, &types.LegacyTx{
-		Nonce:    uint64(0),
-		To:       &dad,
-		Value:    big.NewInt(100),
-		Gas:      50000,
-		GasPrice: big.NewInt(params.InitialBaseFee),
+	legacyTx, _ := types.SignNewTx(key, signer, &types.DefaultFeeTx{
+		Nonce:      uint64(0),
+		To:         &dad,
+		Value:      big.NewInt(100),
+		Gas:        50000,
+		MaxGasTier: types.GAS_TIER_DEFAULT,
 	})
-	envelopTx, _ := types.SignNewTx(key, signer, &types.AccessListTx{
-		ChainID:  ethConf.Genesis.Config.ChainID,
-		Nonce:    uint64(1),
-		To:       &dad,
-		Gas:      30000,
-		GasPrice: big.NewInt(params.InitialBaseFee),
-		Value:    big.NewInt(50),
+	envelopTx, _ := types.SignNewTx(key, signer, &types.DefaultFeeTx{
+		ChainID:    ethConf.Genesis.Config.ChainID,
+		Nonce:      uint64(1),
+		To:         &dad,
+		Gas:        30000,
+		MaxGasTier: types.GAS_TIER_DEFAULT,
+		Value:      big.NewInt(50),
 		AccessList: types.AccessList{{
 			Address:     dad,
 			StorageKeys: []common.Hash{{0}},

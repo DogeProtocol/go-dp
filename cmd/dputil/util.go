@@ -240,7 +240,7 @@ func send(from string, to string, quantity string) (string, error) {
 	value := etherToWeiFloat(v)
 
 	var data []byte
-	tx := types.NewDefaultFeeTransaction(chainID, nonce, toAddress, value, gasLimit, types.GAS_TIER_DEFAULT, data)
+	tx := types.NewDefaultFeeTransaction(chainID, nonce, &toAddress, value, gasLimit, types.GAS_TIER_DEFAULT, data)
 	fmt.Println("chainID", chainID)
 
 	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), key.PrivateKey)

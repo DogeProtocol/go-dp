@@ -129,13 +129,13 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 			}
 			tx = types.NewTx(txdata)
 		} else {
-			txdata := &types.LegacyTx{
-				Nonce:    b.TxNonce(addr),
-				To:       &common.Address{},
-				Gas:      21000,
-				GasPrice: big.NewInt(int64(i+1) * params.GWei),
-				Value:    big.NewInt(100),
-				Data:     []byte{},
+			txdata := &types.DefaultFeeTx{
+				Nonce:      b.TxNonce(addr),
+				To:         &common.Address{},
+				Gas:        21000,
+				MaxGasTier: types.GAS_TIER_DEFAULT,
+				Value:      big.NewInt(100),
+				Data:       []byte{},
 			}
 			tx = types.NewTx(txdata)
 		}

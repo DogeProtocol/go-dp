@@ -6,7 +6,6 @@ import (
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
-	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -185,8 +184,6 @@ type Mock struct {
 	signFn    SignerFn // Signer function to authorize hashes with
 	signTxFn  SignerTxFn
 
-	ethAPI *ethapi.PublicBlockChainAPI
-
 	lock sync.RWMutex // Protects the validator fields
 
 	// The fields below are for testing only
@@ -197,8 +194,7 @@ type Mock struct {
 
 // New creates a Mock proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
-func New(chainConfig *params.ChainConfig, db ethdb.Database,
-	ethAPI *ethapi.PublicBlockChainAPI, genesisHash common.Hash) *Mock {
+func New(chainConfig *params.ChainConfig, db ethdb.Database, genesisHash common.Hash) *Mock {
 	// Set any missing consensus parameters to their defaults
 	conf := *chainConfig
 	if conf.ProofOfStake.Epoch == 0 {
@@ -213,7 +209,6 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 		config:      conf.ProofOfStake,
 		genesisHash: genesisHash,
 		db:          db,
-		ethAPI:      ethAPI,
 		recents:     recents,
 		signatures:  signatures,
 		proposals:   make(map[common.Address]bool),

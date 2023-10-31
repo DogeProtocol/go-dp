@@ -299,16 +299,6 @@ func (s eip2930Signer) Equal(s2 Signer) bool {
 func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
 	V, R, S := tx.RawSignatureValues()
 	switch tx.Type() {
-	case LegacyTxType:
-		if !tx.Protected() {
-			return HomesteadSigner{}.Sender(tx)
-		}
-		V = new(big.Int).Sub(V, s.chainIdMul)
-		V.Sub(V, big8)
-	case AccessListTxType:
-		// AL txns are defined to use 0 and 1 as their recovery
-		// id, add 27 to become equivalent to unprotected Homestead signatures.
-		V = new(big.Int).Add(V, big.NewInt(27))
 	default:
 		return common.Address{}, ErrTxTypeNotSupported
 	}
@@ -320,9 +310,7 @@ func (s eip2930Signer) Sender(tx *Transaction) (common.Address, error) {
 
 func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
 	switch txdata := tx.inner.(type) {
-	case *LegacyTx:
-		return s.EIP155Signer.SignatureValues(tx, sig)
-	case *AccessListTx:
+	case *DefaultFeeTx:
 		// Check that chain ID of tx matches the signer. We also accept ID zero here,
 		// because it indicates that the chain ID was not specified in the tx.
 		if txdata.ChainID.Sign() != 0 && txdata.ChainID.Cmp(s.chainId) != 0 {
@@ -345,29 +333,7 @@ func (s eip2930Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *bi
 // It does not uniquely identify the transaction.
 func (s eip2930Signer) Hash(tx *Transaction) common.Hash {
 	switch tx.Type() {
-	case LegacyTxType:
-		return rlpHash([]interface{}{
-			tx.Nonce(),
-			tx.GasPrice(),
-			tx.Gas(),
-			tx.To(),
-			tx.Value(),
-			tx.Data(),
-			s.chainId, uint(0), uint(0),
-		})
-	case AccessListTxType:
-		return prefixedRlpHash(
-			tx.Type(),
-			[]interface{}{
-				s.chainId,
-				tx.Nonce(),
-				tx.GasPrice(),
-				tx.Gas(),
-				tx.To(),
-				tx.Value(),
-				tx.Data(),
-				tx.AccessList(),
-			})
+
 	default:
 		// This _should_ not happen, but in case someone sends in a bad
 		// json struct via RPC, it's probably more prudent to return an
@@ -408,40 +374,13 @@ func (s EIP155Signer) Equal(s2 Signer) bool {
 var big8 = big.NewInt(8)
 
 func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
-	if tx.Type() != LegacyTxType {
-		return common.Address{}, ErrTxTypeNotSupported
-	}
-	if !tx.Protected() {
-		return HomesteadSigner{}.Sender(tx)
-	}
-	if tx.ChainId().Cmp(s.chainId) != 0 {
-		return common.Address{}, ErrInvalidChainId
-	}
-
-	V, R, S := tx.RawSignatureValues()
-	V = new(big.Int).Sub(V, s.chainIdMul)
-	V.Sub(V, big8)
-	return recoverPlain(s.Hash(tx), R, S, V)
+	return common.Address{}, ErrTxTypeNotSupported
 }
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
-	if tx.Type() != LegacyTxType {
-		return nil, nil, nil, ErrTxTypeNotSupported
-	}
-	sigHash := s.Hash(tx)
-	R, S, V, err = decodeSignature(sigHash.Bytes(), sig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	if s.chainId.Sign() != 0 {
-
-		V = big.NewInt(int64(1 + 35))
-		V.Add(V, s.chainIdMul)
-	}
-	return R, S, V, nil
+	return nil, nil, nil, ErrTxTypeNotSupported
 }
 
 // Hash returns the hash to be signed by the sender.
@@ -480,11 +419,7 @@ func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v 
 }
 
 func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
-	if tx.Type() != LegacyTxType {
-		return common.Address{}, ErrTxTypeNotSupported
-	}
-	v, r, s := tx.RawSignatureValues()
-	return recoverPlain(hs.Hash(tx), r, s, v)
+	return common.Address{}, ErrTxTypeNotSupported
 }
 
 type FrontierSigner struct{}
@@ -499,27 +434,13 @@ func (s FrontierSigner) Equal(s2 Signer) bool {
 }
 
 func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
-	if tx.Type() != LegacyTxType {
-		return common.Address{}, ErrTxTypeNotSupported
-	}
-	v, r, s := tx.RawSignatureValues()
-	return recoverPlain(fs.Hash(tx), r, s, v)
+	return common.Address{}, ErrTxTypeNotSupported
 }
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
-	fmt.Println("SignatureValues FrontierSigner")
-	if tx.Type() != LegacyTxType {
-		return nil, nil, nil, ErrTxTypeNotSupported
-	}
-	sigHash := fs.Hash(tx)
-	r, s, v, err = decodeSignature(sigHash.Bytes(), sig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return r, s, v, nil
+	return nil, nil, nil, ErrTxTypeNotSupported
 }
 
 // Hash returns the hash to be signed by the sender.

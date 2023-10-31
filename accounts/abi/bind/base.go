@@ -307,16 +307,13 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 	// Create the transaction, sign it and schedule it for execution
 	var rawTx *types.Transaction
 	if opts.GasFeeCap == nil {
-		baseTx := &types.LegacyTx{
-			Nonce:    nonce,
-			GasPrice: opts.GasPrice,
-			Gas:      gasLimit,
-			Value:    value,
-			Data:     input,
-		}
+		var toAddress *common.Address
 		if contract != nil {
-			baseTx.To = &c.address
+			toAddress = &c.address
 		}
+
+		baseTx := types.NewDefaultFeeTransactionSimple(nonce, toAddress, value, gasLimit, input)
+
 		rawTx = types.NewTx(baseTx)
 	} else {
 		baseTx := &types.DynamicFeeTx{

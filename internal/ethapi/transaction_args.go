@@ -262,25 +262,18 @@ func (args *TransactionArgs) toTransaction() *types.Transaction {
 			AccessList: al,
 		}
 	case args.AccessList != nil:
-		data = &types.AccessListTx{
+		data = &types.DefaultFeeTx{
 			To:         args.To,
 			ChainID:    (*big.Int)(args.ChainID),
 			Nonce:      uint64(*args.Nonce),
 			Gas:        uint64(*args.Gas),
-			GasPrice:   (*big.Int)(args.GasPrice),
+			MaxGasTier: types.GAS_TIER_DEFAULT,
 			Value:      (*big.Int)(args.Value),
 			Data:       args.data(),
 			AccessList: *args.AccessList,
 		}
 	default:
-		data = &types.LegacyTx{
-			To:       args.To,
-			Nonce:    uint64(*args.Nonce),
-			Gas:      uint64(*args.Gas),
-			GasPrice: (*big.Int)(args.GasPrice),
-			Value:    (*big.Int)(args.Value),
-			Data:     args.data(),
-		}
+		data = types.NewDefaultFeeTransactionSimple(uint64(*args.Nonce), args.To, (*big.Int)(args.Value), uint64(*args.Gas), args.data())
 	}
 	return types.NewTx(data)
 }
