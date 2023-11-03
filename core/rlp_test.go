@@ -37,7 +37,7 @@ var (
 	hextestkey1, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey1)
 )
 
-func getBlock(transactions int, uncles int, dataSize int) *types.Block {
+func getBlock(transactions int, dataSize int) *types.Block {
 	var (
 		aa = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
 		// Generate a canonical chain to act as the main dataset
@@ -55,18 +55,16 @@ func getBlock(transactions int, uncles int, dataSize int) *types.Block {
 	)
 
 	// We need to generate as many blocks +1 as uncles
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, uncles+1,
+	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 1,
 		func(n int, b *BlockGen) {
-			if n == uncles {
+			if n == 1 {
 				// Add transactions and stuff on the last block
 				for i := 0; i < transactions; i++ {
 					tx, _ := types.SignTx(types.NewTransaction(uint64(i), aa,
-						big.NewInt(0), 50000, b.header.BaseFee, make([]byte, dataSize)), types.HomesteadSigner{}, key)
+						big.NewInt(0), 50000, nil, make([]byte, dataSize)), types.NewLondonSignerDefaultChain(), key)
 					b.AddTx(tx)
 				}
-				for i := 0; i < uncles; i++ {
-					b.AddUncle(&types.Header{ParentHash: b.PrevBlock(n - 1 - i).Hash(), Number: big.NewInt(int64(n - i))})
-				}
+
 			}
 		})
 	block := blocks[len(blocks)-1]
@@ -93,7 +91,7 @@ func TestRlpIterator(t *testing.T) {
 
 func testRlpIterator(t *testing.T, txs, uncles, datasize int) {
 	desc := fmt.Sprintf("%d txs [%d datasize] and %d uncles", txs, datasize, uncles)
-	bodyRlp, _ := rlp.EncodeToBytes(getBlock(txs, uncles, datasize).Body())
+	bodyRlp, _ := rlp.EncodeToBytes(getBlock(txs, datasize).Body())
 	it, err := rlp.NewListIterator(bodyRlp)
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +150,7 @@ func BenchmarkHashing(b *testing.B) {
 		blockRlp []byte
 	)
 	{
-		block := getBlock(200, 2, 50)
+		block := getBlock(200, 50)
 		bodyRlp, _ = rlp.EncodeToBytes(block.Body())
 		blockRlp, _ = rlp.EncodeToBytes(block)
 	}

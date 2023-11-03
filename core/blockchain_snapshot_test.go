@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
@@ -71,7 +70,7 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Blo
 	}
 	// Initialize a fresh chain
 	var (
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
+		genesis = (&Genesis{}).MustCommit(db)
 		engine  = mockconsensus.NewMockConsensus()
 		gendb   = rawdb.NewMemoryDatabase()
 

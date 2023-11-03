@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/consensus/mockconsensus"
-	"math/big"
 	"testing"
 	"time"
 
@@ -71,7 +70,7 @@ func testInsert(t *testing.T, hc *HeaderChain, chain []*types.Header, wantStatus
 func TestHeaderInsertion(t *testing.T) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
+		genesis = (&Genesis{}).MustCommit(db)
 	)
 
 	hc, err := NewHeaderChain(db, params.AllEthashProtocolChanges, mockconsensus.NewMockConsensus(), func() bool { return false })

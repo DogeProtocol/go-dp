@@ -12,7 +12,6 @@
         "chainId" : "0x1",
         "type" : "0x2",
         "maxFeePerGas" : "0xfa0",
-        "maxPriorityFeePerGas" : "0x20",
         "accessList" : [
         ]
     }

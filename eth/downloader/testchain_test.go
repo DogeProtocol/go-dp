@@ -28,6 +28,7 @@ import (
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/params"
+	"testing"
 )
 
 // Test chain parameters.
@@ -63,6 +64,10 @@ type testChain struct {
 	blockm   map[common.Hash]*types.Block
 	receiptm map[common.Hash][]*types.Receipt
 	tdm      map[common.Hash]*big.Int
+}
+
+func TestDefault(t *testing.T) {
+	fmt.Println("ok")
 }
 
 // newTestChain creates a blockchain of the given length.
@@ -129,18 +134,11 @@ func (tc *testChain) generate(n int, seed byte, parent *types.Block, heavy bool)
 		// Include transactions to the miner to make blocks more interesting.
 		if parent == tc.genesis && i%22 == 0 {
 			signer := types.MakeSigner(params.TestChainConfig, block.Number())
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 			if err != nil {
 				panic(err)
 			}
 			block.AddTx(tx)
-		}
-		// if the block number is a multiple of 5, add a bonus uncle to the block
-		if i > 0 && i%5 == 0 {
-			block.AddUncle(&types.Header{
-				ParentHash: block.PrevBlock(i - 1).Hash(),
-				Number:     big.NewInt(block.Number().Int64() - 1),
-			})
 		}
 	})
 
@@ -210,16 +208,14 @@ func (tc *testChain) receipts(hashes []common.Hash) [][]*types.Receipt {
 }
 
 // bodies returns the block bodies of the given block hashes.
-func (tc *testChain) bodies(hashes []common.Hash) ([][]*types.Transaction, [][]*types.Header) {
+func (tc *testChain) bodies(hashes []common.Hash) [][]*types.Transaction {
 	transactions := make([][]*types.Transaction, 0, len(hashes))
-	uncles := make([][]*types.Header, 0, len(hashes))
 	for _, hash := range hashes {
 		if block, ok := tc.blockm[hash]; ok {
 			transactions = append(transactions, block.Transactions())
-			uncles = append(uncles, block.Uncles())
 		}
 	}
-	return transactions, uncles
+	return transactions
 }
 
 func (tc *testChain) hashToNumber(target common.Hash) (uint64, bool) {

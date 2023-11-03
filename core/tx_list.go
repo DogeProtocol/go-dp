@@ -276,27 +276,11 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 //
 // If the new transaction is accepted into the list, the lists' cost and gas
 // thresholds are also potentially updated.
-func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
+func (l *txList) Add(tx *types.Transaction) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
 	old := l.txs.Get(tx.Nonce())
-	if old != nil {
-		if old.GasFeeCapCmp(tx) >= 0 {
-			return false, nil
-		}
-		// thresholdFeeCap = oldFC  * (100 + priceBump) / 100
-		a := big.NewInt(100 + int64(priceBump))
-		aFeeCap := new(big.Int).Mul(a, old.GasFeeCap())
-
-		// thresholdTip    = oldTip * (100 + priceBump) / 100
-		b := big.NewInt(100)
-		thresholdFeeCap := aFeeCap.Div(aFeeCap, b)
-
-		// Have to ensure that either the new fee cap or tip is higher than the
-		// old ones as well as checking the percentage threshold to ensure that
-		// this is accurate for low (Wei-level) gas price replacements
-		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 {
-			return false, nil
-		}
+	if old != nil && old.MaxGasTier().Uint64() > tx.MaxGasTier().Uint64() {
+		return false, nil
 	}
 	// Otherwise overwrite the old transaction with the current one
 	l.txs.Put(tx)
@@ -417,8 +401,7 @@ func (l *txList) LastElement() *types.Transaction {
 // then the heap is sorted based on the effective tip based on the given base fee.
 // If baseFee is nil then the sorting is based on gasFeeCap.
 type priceHeap struct {
-	baseFee *big.Int // heap should always be re-sorted after baseFee is changed
-	list    []*types.Transaction
+	list []*types.Transaction
 }
 
 func (h *priceHeap) Len() int      { return len(h.list) }
@@ -559,11 +542,4 @@ func (l *txPricedList) Reheap() {
 	}
 	heap.Init(&l.floating)
 	reheapTimer.Update(time.Since(start))
-}
-
-// SetBaseFee updates the base fee and triggers a re-heap. Note that Removed is not
-// necessary to call right before SetBaseFee when processing a new block.
-func (l *txPricedList) SetBaseFee(baseFee *big.Int) {
-	l.urgent.baseFee = baseFee
-	l.Reheap()
 }

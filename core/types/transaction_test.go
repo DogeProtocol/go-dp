@@ -35,7 +35,7 @@ import (
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 
-var homesteadSigner HomesteadSigner
+var defaultSigner londonSigner
 var (
 	baseTx = NewTransaction(
 		3,
@@ -48,7 +48,7 @@ var (
 
 	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
 	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
-	sigtest, _     = cryptobase.SigAlg.Sign(homesteadSigner.Hash(baseTx).Bytes(), privtestkey)
+	sigtest, _     = cryptobase.SigAlg.Sign(defaultSigner.Hash(baseTx).Bytes(), privtestkey)
 	hexsigtest     = hex.EncodeToString(sigtest)
 	parentHash     = common.HexToHash("0xabcdbaea6a6c7c4c2dfeb977efac326af552d87")
 
@@ -62,7 +62,7 @@ var (
 	)
 
 	rightvrsTx, _ = baseTx.WithSignature(
-		HomesteadSigner{},
+		NewLondonSignerDefaultChain(),
 		common.Hex2Bytes(hexsigtest),
 	)
 
@@ -76,7 +76,7 @@ var (
 		Data:       common.FromHex("5544"),
 	})
 
-	eipSigner   = NewEIP2930Signer(big.NewInt(1))
+	eipSigner   = NewLondonSignerDefaultChain()
 	sigtest2, _ = cryptobase.SigAlg.Sign(eipSigner.Hash(emptyEip2718Tx).Bytes(), privtestkey)
 	hexsigtest2 = hex.EncodeToString(sigtest2)
 
@@ -96,7 +96,7 @@ func TestDecodeEmptyTypedTx(t *testing.T) {
 }
 
 func TestTransactionSigHash(t *testing.T) {
-	var homestead HomesteadSigner
+	homestead := NewLondonSignerDefaultChain()
 	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
@@ -114,41 +114,6 @@ func TestTransactionEncode(t *testing.T) {
 	should := common.FromHex(hex.EncodeToString(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
-	}
-}
-
-func TestEIP2718TransactionSigHash(t *testing.T) {
-	s := NewEIP2930Signer(big.NewInt(1))
-	if s.Hash(emptyEip2718Tx) != common.HexToHash("49b486f0ec0a60dfbbca2d30cb07c9e8ffb2a2ff41f29a1ab6737475f6ff69f3") {
-		t.Errorf("empty EIP-2718 transaction hash mismatch, got %x", s.Hash(emptyEip2718Tx))
-	}
-	if s.Hash(signedEip2718Tx) != common.HexToHash("49b486f0ec0a60dfbbca2d30cb07c9e8ffb2a2ff41f29a1ab6737475f6ff69f3") {
-		t.Errorf("signed EIP-2718 transaction hash mismatch, got %x", s.Hash(signedEip2718Tx))
-	}
-}
-
-func TestEIP2718TransactionEncode(t *testing.T) {
-	// RLP representation
-	{
-		have, err := rlp.EncodeToBytes(signedEip2718Tx)
-		if err != nil {
-			t.Fatalf("encode error: %v", err)
-		}
-		want := common.FromHex(hex.EncodeToString(have))
-		if !bytes.Equal(have, want) {
-			t.Errorf("encoded RLP mismatch, got %x", have)
-		}
-	}
-	// Binary representation
-	{
-		have, err := signedEip2718Tx.MarshalBinary()
-		if err != nil {
-			t.Fatalf("encode error: %v", err)
-		}
-		want := common.FromHex(hex.EncodeToString(have))
-		if !bytes.Equal(have, want) {
-			t.Errorf("encoded RLP mismatch, got %x", have)
-		}
 	}
 }
 
@@ -171,7 +136,7 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender(NewLondonSignerDefaultChain(), tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +153,7 @@ func TestRecipientNormal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender(NewLondonSignerDefaultChain(), tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +170,7 @@ func TestTransactionSort(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -246,7 +211,7 @@ func TestTransactionSortIncreasing(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -288,7 +253,7 @@ func TestTransactionSortDecreasing(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -330,7 +295,7 @@ func TestTransactionSortIncreaseDecrease(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -376,7 +341,7 @@ func TestTransactionSortSingle(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -416,7 +381,7 @@ func TestTransactionSortSingleAccount(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -452,7 +417,7 @@ func TestTransactionSortSingleAccount(t *testing.T) {
 }
 
 func TestTransactionSortNoTxns(t *testing.T) {
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -483,7 +448,7 @@ func testTransactionNonceOrder_byCount(txnCount int, t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -542,7 +507,7 @@ func testTransactionNonceOrder_skip_byCount(txnCount int, skipMap map[int]bool, 
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}

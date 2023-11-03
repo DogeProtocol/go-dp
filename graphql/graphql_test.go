@@ -301,7 +301,6 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 					Balance: big.NewInt(0),
 				},
 			},
-			BaseFee: big.NewInt(params.InitialBaseFee),
 		},
 		NetworkId:               1337,
 		TrieCleanCache:          5,

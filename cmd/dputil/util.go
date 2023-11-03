@@ -180,7 +180,7 @@ func sendVia(connectionContext *ConnectionContext, to string, quantity string, n
 
 	var data []byte
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), connectionContext.Key.PrivateKey)
+	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), connectionContext.Key.PrivateKey)
 	if err != nil {
 		return "", 0, err
 	}

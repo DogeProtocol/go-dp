@@ -221,7 +221,6 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
-		BaseFee:   big.NewInt(params.InitialBaseFee),
 	}
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
@@ -462,14 +461,6 @@ func testStatusFunctions(t *testing.T, client *rpc.Client) {
 	if gasPrice.Cmp(big.NewInt(1875000000)) != 0 { // 1 gwei tip + 0.875 basefee after a 1 gwei fee empty block
 		t.Fatalf("unexpected gas price: %v", gasPrice)
 	}
-	// SuggestGasTipCap (should suggest 1 Gwei)
-	gasTipCap, err := ec.SuggestGasTipCap(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if gasTipCap.Cmp(big.NewInt(1000000000)) != 0 {
-		t.Fatalf("unexpected gas tip cap: %v", gasTipCap)
-	}
 }
 
 func testCallContract(t *testing.T, client *rpc.Client) {
@@ -569,7 +560,7 @@ func sendTransaction(ec *Client) error {
 		return err
 	}
 	// Create transaction
-	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(params.InitialBaseFee), nil)
+	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, nil, nil)
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {

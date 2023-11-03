@@ -365,7 +365,7 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
 		Data: &msgData,
 	}
 
-	msg, err := args.ToMessage(math.MaxUint64, header.BaseFee)
+	msg, err := args.ToMessage(math.MaxUint64)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +435,7 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 		Data: &msgData,
 	}
 
-	msg, err := args.ToMessage(math.MaxUint64, header.BaseFee)
+	msg, err := args.ToMessage(math.MaxUint64)
 	if err != nil {
 		return nil, err
 	}

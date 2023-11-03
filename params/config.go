@@ -278,7 +278,7 @@ var (
 		nil,
 		&ProofOfStakeConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1),
+	TestChainConfig = &ChainConfig{big.NewInt(123123),
 		big.NewInt(0),
 		nil,
 		false,

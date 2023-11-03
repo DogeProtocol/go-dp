@@ -226,7 +226,6 @@ func TestEth66Messages(t *testing.T) {
 	// init the block body data, both object and rlp form
 	blockBody = &BlockBody{
 		Transactions: txs,
-		Uncles:       []*types.Header{header},
 	}
 	blockBodyRlp, err = rlp.EncodeToBytes(blockBody)
 	if err != nil {

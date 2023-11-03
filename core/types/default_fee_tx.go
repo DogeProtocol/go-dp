@@ -93,7 +93,6 @@ func (tx *DefaultFeeTx) accessList() AccessList { return tx.AccessList }
 func (tx *DefaultFeeTx) data() []byte           { return tx.Data }
 func (tx *DefaultFeeTx) gas() uint64            { return tx.Gas }
 func (tx *DefaultFeeTx) gasFeeCap() *big.Int    { return GAS_TIER_DEFAULT_PRICE }
-func (tx *DefaultFeeTx) gasTipCap() *big.Int    { return GAS_TIER_DEFAULT_PRICE }
 func (tx *DefaultFeeTx) gasPrice() *big.Int {
 	if tx.MaxGasTier == GAS_TIER_DEFAULT {
 		return GAS_TIER_DEFAULT_PRICE

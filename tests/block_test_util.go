@@ -63,7 +63,6 @@ type btBlock struct {
 	BlockHeader     *btHeader
 	ExpectException string
 	Rlp             string
-	UncleHeaders    []*btHeader
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
@@ -79,23 +78,20 @@ type btHeader struct {
 	ReceiptTrie      common.Hash
 	StateRoot        common.Hash
 	TransactionsTrie common.Hash
-	UncleHash        common.Hash
 	ExtraData        []byte
 	Difficulty       *big.Int
 	GasLimit         uint64
 	GasUsed          uint64
 	Timestamp        uint64
-	BaseFeePerGas    *big.Int
 }
 
 type btHeaderMarshaling struct {
-	ExtraData     hexutil.Bytes
-	Number        *math.HexOrDecimal256
-	Difficulty    *math.HexOrDecimal256
-	GasLimit      math.HexOrDecimal64
-	GasUsed       math.HexOrDecimal64
-	Timestamp     math.HexOrDecimal64
-	BaseFeePerGas *math.HexOrDecimal256
+	ExtraData  hexutil.Bytes
+	Number     *math.HexOrDecimal256
+	Difficulty *math.HexOrDecimal256
+	GasLimit   math.HexOrDecimal64
+	GasUsed    math.HexOrDecimal64
+	Timestamp  math.HexOrDecimal64
 }
 
 func (t *BlockTest) Run(snapshotter bool) error {
@@ -170,7 +166,6 @@ func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 		Mixhash:    t.json.Genesis.MixHash,
 		Coinbase:   t.json.Genesis.Coinbase,
 		Alloc:      t.json.Pre,
-		BaseFee:    t.json.Genesis.BaseFeePerGas,
 	}
 }
 
@@ -254,9 +249,6 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	}
 	if h.StateRoot != h2.Root {
 		return fmt.Errorf("state hash: want: %x have: %x", h.StateRoot, h2.Root)
-	}
-	if h.UncleHash != h2.UncleHash {
-		return fmt.Errorf("uncle hash: want: %x have: %x", h.UncleHash, h2.UncleHash)
 	}
 	if !bytes.Equal(h.ExtraData, h2.Extra) {
 		return fmt.Errorf("extra data: want: %x have: %x", h.ExtraData, h2.Extra)

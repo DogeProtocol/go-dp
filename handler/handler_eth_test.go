@@ -274,7 +274,7 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	}
 	// Send the transaction to the sink and verify that it's added to the tx pool
 	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-	tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+	tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 	if err := src.SendTransactions([]*types.Transaction{tx}); err != nil {
 		t.Fatalf("failed to send transaction: %v", err)
@@ -304,7 +304,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	insert := make([]*types.Transaction, 100)
 	for nonce := range insert {
 		tx := types.NewTransaction(uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), make([]byte, txsyncPackSize/10))
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 		insert[nonce] = tx
 	}
@@ -427,7 +427,7 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 	txs := make([]*types.Transaction, 1024)
 	for nonce := range txs {
 		tx := types.NewTransaction(uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 		txs[nonce] = tx
 	}
@@ -711,17 +711,14 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	// Create various combinations of malformed blocks
 	head := source.chain.CurrentBlock()
 
-	malformedUncles := head.Header()
-	malformedUncles.UncleHash[0]++
 	malformedTransactions := head.Header()
 	malformedTransactions.TxHash[0]++
 	malformedEverything := head.Header()
-	malformedEverything.UncleHash[0]++
 	malformedEverything.TxHash[0]++
 
 	// Try to broadcast all malformations and ensure they all get discarded
-	for _, header := range []*types.Header{malformedUncles, malformedTransactions, malformedEverything} {
-		block := types.NewBlockWithHeader(header).WithBody(head.Transactions(), head.Uncles())
+	for _, header := range []*types.Header{malformedTransactions, malformedEverything} {
+		block := types.NewBlockWithHeader(header).WithBody(head.Transactions())
 		if err := src.SendNewBlock(block, big.NewInt(131136)); err != nil {
 			t.Fatalf("failed to broadcast block: %v", err)
 		}

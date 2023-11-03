@@ -115,7 +115,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		tx, err := types.SignTx(types.NewTransaction(nonces[index], pubKeyAddress, new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, faucets[index])
+		tx, err := types.SignTx(types.NewTransaction(nonces[index], pubKeyAddress, new(big.Int), 21000, big.NewInt(100000000000), nil), types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID)), faucets[index])
 		if err != nil {
 			panic(err)
 		}

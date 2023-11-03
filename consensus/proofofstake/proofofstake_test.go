@@ -54,7 +54,6 @@ func TestReimportMirroredState(t *testing.T) {
 		Alloc: map[common.Address]core.GenesisAccount{
 			addr: {Balance: big.NewInt(10000000000000000)},
 		},
-		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
 	copy(genspec.ExtraData[extraVanity:], addr[:])
 	genesis := genspec.MustCommit(db)
@@ -72,7 +71,7 @@ func TestReimportMirroredState(t *testing.T) {
 		// We want to simulate an empty middle block, having the same state as the
 		// first one. The last is needs a state change again to force a reorg.
 		if i != 1 {
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, block.BaseFee(), nil), signer, key)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -126,7 +125,6 @@ func TestSealHash(t *testing.T) {
 		Difficulty: new(big.Int),
 		Number:     new(big.Int),
 		Extra:      make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength()),
-		BaseFee:    new(big.Int),
 	})
 	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f") //sha3
 	//want := common.HexToHash("0xe28be2bd8ff4897d07cd4fbb59b291de87746ac2cf264f57b3b696c3ddf9f99b") //sha3sha256
@@ -146,7 +144,7 @@ func TestFlattenTxnMap(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 
 	groups := map[common.Address]types.Transactions{}
 	txnCount := 0

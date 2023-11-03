@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
-	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io"
@@ -45,9 +44,7 @@ var (
 
 // Transaction types.
 const (
-	AccessListTxType = iota
-	DynamicFeeTxType
-	DefaultFeeTxType
+	DefaultFeeTxType = iota
 )
 
 // Transaction is an Ethereum transaction.
@@ -80,8 +77,6 @@ type TxData interface {
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
-	gasTipCap() *big.Int
-	gasFeeCap() *big.Int
 	maxGasTier() GasTier
 	value() *big.Int
 	nonce() uint64
@@ -163,10 +158,6 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 	}
 	switch b[0] {
 
-	case DynamicFeeTxType:
-		var inner DynamicFeeTx
-		err := rlp.DecodeBytes(b[1:], &inner)
-		return &inner, err
 	case DefaultFeeTxType:
 		var inner DefaultFeeTx
 		err := rlp.DecodeBytes(b[1:], &inner)
@@ -253,12 +244,6 @@ func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.inner.ga
 
 func (tx *Transaction) MaxGasTier() *big.Int { return new(big.Int).Set(tx.inner.gasPrice()) }
 
-// GasTipCap returns the gasTipCap per gas of the transaction.
-func (tx *Transaction) GasTipCap() *big.Int { return new(big.Int).Set(tx.inner.gasTipCap()) }
-
-// GasFeeCap returns the fee cap per gas of the transaction.
-func (tx *Transaction) GasFeeCap() *big.Int { return new(big.Int).Set(tx.inner.gasFeeCap()) }
-
 // Value returns the ether amount of the transaction.
 func (tx *Transaction) Value() *big.Int { return new(big.Int).Set(tx.inner.value()) }
 
@@ -289,78 +274,6 @@ func (tx *Transaction) Cost() *big.Int {
 func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	return tx.inner.rawSignatureValues()
 }
-
-// GasFeeCapCmp compares the fee cap of two transactions.
-func (tx *Transaction) GasFeeCapCmp(other *Transaction) int {
-	return tx.inner.gasFeeCap().Cmp(other.inner.gasFeeCap())
-}
-
-// GasFeeCapIntCmp compares the fee cap of the transaction against the given fee cap.
-func (tx *Transaction) GasFeeCapIntCmp(other *big.Int) int {
-	return tx.inner.gasFeeCap().Cmp(other)
-}
-
-func (tx *Transaction) EffectiveGas(baseFee *big.Int) (*big.Int, error) {
-	if baseFee == nil {
-		return tx.GasFeeCap(), nil
-	}
-	var err error
-	gasFeeCap := tx.GasFeeCap()
-	if gasFeeCap.Cmp(baseFee) == -1 {
-		err = ErrGasFeeCapTooLow
-	}
-	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
-}
-
-/*
-// GasTipCapCmp compares the gasTipCap of two transactions.
-func (tx *Transaction) GasTipCapCmp(other *Transaction) int {
-	return tx.inner.gasTipCap().Cmp(other.inner.gasTipCap())
-}
-
-// GasTipCapIntCmp compares the gasTipCap of the transaction against the given gasTipCap.
-func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
-	return tx.inner.gasTipCap().Cmp(other)
-}
-
-// EffectiveGasTip returns the effective miner gasTipCap for the given base fee.
-// Note: if the effective gasTipCap is negative, this method returns both error
-// the actual negative value, _and_ ErrGasFeeCapTooLow
-func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
-	if baseFee == nil {
-		return tx.GasTipCap(), nil
-	}
-	var err error
-	gasFeeCap := tx.GasFeeCap()
-	if gasFeeCap.Cmp(baseFee) == -1 {
-		err = ErrGasFeeCapTooLow
-	}
-	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
-}
-
-// EffectiveGasTipValue is identical to EffectiveGasTip, but does not return an
-// error in case the effective gasTipCap is negative
-func (tx *Transaction) EffectiveGasTipValue(baseFee *big.Int) *big.Int {
-	effectiveTip, _ := tx.EffectiveGasTip(baseFee)
-	return effectiveTip
-}
-
-// EffectiveGasTipCmp compares the effective gasTipCap of two transactions assuming the given base fee.
-func (tx *Transaction) EffectiveGasTipCmp(other *Transaction, baseFee *big.Int) int {
-	if baseFee == nil {
-		return tx.GasTipCapCmp(other)
-	}
-	return tx.EffectiveGasTipValue(baseFee).Cmp(other.EffectiveGasTipValue(baseFee))
-}
-
-// EffectiveGasTipIntCmp compares the effective gasTipCap of a transaction to the given gasTipCap.
-func (tx *Transaction) EffectiveGasTipIntCmp(other *big.Int, baseFee *big.Int) int {
-	if baseFee == nil {
-		return tx.GasTipCapIntCmp(other)
-	}
-	return tx.EffectiveGasTipValue(baseFee).Cmp(other)
-}
-*/
 
 // Hash returns the transaction hash.
 func (tx *Transaction) Hash() common.Hash {
@@ -665,29 +578,25 @@ func (t *TransactionsByNonce) Pop1() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	to        *common.Address
-	from      common.Address
-	nonce     uint64
-	amount    *big.Int
-	gasLimit  uint64
-	gasPrice  *big.Int
-	gasFeeCap *big.Int
-	//gasTipCap  *big.Int
+	to         *common.Address
+	from       common.Address
+	nonce      uint64
+	amount     *big.Int
+	gasLimit   uint64
+	gasPrice   *big.Int
 	data       []byte
 	accessList AccessList
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
 	return Message{
-		from:      from,
-		to:        to,
-		nonce:     nonce,
-		amount:    amount,
-		gasLimit:  gasLimit,
-		gasPrice:  gasPrice,
-		gasFeeCap: gasFeeCap,
-		//gasTipCap:  gasTipCap,
+		from:       from,
+		to:         to,
+		nonce:      nonce,
+		amount:     amount,
+		gasLimit:   gasLimit,
+		gasPrice:   gasPrice,
 		data:       data,
 		accessList: accessList,
 		checkNonce: checkNonce,
@@ -695,22 +604,16 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 }
 
 // AsMessage returns the transaction as a core.Message.
-func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
+func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
-		nonce:     tx.Nonce(),
-		gasLimit:  tx.Gas(),
-		gasPrice:  new(big.Int).Set(tx.GasPrice()),
-		gasFeeCap: new(big.Int).Set(tx.GasFeeCap()),
-		//gasTipCap:  new(big.Int).Set(tx.GasTipCap()),
+		nonce:      tx.Nonce(),
+		gasLimit:   tx.Gas(),
+		gasPrice:   new(big.Int).Set(tx.GasPrice()),
 		to:         tx.To(),
 		amount:     tx.Value(),
 		data:       tx.Data(),
 		accessList: tx.AccessList(),
 		checkNonce: true,
-	}
-	// If baseFee provided, set gasPrice to effectiveGasPrice.
-	if baseFee != nil {
-		msg.gasPrice = msg.gasFeeCap
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
@@ -720,8 +623,6 @@ func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
 func (m Message) From() common.Address   { return m.from }
 func (m Message) To() *common.Address    { return m.to }
 func (m Message) GasPrice() *big.Int     { return m.gasPrice }
-func (m Message) GasFeeCap() *big.Int    { return m.gasFeeCap }
-func (m Message) GasTipCap() *big.Int    { return m.gasFeeCap }
 func (m Message) Value() *big.Int        { return m.amount }
 func (m Message) Gas() uint64            { return m.gasLimit }
 func (m Message) Nonce() uint64          { return m.nonce }

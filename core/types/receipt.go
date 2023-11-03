@@ -155,7 +155,7 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 			return errEmptyTypedReceipt
 		}
 		r.Type = b[0]
-		if r.Type == DynamicFeeTxType || r.Type == DefaultFeeTxType {
+		if r.Type == DefaultFeeTxType {
 			var dec receiptRLP
 			if err := rlp.DecodeBytes(b[1:], &dec); err != nil {
 				return err
@@ -316,9 +316,6 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 	r := rs[i]
 	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
 	switch r.Type {
-	case DynamicFeeTxType:
-		w.WriteByte(DynamicFeeTxType)
-		rlp.Encode(w, data)
 	case DefaultFeeTxType:
 		w.WriteByte(DefaultFeeTxType)
 		rlp.Encode(w, data)

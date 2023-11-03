@@ -62,7 +62,7 @@ func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
 // Deprecated: Use NewKeyStoreTransactorWithChainID instead.
 func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account) (*TransactOpts, error) {
 	log.Warn("WARNING: NewKeyStoreTransactor has been deprecated in favour of NewTransactorWithChainID")
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID))
 	return &TransactOpts{
 		From: account.Address,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -90,7 +90,7 @@ func NewKeyedTransactor(key *signaturealgorithm.PrivateKey) *TransactOpts {
 		fmt.Errorf("error in PubkeyToAddress")
 		return nil
 	}
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID))
 	return &TransactOpts{
 		From: keyAddr,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
