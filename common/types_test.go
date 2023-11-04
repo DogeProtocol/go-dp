@@ -122,6 +122,7 @@ func TestIsHexAddress(t *testing.T) {
 
 	for _, test := range tests {
 		if result := IsHexAddress(test.str); result != test.exp {
+			fmt.Println("result", result, "test.str", test.str)
 			t.Errorf("IsHexAddress(%s) == %v; expected %v",
 				test.str, result, test.exp)
 		}
@@ -411,7 +412,11 @@ func TestAddress_Value(t *testing.T) {
 		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
 	}
 	var usedA Address
-	usedA.SetBytes(b)
+	err := usedA.SetBytes(b)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+
 	tests := []struct {
 		name    string
 		a       Address
@@ -445,7 +450,10 @@ func TestAddress_Format(t *testing.T) {
 		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
 	}
 	var addr Address
-	addr.SetBytes(b)
+	err := addr.SetBytes(b)
+	if err != nil {
+		t.Fatalf("failed")
+	}
 
 	tests := []struct {
 		name string

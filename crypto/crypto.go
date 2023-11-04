@@ -19,7 +19,6 @@ package crypto
 import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
-
 	"github.com/DogeProtocol/dp/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -69,11 +68,18 @@ func Keccak512(data ...[]byte) []byte {
 // CreateAddress creates an ethereum address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64) common.Address {
 	data, _ := rlp.EncodeToBytes([]interface{}{b, nonce})
-	return common.BytesToAddress(Keccak256(data)[12:])
+	return common.BytesToAddress(Keccak256(data)[:])
 }
 
 // CreateAddress2 creates an ethereum address given the address bytes, initial
 // contract code hash and a salt.
 func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
-	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
+	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[:])
+}
+
+func PublicKeyToAddress(pubKey []byte) common.Address {
+	var a common.Address
+	b := Keccak256(pubKey[:])
+	a.SetBytes(b)
+	return a
 }

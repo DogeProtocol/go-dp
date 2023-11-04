@@ -18,7 +18,6 @@ import (
 
 type FalconSig struct {
 	sigName                      string
-	publicKeyBytesIndexStart     int
 	publicKeyLength              int
 	privateKeyLength             int
 	signatureLength              int
@@ -27,7 +26,6 @@ type FalconSig struct {
 
 func CreateFalconSig() FalconSig {
 	return FalconSig{sigName: SIG_NAME,
-		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
 		privateKeyLength:             CRYPTO_SECRETKEY_BYTES,
 		signatureLength:              CRYPTO_SIGNATURE_BYTES_WITH_LENGTH,
@@ -231,7 +229,7 @@ func (s FalconSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
+	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[:]), nil
 }
 
 func (s FalconSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {

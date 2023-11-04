@@ -310,6 +310,12 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	cpy.setSignatureValues(signer.ChainID(), v, r, s)
 	t := time.Date(
 		2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+
+	copiedTxn := &Transaction{inner: cpy, time: t}
+	_, err = Sender(signer, copiedTxn)
+	if err != nil {
+		return nil, err
+	}
 	return &Transaction{inner: cpy, time: t}, nil
 }
 

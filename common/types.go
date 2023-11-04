@@ -37,7 +37,7 @@ const (
 	// HashLength is the expected length of the hash
 	HashLength = 32
 	// AddressLength is the expected length of the address
-	AddressLength = 20
+	AddressLength = 32
 )
 
 var (
@@ -216,7 +216,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 /////////// Address
 
-// Address represents the 20 byte address of an Ethereum account.
+// Address represents the 32 byte address of an Ethereum account.
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.
@@ -322,15 +322,16 @@ func (a Address) Format(s fmt.State, c rune) {
 
 // SetBytes sets the address to the value of b.
 // If b is larger than len(a), b will be cropped from the left.
-func (a *Address) SetBytes(b []byte) {
-	if len(b) > len(a) {
-		b = b[len(b)-AddressLength:]
+func (a *Address) SetBytes(b []byte) error {
+	if len(b) != len(a) {
+		return errors.New("length mismatch")
 	}
-	copy(a[AddressLength-len(b):], b)
+	copy(a[:], b)
+	return nil
 }
 
-func (a *Address) CopyFrom(fromAddress Address) {
-	a.SetBytes(fromAddress.Bytes())
+func (a *Address) CopyFrom(fromAddress Address) error {
+	return a.SetBytes(fromAddress.Bytes())
 }
 
 func (a *Address) IsEqualTo(other Address) bool {

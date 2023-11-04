@@ -555,8 +555,8 @@ func (typedData *TypedData) EncodePrimitiveValue(encType string, encValue interf
 		if !ok || !common.IsHexAddress(stringValue) {
 			return nil, dataMismatchError(encType, encValue)
 		}
-		retval := make([]byte, 32)
-		copy(retval[12:], common.HexToAddress(stringValue).Bytes())
+		retval := make([]byte, common.AddressLength)
+		copy(retval[:], common.HexToAddress(stringValue).Bytes())
 		return retval, nil
 	case "bool":
 		boolValue, ok := encValue.(bool)

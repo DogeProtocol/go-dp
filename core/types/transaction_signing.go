@@ -257,7 +257,8 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int) (common.Address, error
 		return common.Address{}, errors.New("invalid public key")
 	}
 	var addr common.Address
-	copy(addr[:], crypto.Keccak256(pub[:])[12:])
+	addr.CopyFrom(crypto.PublicKeyToAddress(pub[:]))
+
 	return addr, nil
 }
 

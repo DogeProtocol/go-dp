@@ -3,7 +3,6 @@ package signaturealgorithm
 import (
 	"bytes"
 	"fmt"
-	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"io/ioutil"
@@ -293,7 +292,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("address compare failed")
 	}
 
-	addr := common.BytesToAddress(crypto.Keccak256(pubBytes1[:])[12:])
+	addr := crypto.PublicKeyToAddress(pubBytes1)
 
 	if generatedAddress != addr {
 		t.Fatal(err)

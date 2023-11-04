@@ -32,7 +32,6 @@ const CRYPTO_FALCON_MAX_SIGNATURE_BYTES = 690 + 40 + 2 //Signature + Nonce + 2 f
 
 type HybridSig struct {
 	sigName                      string
-	publicKeyBytesIndexStart     int
 	publicKeyLength              int
 	privateKeyLength             int
 	signatureLength              int
@@ -42,7 +41,6 @@ type HybridSig struct {
 
 func CreateHybridSig(mativeGolangVerify bool) HybridSig {
 	return HybridSig{sigName: SIG_NAME,
-		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
 		privateKeyLength:             CRYPTO_SECRETKEY_BYTES,
 		signatureLength:              CRYPTO_SIGNATURE_BYTES,
@@ -220,7 +218,8 @@ func (s HybridSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	if err != nil {
 		return tempAddr, err
 	}
-	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[s.publicKeyBytesIndexStart:]), nil
+	addr := common.BytesToAddress(crypto.Keccak256(pubBytes[:])[:])
+	return addr, nil
 }
 
 func (s HybridSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {
@@ -399,20 +398,24 @@ func (osig HybridSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *b
 		pubKey, signature := r.Bytes(), s.Bytes()
 
 		if len(pubKey) != osig.PublicKeyLength() {
+			fmt.Println("ValidateSignatureValues 1", len(pubKey), osig.PublicKeyLength())
 			return false
 		}
 
 		if len(signature) < osig.SignatureLength() {
+			fmt.Println("ValidateSignatureValues 2")
 			return false
 		}
 
 		combinedSignature := common.CombineTwoParts(signature, pubKey)
 		if !osig.Verify(pubKey, digestHash, combinedSignature) {
+			fmt.Println("ValidateSignatureValues 3")
 			return false
 		}
 
 		return true
 	}
+	fmt.Println("ValidateSignatureValues 4")
 	return false
 }
 

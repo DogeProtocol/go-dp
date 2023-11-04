@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/trie"
@@ -17,7 +18,6 @@ import (
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/core/types"
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
@@ -155,7 +155,8 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 		return common.Address{}, err
 	}
 	var validator common.Address
-	copy(validator[:], crypto.Keccak256(pubkey[:])[12:])
+	validator.CopyFrom(crypto.PublicKeyToAddress(pubkey[:]))
+
 	//fmt.Println("validator", validator, "block", header.Number)
 	sigcache.Add(hash, validator)
 	return validator, nil

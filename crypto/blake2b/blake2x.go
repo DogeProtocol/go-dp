@@ -96,7 +96,7 @@ func (x *xof) Clone() XOF {
 func (x *xof) Reset() {
 	x.cfg[0] = byte(Size)
 	binary.LittleEndian.PutUint32(x.cfg[4:], uint32(Size)) // leaf length
-	binary.LittleEndian.PutUint32(x.cfg[12:], x.length)    // XOF length
+	binary.LittleEndian.PutUint32(x.cfg[:], x.length)      // XOF length
 	x.cfg[17] = byte(Size)                                 // inner hash size
 
 	x.d.Reset()

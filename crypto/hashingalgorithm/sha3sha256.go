@@ -37,7 +37,7 @@ func (s Sha3Sha256HashState) Sum(b []byte) []byte {
 		totalBuffer = CopyArrays(s.buff.Bytes(), b)
 	}
 
-	sha256Bytes := s.sha256.Sum(totalBuffer)[12:] //12: To mitigate length extension attacks (copy only last 20 bytes)
+	sha256Bytes := s.sha256.Sum(totalBuffer)[:]
 	tempBuffer := CopyArrays(totalBuffer, sha256Bytes)
 	_, err := s.sha3.Write(tempBuffer)
 	if err != nil {
@@ -67,7 +67,7 @@ func (s Sha3Sha256HashState) BlockSize() int {
 func (s Sha3Sha256HashState) Read(b []byte) (int, error) {
 	s.sha3.Reset()
 	s.sha256.Reset()
-	sha256Bytes := s.sha256.Sum(s.buff.Bytes())[12:] //12: To mitigate length extension attacks (copy only last 20 bytes)
+	sha256Bytes := s.sha256.Sum(s.buff.Bytes())[:]
 	tempBuffer := CopyArrays(s.buff.Bytes(), sha256Bytes)
 	_, err := s.sha3.Write(tempBuffer)
 	if err != nil {
