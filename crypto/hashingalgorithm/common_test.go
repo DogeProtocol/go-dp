@@ -1,11 +1,13 @@
 package hashingalgorithm
 
-import "bytes"
+import (
+	"bytes"
+)
 import "testing"
 
 func HashStateSumTest(t *testing.T, h HashState) {
 	msg := []byte("abc")
-	d1 := make([]byte, 32)
+	d1 := make([]byte, h.Size())
 
 	_, err := h.Write(msg)
 	if err != nil {
@@ -68,10 +70,10 @@ func HashStateSumTest(t *testing.T, h HashState) {
 func HashStateTest(t *testing.T, h1 HashState, h2 HashState) {
 	msg := []byte("abc")
 
-	d1 := make([]byte, 32)
-	d2 := make([]byte, 32)
-	d3 := make([]byte, 32)
-	d4 := make([]byte, 32)
+	d1 := make([]byte, h1.Size())
+	d2 := make([]byte, h1.Size())
+	d3 := make([]byte, h1.Size())
+	d4 := make([]byte, h1.Size())
 
 	for i := 0; i < 100; i++ {
 		_, err := h1.Write(msg)
