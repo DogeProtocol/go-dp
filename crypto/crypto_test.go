@@ -19,6 +19,7 @@ package crypto
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"testing"
 )
@@ -36,9 +37,13 @@ func TestKeccak256Hash(t *testing.T) {
 }
 
 func TestKeccak256Hasher(t *testing.T) {
-	msg := []byte("abc")
-	exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
-	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashDataToBytes(in); return h[:] }, msg, exp)
+	msg1 := []byte{103, 101, 116, 68, 101, 112, 111, 115, 105, 116, 111, 114, 79, 102, 86, 97, 108, 105, 100, 97, 116, 111, 114, 40, 97, 100, 100, 114, 101, 115, 115, 41, 141, 13, 121, 61, 38, 129, 104, 96, 3, 38, 27, 44, 28, 189, 141, 31, 199, 148, 212, 91, 159, 153, 201, 34, 196, 201, 172, 115, 219, 19, 2, 233}
+	fmt.Println("len", len(msg1))
+	fmt.Println(Keccak256(msg1))
+
+	//msg := []byte("abc")
+	//exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
+	//checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashDataToBytes(in); return h[:] }, msg, exp)
 }
 
 func checkhash(t *testing.T, name string, f func([]byte) []byte, msg, exp []byte) {

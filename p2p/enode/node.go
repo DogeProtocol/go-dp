@@ -183,7 +183,7 @@ func (n *Node) UnmarshalText(text []byte) error {
 }
 
 // ID is a unique identifier for each node.
-type ID [32]byte
+type ID [common.HashLength]byte
 
 // Bytes returns a byte slice representation of the ID
 func (n ID) Bytes() []byte {

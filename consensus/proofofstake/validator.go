@@ -92,10 +92,10 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	//valz := make([]common.Address, len(*ret0))
 
 	proposalsTxnsMap := make(map[common.Address]*big.Int)
-	//fmt.Println("len", len(*ret0))
-	//for _, val := range *out {
-	//fmt.Println("......................val", val)
-	//}
+	fmt.Println("len", len(*ret0))
+	for _, val := range *out {
+		fmt.Println("......................val", val)
+	}
 	for _, val := range *out {
 		//valz[i] = val
 		depositor, err := p.GetDepositorOfValidator(val, blockHash)
