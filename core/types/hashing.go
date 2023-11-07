@@ -18,6 +18,7 @@ package types
 
 import (
 	"bytes"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"sync"
 
@@ -37,23 +38,19 @@ var encodeBufferPool = sync.Pool{
 
 // rlpHash encodes x and hashes the encoded bytes.
 func rlpHash(x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(hashingalgorithm.HashState)
-	defer hasherPool.Put(sha)
-	sha.Reset()
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
+	buff := new(bytes.Buffer)
+	rlp.Encode(buff, x)
+	h.SetBytes(crypto.Keccak256(buff.Bytes()))
 	return h
 }
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
 func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(hashingalgorithm.HashState)
-	defer hasherPool.Put(sha)
-	sha.Reset()
-	sha.Write([]byte{prefix})
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
+	buff := new(bytes.Buffer)
+	buff.Write([]byte{prefix})
+	rlp.Encode(buff, x)
+	h.SetBytes(crypto.Keccak256(buff.Bytes()))
 	return h
 }
 

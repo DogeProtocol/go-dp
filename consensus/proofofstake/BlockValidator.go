@@ -349,7 +349,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 		return errors.New("ValidateBlockConsensusData round min")
 	}
 
-	if blockConsensusData.Round > MAX_ROUND_WITH_TXNS { //todo: is this valid?
+	if blockConsensusData.Round > MAX_ROUND_WITH_TXNS && txns != nil && len(txns) > 0 { //todo: is this valid?
 		return errors.New("ValidateBlockConsensusData round max")
 	}
 

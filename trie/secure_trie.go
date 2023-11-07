@@ -18,6 +18,7 @@ package trie
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/log"
@@ -182,12 +183,13 @@ func (t *SecureTrie) NodeIterator(start []byte) NodeIterator {
 // The caller must not hold onto the return value because it will become
 // invalid on the next call to hashKey or secKey.
 func (t *SecureTrie) hashKey(key []byte) []byte {
-	h := newHasher(false)
+	return crypto.Keccak256(key)
+	/*h := newHasher(false)
 	h.sha.Reset()
 	h.sha.Write(key)
 	h.sha.Read(t.hashKeyBuf[:])
 	returnHasherToPool(h)
-	return t.hashKeyBuf[:]
+	return t.hashKeyBuf[:]*/
 }
 
 // getSecKeyCache returns the current secure key cache, creating a new one if

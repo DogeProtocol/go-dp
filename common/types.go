@@ -322,16 +322,15 @@ func (a Address) Format(s fmt.State, c rune) {
 
 // SetBytes sets the address to the value of b.
 // If b is larger than len(a), b will be cropped from the left.
-func (a *Address) SetBytes(b []byte) error {
-	if len(b) != len(a) {
-		return errors.New("length mismatch")
+func (a *Address) SetBytes(b []byte) {
+	if len(b) > len(a) {
+		b = b[len(b)-AddressLength:]
 	}
-	copy(a[:], b)
-	return nil
+	copy(a[AddressLength-len(b):], b)
 }
 
-func (a *Address) CopyFrom(fromAddress Address) error {
-	return a.SetBytes(fromAddress.Bytes())
+func (a *Address) CopyFrom(fromAddress Address) {
+	a.SetBytes(fromAddress.Bytes())
 }
 
 func (a *Address) IsEqualTo(other Address) bool {

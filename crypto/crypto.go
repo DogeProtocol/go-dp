@@ -18,41 +18,29 @@ package crypto
 
 import (
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
-func HashDataToBytes(data []byte) []byte {
-	return Keccak256(data)
-}
-
-func HashData(kh hashingalgorithm.HashState, data []byte) (h common.Hash) {
-	kh.Reset()
-	kh.Write(data)
-	kh.Read(h[:])
-	return h
-}
-
 // Keccak256 calculates and returns the Keccak256 hash of the input data.
 func Keccak256(data ...[]byte) []byte {
-	b := make([]byte, 32)
-	d := hashingalgorithm.NewHashState()
+	d := sha3.NewLegacyKeccak256()
+	//b := make([]byte, d.Size())
 	for _, b := range data {
 		d.Write(b)
 	}
-	d.Read(b)
-	return b
+	return d.Sum(nil)
+	//return b
 }
 
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
 func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	d := hashingalgorithm.NewHashState()
+	d := sha3.NewLegacyKeccak256()
 	for _, b := range data {
 		d.Write(b)
 	}
-	d.Read(h[:])
+	h.SetBytes(d.Sum(nil))
 	return h
 }
 

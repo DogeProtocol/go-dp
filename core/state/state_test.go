@@ -161,6 +161,10 @@ func TestSnapshot2(t *testing.T) {
 	state.SetState(stateobjaddr0, storageaddr, data0)
 	state.SetState(stateobjaddr1, storageaddr, data1)
 
+	if state.getStateObject(stateobjaddr0) == nil {
+		t.Fatalf("failed 1")
+	}
+
 	// db, trie are already non-empty values
 	so0 := state.getStateObject(stateobjaddr0)
 	so0.SetBalance(big.NewInt(42))
@@ -191,6 +195,10 @@ func TestSnapshot2(t *testing.T) {
 	state.RevertToSnapshot(snapshot)
 
 	so0Restored := state.getStateObject(stateobjaddr0)
+
+	if so0Restored == nil {
+		t.Fatalf("failed 2")
+	}
 	// Update lazily-loaded values before comparing.
 	so0Restored.GetState(state.db, storageaddr)
 	so0Restored.Code(state.db)

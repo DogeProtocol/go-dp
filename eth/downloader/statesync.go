@@ -18,7 +18,7 @@ package downloader
 
 import (
 	"fmt"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/crypto"
 	"sync"
 	"time"
 
@@ -259,9 +259,8 @@ func (d *Downloader) spindownStateSync(active map[string]*stateReq, finished []*
 type stateSync struct {
 	d *Downloader // Downloader instance to access and manage current peerset
 
-	root   common.Hash                // State root currently being synced
-	sched  *trie.Sync                 // State trie sync scheduler defining the tasks
-	keccak hashingalgorithm.HashState // Keccak256 hasher to verify deliveries with
+	root  common.Hash // State root currently being synced
+	sched *trie.Sync  // State trie sync scheduler defining the tasks
 
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
 	codeTasks map[common.Hash]*codeTask // Set of byte code tasks currently queued for retrieval
@@ -298,7 +297,6 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 		d:         d,
 		root:      root,
 		sched:     state.NewStateSync(root, d.stateDB, d.stateBloom, nil),
-		keccak:    hashingalgorithm.NewHashState(),
 		trieTasks: make(map[common.Hash]*trieTask),
 		codeTasks: make(map[common.Hash]*codeTask),
 		deliver:   make(chan *stateReq),
@@ -583,9 +581,7 @@ func (s *stateSync) process(req *stateReq) (int, error) {
 // error occurred.
 func (s *stateSync) processNodeData(blob []byte) (common.Hash, error) {
 	res := trie.SyncResult{Data: blob}
-	s.keccak.Reset()
-	s.keccak.Write(blob)
-	s.keccak.Read(res.Hash[:])
+	res.Hash.SetBytes(crypto.Keccak256(blob))
 	err := s.sched.Process(res)
 	return res.Hash, err
 }

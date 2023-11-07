@@ -6,7 +6,6 @@ import (
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -391,9 +390,9 @@ func (c *Mock) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 
 // SealHash returns the hash of a block prior to it being sealed.
 func SealHash(header *types.Header) (hash common.Hash) {
-	hasher := hashingalgorithm.NewHashState()
-	encodeSigHeader(hasher, header)
-	hasher.(hashingalgorithm.HashState).Read(hash[:])
+	buff := new(bytes.Buffer)
+	encodeSigHeader(buff, header)
+	hash.SetBytes(crypto.Keccak256(buff.Bytes()))
 	return hash
 }
 

@@ -341,7 +341,6 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	var storage map[common.Hash][]byte
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	hasher := s.db.hasher
 
 	usedStorage := make([][]byte, 0, len(s.pendingStorage))
 	for key, value := range s.pendingStorage {
@@ -368,7 +367,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 					s.db.snapStorage[s.addrHash] = storage
 				}
 			}
-			storage[crypto.HashData(hasher, key[:])] = v // v will be nil if value is 0x00
+			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
 		}
 		usedStorage = append(usedStorage, common.CopyBytes(key[:])) // Copy needed for closure
 	}

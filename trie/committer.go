@@ -19,7 +19,7 @@ package trie
 import (
 	"errors"
 	"fmt"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/crypto"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
@@ -44,7 +44,6 @@ type leaf struct {
 // processed sequentially - onleaf will never be called in parallel or out of order.
 type committer struct {
 	tmp sliceBuffer
-	sha hashingalgorithm.HashState
 
 	onleaf LeafCallback
 	leafCh chan *leaf
@@ -55,7 +54,6 @@ var committerPool = sync.Pool{
 	New: func() interface{} {
 		return &committer{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-			sha: hashingalgorithm.NewHashState(),
 		}
 	},
 }
@@ -233,11 +231,12 @@ func (c *committer) commitLoop(db *Database) {
 }
 
 func (c *committer) makeHashNode(data []byte) hashNode {
-	n := make(hashNode, c.sha.Size())
-	c.sha.Reset()
-	c.sha.Write(data)
-	c.sha.Read(n)
-	return n
+	//n := make(hashNode, common.HashLength)
+	//c.sha.Reset()
+	//c.sha.Write(data)
+	//c.sha.Read(n)
+	return crypto.Keccak256(data)
+	//return n
 }
 
 // estimateSize estimates the size of an rlp-encoded node, without actually

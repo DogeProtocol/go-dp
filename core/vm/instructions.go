@@ -19,7 +19,7 @@ package vm
 import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/types"
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/holiman/uint256"
 )
@@ -235,13 +235,7 @@ func opSha3(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byt
 	offset, size := scope.Stack.pop(), scope.Stack.peek()
 	data := scope.Memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
-	if interpreter.hasher == nil {
-		interpreter.hasher = hashingalgorithm.NewHashState()
-	} else {
-		interpreter.hasher.Reset()
-	}
-	interpreter.hasher.Write(data)
-	interpreter.hasher.Read(interpreter.hasherBuf[:])
+	interpreter.hasherBuf.SetBytes(crypto.Keccak256(data))
 
 	evm := interpreter.evm
 	if evm.Config.EnablePreimageRecording {
