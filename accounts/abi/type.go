@@ -206,7 +206,7 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 
 	case "function":
 		typ.T = FunctionTy
-		typ.Size = 24
+		typ.Size = FunctionTypeLength
 	default:
 		return Type{}, fmt.Errorf("unsupported arg type: %s", t)
 	}
@@ -244,7 +244,7 @@ func (t Type) GetType() reflect.Type {
 		// fixedpoint type currently not used
 		return reflect.ArrayOf(32, reflect.TypeOf(byte(0)))
 	case FunctionTy:
-		return reflect.ArrayOf(24, reflect.TypeOf(byte(0)))
+		return reflect.ArrayOf(FunctionTypeLength, reflect.TypeOf(byte(0)))
 	default:
 		panic("Invalid type")
 	}
@@ -352,7 +352,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 // requireLengthPrefix returns whether the type requires any sort of length
 // prefixing.
 func (t Type) requiresLengthPrefix() bool {
-	return t.T == StringTy || t.T == BytesTy || t.T == SliceTy
+	return t.T == StringTy || t.T == BytesTy || t.T == SliceTy || t.T == FunctionTy
 }
 
 // isDynamicType returns true if the type is dynamic.

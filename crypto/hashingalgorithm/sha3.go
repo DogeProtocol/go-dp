@@ -10,7 +10,7 @@ type Sha3HashState struct {
 
 func NewSha3HashState() Sha3HashState {
 	return Sha3HashState{
-		sha3: sha3.NewLegacyKeccak256().(HashState),
+		sha3: sha3.New256().(HashState),
 	}
 }
 

@@ -24,29 +24,41 @@ import (
 
 // Keccak256 calculates and returns the Keccak256 hash of the input data.
 func Keccak256(data ...[]byte) []byte {
-	d := sha3.NewLegacyKeccak256()
-	//b := make([]byte, d.Size())
+	//Round 1
+	h1 := sha3.New512()
 	for _, b := range data {
-		d.Write(b)
+		h1.Write(b)
 	}
-	return d.Sum(nil)
-	//return b
+	round1hash := h1.Sum(nil)
+
+	//Round 2
+	h1.Reset()
+	for _, b := range data {
+		h1.Write(b)
+	}
+	h1.Write(round1hash)
+	round2hash := h1.Sum(nil)
+
+	//Round 3
+	h2 := sha3.New256()
+	for _, b := range data {
+		h2.Write(b)
+	}
+	h2.Write(round2hash)
+
+	return h2.Sum(nil)
 }
 
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
 func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	d := sha3.NewLegacyKeccak256()
-	for _, b := range data {
-		d.Write(b)
-	}
-	h.SetBytes(d.Sum(nil))
+	h.SetBytes(Keccak256(data...))
 	return h
 }
 
 // Keccak512 calculates and returns the Keccak512 hash of the input data.
 func Keccak512(data ...[]byte) []byte {
-	d := sha3.NewLegacyKeccak512()
+	d := sha3.New512()
 	for _, b := range data {
 		d.Write(b)
 	}

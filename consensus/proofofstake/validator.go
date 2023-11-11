@@ -19,18 +19,18 @@ import (
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
 
-	_, err := p.GetDepositorCount(blockHash)
+	depositorCount, err := p.GetDepositorCount(blockHash)
 	if err != nil {
-		//fmt.Println("depositor count error", err)
+		return nil, err
 	} else {
-		//fmt.Println("depositorCount", depositorCount)
+		fmt.Println("depositorCount", depositorCount)
 	}
-
-	_, err = p.GetTotalDepositedBalance(blockHash)
+	totalDepositedBalance, err := p.GetTotalDepositedBalance(blockHash)
 	if err != nil {
-		//fmt.Println("totalDepositedBalance error", err)
+		fmt.Println("totalDepositedBalance error", err)
+		return nil, err
 	} else {
-		//fmt.Println("totalDepositedBalance", totalDepositedBalance)
+		fmt.Println("totalDepositedBalance", totalDepositedBalance)
 	}
 
 	err = staking.IsStakingContract()
@@ -65,14 +65,12 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
-		//fmt.Println("call error", err)
 		return nil, err
 	}
 	if len(result) == 0 {
 		//fmt.Println("result 0 length")
 		return nil, nil
 	}
-
 	_, err = abiData.Unpack(method, result)
 	if err != nil {
 		log.Error("Unpack", err)
@@ -92,8 +90,10 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	//valz := make([]common.Address, len(*ret0))
 
 	proposalsTxnsMap := make(map[common.Address]*big.Int)
-	fmt.Println("len", len(*ret0))
 	for _, val := range *out {
+		if val.IsEqualTo(ZERO_ADDRESS) {
+			return nil, errors.New("invalid validator")
+		}
 		fmt.Println("......................val", val)
 	}
 	for _, val := range *out {

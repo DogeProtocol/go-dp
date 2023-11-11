@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -394,6 +395,11 @@ func TestIterativeRandomDelayedStateSync(t *testing.T) {
 	}
 	// Cross check that the two states are in sync
 	checkStateAccounts(t, dstDb, srcRoot, srcAccounts)
+}
+
+func TestAddr(t *testing.T) {
+	b := []byte{86, 232, 31, 23, 27, 204, 85, 166, 255, 131, 69, 230, 146, 192, 248, 110, 91, 72, 224, 27, 153, 108, 173, 192, 1, 98, 47, 181, 227, 99, 180, 33}
+	fmt.Println(common.BytesToAddress(b))
 }
 
 // Tests that at any point in time during a sync, only complete sub-tries are in

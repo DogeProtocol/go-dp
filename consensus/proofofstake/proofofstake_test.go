@@ -17,6 +17,7 @@
 package proofofstake
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
@@ -24,11 +25,13 @@ import (
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math/big"
+	"strings"
 	"testing"
 )
 
@@ -275,5 +278,65 @@ func TestPack(t *testing.T) {
 	if err != nil {
 		fmt.Println("Unable to pack AddDepositorSlashing", "error", err)
 		t.Fatalf("failed")
+	}
+}
+
+func PadHexToHashSize(hex string) string {
+	pad := ""
+	for i := len(hex); i < common.HashLength*2; i++ {
+		pad = pad + "0"
+	}
+	return pad + hex
+}
+
+func TestGenesisJson(t *testing.T) {
+	validatorList := []string{"0x627a7e4a9dac237942b94c10820b4055ad45d41dc4748c1ee3bd0ed4463be472",
+		"0x83aa7c7e102a8930744aa2bf6c44d259050a32da9ebbe2c81877ab7d8eefcd19",
+		"0x148dd3b691438727f614a2df9d842752664639bd67e1e169e0b1ff8227b7ed62",
+		"0x4e18d1e4cd8bd16a647ca2949f1a05159cd093a7117585115e03fd34eb195bee"}
+
+	depositorList := []string{"0xed6a1af9e02172a03c99be279dd69e5019be1650d4c476c0ebe75500a88efa52",
+		"0x41b2f7167dd535158e185d2a268d6fbd377d5ab78bbbf1f11a7a0bcb4b4ed872",
+		"0x607c4c00515438b53374953ff3a4fc48e230d11d0990fe00d50b5074fef89676",
+		"0xddb561e45e93839e083d0d7696993ede32b1bdc1cb3e82ccbb7edd9c5e9072ba"}
+
+	if len(validatorList) != len(depositorList) {
+		t.Fatalf("failed")
+	}
+
+	storageIndexHex := "0000000000000000000000000000000000000000000000000000000000000000"
+	valIndexKey := crypto.Keccak256Hash(common.Hex2Bytes(storageIndexHex))
+
+	fmt.Println("Validator List")
+	for i := int64(0); i < int64(len(validatorList)); i++ {
+		startIndexBigInt := new(big.Int)
+		startIndexBigInt.SetString(strings.Replace(valIndexKey.String(), "0x", "", 1), 16)
+		startIndexBigInt = common.SafeAddBigInt(startIndexBigInt, big.NewInt(i))
+		storageIndexHex = PadHexToHashSize(fmt.Sprintf("%x", startIndexBigInt))
+		fmt.Println("storageIndexHex", storageIndexHex, "validator", validatorList[i])
+	}
+
+	fmt.Println("Depositor Balance")
+	storageIndexHex = "0000000000000000000000000000000000000000000000000000000000000001"
+	for i := int64(0); i < int64(len(depositorList)); i++ {
+		key := strings.Replace(depositorList[i], "0x", "", 1) + storageIndexHex
+		hexKey, err := hex.DecodeString(key)
+		if err != nil {
+			fmt.Println("error", err)
+			t.Fatalf("failed")
+		}
+		fmt.Println("storageIndexHex", crypto.Keccak256Hash(hexKey))
+	}
+
+	fmt.Println("Validator To Depositor Mapping")
+	storageIndexHex = "0000000000000000000000000000000000000000000000000000000000000008"
+	for i := int64(0); i < int64(len(validatorList)); i++ {
+		key := strings.Replace(validatorList[i], "0x", "", 1) + storageIndexHex
+		hexKey, err := hex.DecodeString(key)
+		if err != nil {
+			fmt.Println("error", err)
+			t.Fatalf("failed")
+		}
+		fmt.Println("storageIndexHex", crypto.Keccak256Hash(hexKey), "depositor", depositorList[i])
 	}
 }

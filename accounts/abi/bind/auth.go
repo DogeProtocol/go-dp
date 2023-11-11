@@ -168,6 +168,7 @@ func NewKeyedTransactorWithChainID(key *signaturealgorithm.PrivateKey, chainID *
 			}
 			return tx.WithSignature(signer, signature)
 		},
-		Context: context.Background(),
+		Context:  context.Background(),
+		GasPrice: big.NewInt(100000),
 	}, nil
 }

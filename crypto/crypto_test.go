@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"testing"
+	"time"
 )
 
 var testAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"
@@ -37,13 +38,37 @@ func TestKeccak256Hash(t *testing.T) {
 }
 
 func TestKeccak256Hasher(t *testing.T) {
-	msg1 := []byte{103, 101, 116, 68, 101, 112, 111, 115, 105, 116, 111, 114, 79, 102, 86, 97, 108, 105, 100, 97, 116, 111, 114, 40, 97, 100, 100, 114, 101, 115, 115, 41, 141, 13, 121, 61, 38, 129, 104, 96, 3, 38, 27, 44, 28, 189, 141, 31, 199, 148, 212, 91, 159, 153, 201, 34, 196, 201, 172, 115, 219, 19, 2, 233}
+	msg1 := []byte{79, 110, 82, 101, 119, 97, 114, 100, 40, 97, 100, 100, 114, 101, 115, 115, 44, 117, 105, 110, 116, 50, 53, 54, 41}
 	fmt.Println("len", len(msg1))
 	fmt.Println(Keccak256(msg1))
 
 	//msg := []byte("abc")
 	//exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
 	//checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashDataToBytes(in); return h[:] }, msg, exp)
+}
+
+func Elapsed(startTime time.Time) int64 {
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	start := startTime.UnixNano() / int64(time.Millisecond)
+	diff := end - start
+	return diff
+}
+
+func TestKeccak256HasherPerf(t *testing.T) {
+	msg1 := []byte{79, 110, 73, 110, 105, 116, 105, 97, 116, 101, 87, 105, 116, 104, 100, 114, 97, 119, 97, 108, 40, 97, 100, 100, 114, 101, 115, 115, 41}
+	fmt.Println("len", len(msg1))
+	startTime := time.Now()
+	var count int64
+	count = 1000000
+	var i int64
+	for i = 0; i < count; i++ {
+		Keccak256(msg1)
+	}
+	fmt.Println("elapsed", Elapsed(startTime))
+
+	//msg := []byte("abc")
+	//exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
+	//checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := HashDataToBytes(in); return [:] }, msg, exp)
 }
 
 func checkhash(t *testing.T, name string, f func([]byte) []byte, msg, exp []byte) {

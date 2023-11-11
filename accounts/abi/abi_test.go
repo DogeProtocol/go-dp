@@ -330,7 +330,7 @@ func ExampleJSON() {
 
 	fmt.Printf("%x\n", out)
 	// Output:
-	// 1f2c40920000000000000000000000000000000000000000000000000000000000000001
+	// 2d8b3f4b0000000000000000000000000000000000000000000000000000000000000001
 }
 
 func TestInputVariableInputLength(t *testing.T) {
@@ -1135,8 +1135,12 @@ func TestUnpackRevert(t *testing.T) {
 		{"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000", "revert reason", nil},
 	}
 	for index, c := range cases {
+		fmt.Println("Test", index, c.input)
 		t.Run(fmt.Sprintf("case %d", index), func(t *testing.T) {
 			got, err := UnpackRevert(common.Hex2Bytes(c.input))
+			if err != nil {
+				fmt.Println("error", err)
+			}
 			if c.expectErr != nil {
 				if err == nil {
 					t.Fatalf("Expected non-nil error")

@@ -18,6 +18,7 @@ package bind_test
 
 import (
 	"context"
+	"fmt"
 	"github.com/DogeProtocol/dp"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/accounts/abi/bind"
@@ -183,8 +184,8 @@ func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 	hash := crypto.Keccak256Hash([]byte("mockFunction(address,uint)"))
 	functionSelector := hash[:4]
 	functionTyBytes := append(addrBytes, functionSelector...)
-	var functionTy [24]byte
-	copy(functionTy[:], functionTyBytes[0:24])
+	var functionTy [32]byte
+	copy(functionTy[:], functionTyBytes[4:abi.FunctionTypeLength])
 	topics := []common.Hash{
 		common.HexToHash("0x99b5620489b6ef926d4518936cfec15d305452712b88bd59da2d9c10fb0953e8"),
 		common.BytesToHash(functionTyBytes),
@@ -194,6 +195,7 @@ func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
 	bc := bind.NewBoundContract(common.HexToAddress("0x0"), parsedAbi, nil, nil, nil)
 
+	fmt.Println("functionTy", functionSelector, functionTy)
 	expectedReceivedMap := map[string]interface{}{
 		"function": functionTy,
 		"sender":   common.HexToAddress("0x376c47978271565f56DEB45495afa69E59c16Ab2"),
@@ -236,6 +238,8 @@ func unpackAndCheck(t *testing.T, bc *bind.BoundContract, expected map[string]in
 	}
 	for name, elem := range expected {
 		if !reflect.DeepEqual(elem, received[name]) {
+			fmt.Println("elem", elem)
+			fmt.Println("got", received[name])
 			t.Errorf("field %v does not match expected, want %v, got %v", name, elem, received[name])
 		}
 	}

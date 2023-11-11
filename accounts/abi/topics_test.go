@@ -17,6 +17,7 @@
 package abi
 
 import (
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -50,7 +51,7 @@ func TestMakeTopics(t *testing.T) {
 		{
 			"support address types in topics",
 			args{[][]interface{}{{common.Address{1, 2, 3, 4, 5}}}},
-			[][]common.Hash{{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}}},
+			[][]common.Hash{{common.Hash{1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}},
 			false,
 		},
 		{
@@ -124,6 +125,7 @@ func TestMakeTopics(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
+				fmt.Println("name", tt.name)
 				t.Errorf("makeTopics() = %v, want %v", got, tt.want)
 			}
 		})
@@ -153,7 +155,7 @@ type hashStruct struct {
 }
 
 type funcStruct struct {
-	FuncValue [24]byte
+	FuncValue [common.HashLength]byte
 }
 
 type topicTest struct {
@@ -254,12 +256,10 @@ func setupTopicsTests() []topicTest {
 			args: args{
 				createObj: func() interface{} { return &funcStruct{} },
 				resultObj: func() interface{} {
-					return &funcStruct{[24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					return &funcStruct{[common.HashLength]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
 				},
 				resultMap: func() map[string]interface{} {
-					return map[string]interface{}{"funcValue": [24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					return map[string]interface{}{"funcValue": [common.HashLength]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
@@ -267,8 +267,7 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.Hash{
-					{0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
 				},
 			},
 			wantErr: false,
@@ -322,12 +321,18 @@ func setupTopicsTests() []topicTest {
 			wantErr: true,
 		},
 		{
-			name: "error on improper encoded function",
+			name: "no error on function",
 			args: args{
-				createObj: func() interface{} { return &funcStruct{} },
-				resultObj: func() interface{} { return &funcStruct{} },
+				createObj: func() interface{} {
+					return &funcStruct{[common.HashLength]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
+				},
+				resultObj: func() interface{} {
+					return &funcStruct{[common.HashLength]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
+				},
 				resultMap: func() map[string]interface{} {
-					return make(map[string]interface{})
+					resultMap := make(map[string]interface{})
+					resultMap["funcValue"] = [common.HashLength]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
+					return resultMap
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
@@ -335,11 +340,10 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.Hash{
-					{0, 0, 0, 0, 0, 0, 0, 128, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 
@@ -349,8 +353,9 @@ func setupTopicsTests() []topicTest {
 func TestParseTopics(t *testing.T) {
 	tests := setupTopicsTests()
 
-	for _, tt := range tests {
+	for index, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fmt.Println("args", tt.args, "index", index)
 			createObj := tt.args.createObj()
 			if err := ParseTopics(createObj, tt.args.fields, tt.args.topics); (err != nil) != tt.wantErr {
 				t.Errorf("parseTopics() error = %v, wantErr %v", err, tt.wantErr)
@@ -366,7 +371,8 @@ func TestParseTopics(t *testing.T) {
 func TestParseTopicsIntoMap(t *testing.T) {
 	tests := setupTopicsTests()
 
-	for _, tt := range tests {
+	for index, tt := range tests {
+		fmt.Println("test", index, tt.name, tt.args)
 		t.Run(tt.name, func(t *testing.T) {
 			outMap := make(map[string]interface{})
 			if err := ParseTopicsIntoMap(outMap, tt.args.fields, tt.args.topics); (err != nil) != tt.wantErr {

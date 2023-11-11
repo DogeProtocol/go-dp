@@ -32,7 +32,11 @@ import (
 
 // TestPack tests the general pack/unpack tests in packing_test.go
 func TestPack(t *testing.T) {
+	fmt.Println("======", common.Address{1}, common.Address{1}.Bytes())
 	for i, test := range packUnpackTests {
+		if strings.Contains(test.def, "function") {
+			fmt.Println("packtest", i, test.def)
+		}
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			encb, err := hex.DecodeString(test.packed)
 			if err != nil {
@@ -50,6 +54,9 @@ func TestPack(t *testing.T) {
 				t.Fatalf("test %d (%v) failed: %v", i, test.def, err)
 			}
 			if !reflect.DeepEqual(packed[4:], encb) {
+				fmt.Println("def", test.def)
+				fmt.Println("exp", common.Bytes2Hex(encb))
+				fmt.Println("got", common.Bytes2Hex(packed[4:]))
 				t.Errorf("test %d (%v) failed: expected %v, got %v", i, test.def, encb, packed[4:])
 			}
 		})

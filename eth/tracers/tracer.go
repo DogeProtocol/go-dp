@@ -252,16 +252,16 @@ func (cw *contractWrapper) pushObject(vm *duktape.Context) {
 
 	// Push the wrapper for contract.Caller
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ptr := ctx.PushFixedBuffer(20)
-		copy(makeSlice(ptr, 20), cw.contract.Caller().Bytes())
+		ptr := ctx.PushFixedBuffer(common.AddressLength)
+		copy(makeSlice(ptr, common.AddressLength), cw.contract.Caller().Bytes())
 		return 1
 	})
 	vm.PutPropString(obj, "getCaller")
 
 	// Push the wrapper for contract.Address
 	vm.PushGoFunction(func(ctx *duktape.Context) int {
-		ptr := ctx.PushFixedBuffer(20)
-		copy(makeSlice(ptr, 20), cw.contract.Address().Bytes())
+		ptr := ctx.PushFixedBuffer(common.AddressLength)
+		copy(makeSlice(ptr, common.AddressLength), cw.contract.Address().Bytes())
 		return 1
 	})
 	vm.PutPropString(obj, "getAddress")
@@ -376,7 +376,7 @@ func New(code string, ctx *Context) (*Tracer, error) {
 			addr = common.HexToAddress(ctx.GetString(-1))
 		}
 		ctx.Pop()
-		copy(makeSlice(ctx.PushFixedBuffer(20), 20), addr[:])
+		copy(makeSlice(ctx.PushFixedBuffer(common.AddressLength), common.AddressLength), addr[:])
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("toContract", func(ctx *duktape.Context) int {
@@ -390,7 +390,7 @@ func New(code string, ctx *Context) (*Tracer, error) {
 		ctx.Pop2()
 
 		contract := crypto.CreateAddress(from, nonce)
-		copy(makeSlice(ctx.PushFixedBuffer(20), 20), contract[:])
+		copy(makeSlice(ctx.PushFixedBuffer(common.AddressLength), common.AddressLength), contract[:])
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("toContract2", func(ctx *duktape.Context) int {
@@ -412,7 +412,7 @@ func New(code string, ctx *Context) (*Tracer, error) {
 		codeHash := crypto.Keccak256(code)
 		ctx.Pop3()
 		contract := crypto.CreateAddress2(from, salt, codeHash)
-		copy(makeSlice(ctx.PushFixedBuffer(20), 20), contract[:])
+		copy(makeSlice(ctx.PushFixedBuffer(common.AddressLength), common.AddressLength), contract[:])
 		return 1
 	})
 	tracer.vm.PushGlobalGoFunction("isPrecompiled", func(ctx *duktape.Context) int {
@@ -667,8 +667,8 @@ func (jst *Tracer) GetResult() (json.RawMessage, error) {
 			copy(makeSlice(ptr, uint(len(val))), val)
 
 		case common.Address:
-			ptr := jst.vm.PushFixedBuffer(20)
-			copy(makeSlice(ptr, 20), val[:])
+			ptr := jst.vm.PushFixedBuffer(common.AddressLength)
+			copy(makeSlice(ptr, common.AddressLength), val[:])
 
 		case *big.Int:
 			pushBigInt(val, jst.vm)

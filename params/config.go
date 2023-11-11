@@ -259,7 +259,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllProofOfStakeProtocolChanges = &ChainConfig{big.NewInt(1337),
+	AllProofOfStakeProtocolChanges = &ChainConfig{big.NewInt(123123),
 		big.NewInt(0),
 		nil,
 		false,
