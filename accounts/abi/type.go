@@ -239,7 +239,7 @@ func (t Type) GetType() reflect.Type {
 		return reflect.SliceOf(reflect.TypeOf(byte(0)))
 	case HashTy:
 		// hashtype currently not used
-		return reflect.ArrayOf(32, reflect.TypeOf(byte(0)))
+		return reflect.ArrayOf(common.HashLength, reflect.TypeOf(byte(0)))
 	case FixedPointTy:
 		// fixedpoint type currently not used
 		return reflect.ArrayOf(32, reflect.TypeOf(byte(0)))
@@ -388,7 +388,7 @@ func getTypeSize(t Type) int {
 		if t.Elem.T == ArrayTy || t.Elem.T == TupleTy {
 			return t.Size * getTypeSize(*t.Elem)
 		}
-		return t.Size * 32
+		return t.Size * StackDataSize
 	} else if t.T == TupleTy && !isDynamicType(t) {
 		total := 0
 		for _, elem := range t.TupleElems {
@@ -396,5 +396,5 @@ func getTypeSize(t Type) int {
 		}
 		return total
 	}
-	return 32
+	return StackDataSize
 }

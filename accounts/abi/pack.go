@@ -30,7 +30,7 @@ import (
 // bytes slice.
 func packBytesSlice(bytes []byte, l int) []byte {
 	len := packNum(reflect.ValueOf(l))
-	return append(len, common.RightPadBytes(bytes, (l+31)/32*32)...)
+	return append(len, common.RightPadBytes(bytes, (l+StackDataSizeMaxIndex)/StackDataSize*StackDataSize)...)
 }
 
 // packElement packs the given reflect value according to the abi specification in
@@ -49,9 +49,9 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 		return common.LeftPadBytes(reflectValue.Bytes(), common.AddressLength), nil
 	case BoolTy:
 		if reflectValue.Bool() {
-			return math.PaddedBigBytes(common.Big1, 32), nil
+			return math.PaddedBigBytes(common.Big1, StackDataSize), nil
 		}
-		return math.PaddedBigBytes(common.Big0, 32), nil
+		return math.PaddedBigBytes(common.Big0, StackDataSize), nil
 	case BytesTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
@@ -64,7 +64,7 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
-		return common.RightPadBytes(reflectValue.Bytes(), 32), nil
+		return common.RightPadBytes(reflectValue.Bytes(), StackDataSize), nil
 	case FunctionTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)

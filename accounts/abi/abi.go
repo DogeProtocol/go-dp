@@ -27,6 +27,8 @@ import (
 )
 
 const FunctionTypeLength = 4 + common.AddressLength
+const StackDataSize int = 32
+const StackDataSizeMaxIndex int = StackDataSize - 1
 
 // The ABI holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and

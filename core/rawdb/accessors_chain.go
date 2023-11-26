@@ -74,7 +74,7 @@ func ReadAllHashes(db ethdb.Iteratee, number uint64) []common.Hash {
 	defer it.Release()
 
 	for it.Next() {
-		if key := it.Key(); len(key) == len(prefix)+32 {
+		if key := it.Key(); len(key) == len(prefix)+common.HashLength {
 			hashes = append(hashes, common.BytesToHash(key[len(key)-32:]))
 		}
 	}

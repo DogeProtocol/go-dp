@@ -22,31 +22,23 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+func Sha256(data ...[]byte) []byte {
+	h1 := sha3.New256()
+	for _, b := range data {
+		h1.Write(b)
+	}
+	return h1.Sum(nil)
+}
+
 // Keccak256 calculates and returns the Keccak256 hash of the input data.
 func Keccak256(data ...[]byte) []byte {
 	//Round 1
-	h1 := sha3.New512()
+	h1 := sha3.New256()
 	for _, b := range data {
 		h1.Write(b)
 	}
-	round1hash := h1.Sum(nil)
+	return h1.Sum(nil)
 
-	//Round 2
-	h1.Reset()
-	for _, b := range data {
-		h1.Write(b)
-	}
-	h1.Write(round1hash)
-	round2hash := h1.Sum(nil)
-
-	//Round 3
-	h2 := sha3.New256()
-	for _, b := range data {
-		h2.Write(b)
-	}
-	h2.Write(round2hash)
-
-	return h2.Sum(nil)
 }
 
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
