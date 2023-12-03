@@ -21,7 +21,7 @@ import (
 	"sort"
 
 	"github.com/DogeProtocol/dp/params"
-	"github.com/holiman/uint256"
+	"github.com/DogeProtocol/dp/uint256"
 )
 
 var activators = map[int]func(*JumpTable){

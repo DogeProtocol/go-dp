@@ -30,7 +30,7 @@ import (
 // bytes slice.
 func packBytesSlice(bytes []byte, l int) []byte {
 	len := packNum(reflect.ValueOf(l))
-	return append(len, common.RightPadBytes(bytes, (l+StackDataSizeMaxIndex)/StackDataSize*StackDataSize)...)
+	return append(len, common.RightPadBytes(bytes, (l+31)/32*32)...)
 }
 
 // packElement packs the given reflect value according to the abi specification in
@@ -46,12 +46,12 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return common.LeftPadBytes(reflectValue.Bytes(), common.AddressLength), nil
+		return common.LeftPadBytes(reflectValue.Bytes(), 32), nil
 	case BoolTy:
 		if reflectValue.Bool() {
-			return math.PaddedBigBytes(common.Big1, StackDataSize), nil
+			return math.PaddedBigBytes(common.Big1, 32), nil
 		}
-		return math.PaddedBigBytes(common.Big0, StackDataSize), nil
+		return math.PaddedBigBytes(common.Big0, 32), nil
 	case BytesTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
@@ -60,17 +60,11 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 			return []byte{}, errors.New("Bytes type is neither slice nor array")
 		}
 		return packBytesSlice(reflectValue.Bytes(), reflectValue.Len()), nil
-	case FixedBytesTy:
+	case FixedBytesTy, FunctionTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
-		return common.RightPadBytes(reflectValue.Bytes(), StackDataSize), nil
-	case FunctionTy:
-		if reflectValue.Kind() == reflect.Array {
-			reflectValue = mustArrayToByteSlice(reflectValue)
-		}
-		fmt.Println("reflect", reflectValue.Len(), reflectValue.Bytes())
-		return packBytesSlice(reflectValue.Bytes(), reflectValue.Len()), nil
+		return common.RightPadBytes(reflectValue.Bytes(), 32), nil
 	default:
 		return []byte{}, fmt.Errorf("Could not pack element, unknown type: %v", t.T)
 	}

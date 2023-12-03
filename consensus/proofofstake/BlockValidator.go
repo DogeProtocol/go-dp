@@ -61,7 +61,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			}
 
 			if details.Round < byte(1) || details.Round > MAX_ROUND_WITH_TXNS {
-				return nil, errors.New("invalid round")
+				return nil, errors.New("invalid round 1")
 			}
 
 			blockProposer, err := getBlockProposer(parentHash, &filteredValidatorDepositMap, details.Round)
@@ -109,7 +109,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			}
 
 			if details.Round < byte(1) || details.Round > MAX_ROUND_WITH_TXNS {
-				return nil, errors.New("invalid round")
+				return nil, errors.New("invalid round 2")
 			}
 
 			_, ok := packetRoundMap[details.Round]
@@ -150,7 +150,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			}
 
 			if details.Round < byte(1) || details.Round > MAX_ROUND_WITH_TXNS {
-				return nil, errors.New("invalid round")
+				return nil, errors.New("invalid round 3")
 			}
 
 			_, ok := packetRoundMap[details.Round]
@@ -186,7 +186,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			}
 
 			if details.Round < byte(1) || details.Round > MAX_ROUND_WITH_TXNS {
-				return nil, errors.New("invalid round")
+				return nil, errors.New("invalid roun 4")
 			}
 			//fmt.Println("parseconsensuspackets commit", details.Round)
 			_, ok := packetRoundMap[details.Round]
@@ -248,7 +248,7 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 		}
 
 		if proposalAckDetails.Round != round {
-			return errors.New("invalid round")
+			return errors.New("invalid round 5")
 		}
 		fmt.Println("val dep", v, depositValue, proposalAckDetails.ProposalAckVoteType, proposalAckDetails.ProposalHash)
 

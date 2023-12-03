@@ -218,14 +218,13 @@ func (s HybridSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	if err != nil {
 		return tempAddr, err
 	}
-	addr := common.BytesToAddress(crypto.Keccak256(pubBytes[:])[:])
-	return addr, nil
+	return crypto.PublicKeyBytesToAddress(pubBytes), nil
 }
 
 func (s HybridSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {
 	addr, err := s.PublicKeyToAddress(p)
 	if err != nil {
-		panic("PublicKeyToAddress failed")
+		panic("PublicKeyBytesToAddress failed")
 	}
 	return addr
 }
@@ -398,24 +397,20 @@ func (osig HybridSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *b
 		pubKey, signature := r.Bytes(), s.Bytes()
 
 		if len(pubKey) != osig.PublicKeyLength() {
-			fmt.Println("ValidateSignatureValues 1", len(pubKey), osig.PublicKeyLength())
 			return false
 		}
 
 		if len(signature) < osig.SignatureLength() {
-			fmt.Println("ValidateSignatureValues 2")
 			return false
 		}
 
 		combinedSignature := common.CombineTwoParts(signature, pubKey)
 		if !osig.Verify(pubKey, digestHash, combinedSignature) {
-			fmt.Println("ValidateSignatureValues 3")
 			return false
 		}
 
 		return true
 	}
-	fmt.Println("ValidateSignatureValues 4")
 	return false
 }
 

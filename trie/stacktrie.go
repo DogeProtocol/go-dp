@@ -460,9 +460,7 @@ func (st *StackTrie) hash() {
 	st.val = make([]byte, common.HashLength)
 	ret := crypto.Keccak256(h.tmp)
 	copy(st.val, ret)
-	/*h.sha.Reset()
-	h.sha.Write(h.tmp)
-	h.sha.Read(st.val)*/
+
 	if st.db != nil {
 		// TODO! Is it safe to Put the slice here?
 		// Do all db implementations copy the value provided?
@@ -478,11 +476,7 @@ func (st *StackTrie) Hash() (h common.Hash) {
 		// be hashed, and instead contain the  rlp-encoding of the
 		// node. For the top level node, we need to force the hashing.
 		//ret := make([]byte, 32)
-		/*h := newHasher(false)
-		defer returnHasherToPool(h)
-		h.sha.Reset()
-		h.sha.Write(st.val)
-		h.sha.Read(ret)*/
+
 		ret := crypto.Keccak256(st.val)
 		return common.BytesToHash(ret)
 	}
@@ -505,12 +499,7 @@ func (st *StackTrie) Commit() (common.Hash, error) {
 		// If the node's RLP isn't 32 bytes long, the node will not
 		// be hashed (and committed), and instead contain the  rlp-encoding of the
 		// node. For the top level node, we need to force the hashing+commit.
-		//ret := make([]byte, 32)
-		/*h := newHasher(false)
-		defer returnHasherToPool(h)
-		h.sha.Reset()
-		h.sha.Write(st.val)
-		h.sha.Read(ret)*/
+
 		ret := crypto.Keccak256(st.val)
 		st.db.Put(ret, st.val)
 		return common.BytesToHash(ret), nil

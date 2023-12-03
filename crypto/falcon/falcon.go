@@ -2,7 +2,7 @@ package falcon
 
 /*
 #cgo pkg-config: libhybridpqc
-#include <hybridpqc/api.h>
+#include <falcon/api.h>
 */
 import "C"
 import (

@@ -19,6 +19,7 @@ package vm
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/DogeProtocol/dp/uint256"
 	"io"
 	"math/big"
 	"strings"
@@ -29,7 +30,6 @@ import (
 	"github.com/DogeProtocol/dp/common/math"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/params"
-	"github.com/holiman/uint256"
 )
 
 // Storage represents a contract's storage.

@@ -2,7 +2,7 @@ package hybrid
 
 /*
 #cgo pkg-config: libhybridpqc
-#include <hybridpqc/hybrid.h>
+#include <falcon/hybrid.h>
 */
 import "C"
 import (

@@ -75,12 +75,12 @@ func ReadInteger(typ Type, b []byte) interface{} {
 
 // readBool reads a bool.
 func readBool(word []byte) (bool, error) {
-	for _, b := range word[:StackDataSize-1] {
+	for _, b := range word[:31] {
 		if b != 0 {
 			return false, errBadBool
 		}
 	}
-	switch word[StackDataSize-1] {
+	switch word[31] {
 	case 0:
 		return false, nil
 	case 1:
@@ -92,7 +92,7 @@ func readBool(word []byte) (bool, error) {
 
 // A function type is simply the address with the function selection signature at the end.
 //
-// readFunctionType enforces that standard by always presenting it as a 36-array (address + sig = 36 bytes)
+// readFunctionType enforces that standard by always presenting it as a 32-array (address + sig = 32 bytes)
 func readFunctionType(t Type, word []byte) (funcTy [FunctionTypeLength]byte, err error) {
 	if t.T != FunctionTy {
 		return [FunctionTypeLength]byte{}, fmt.Errorf("abi: invalid type in call to make function type byte array")
@@ -100,6 +100,7 @@ func readFunctionType(t Type, word []byte) (funcTy [FunctionTypeLength]byte, err
 	if len(word) < FunctionTypeLength {
 		return [FunctionTypeLength]byte{}, fmt.Errorf("abi: invalid function type length")
 	}
+
 	copy(funcTy[:], word[0:FunctionTypeLength])
 
 	return
@@ -123,8 +124,8 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 	if size < 0 {
 		return nil, fmt.Errorf("cannot marshal input to array, size is negative (%d)", size)
 	}
-	if start+StackDataSize*size > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go array: offset %d would go over slice boundary (len=%d)", len(output), start+StackDataSize*size)
+	if start+32*size > len(output) {
+		return nil, fmt.Errorf("abi: cannot marshal in to go array: offset %d would go over slice boundary (len=%d)", len(output), start+32*size)
 	}
 
 	// this value will become our slice or our array, depending on the type
@@ -162,7 +163,7 @@ func forTupleUnpack(t Type, output []byte) (interface{}, error) {
 	retval := reflect.New(t.GetType()).Elem()
 	virtualArgs := 0
 	for index, elem := range t.TupleElems {
-		marshalledValue, err := toGoType((index+virtualArgs)*StackDataSize, *elem, output)
+		marshalledValue, err := toGoType((index+virtualArgs)*32, *elem, output)
 		if elem.T == ArrayTy && !isDynamicType(*elem) {
 			// If we have a static array, like [3]uint256, these are coded as
 			// just like uint256,uint256,uint256.
@@ -174,11 +175,11 @@ func forTupleUnpack(t Type, output []byte) (interface{}, error) {
 			//
 			// Calculate the full array size to get the correct offset for the next argument.
 			// Decrement it by 1, as the normal index increment is still applied.
-			virtualArgs += getTypeSize(*elem)/StackDataSize - 1
+			virtualArgs += getTypeSize(*elem)/32 - 1
 		} else if elem.T == TupleTy && !isDynamicType(*elem) {
 			// If we have a static tuple, like (uint256, bool, uint256), these are
 			// coded as just like uint256,bool,uint256
-			virtualArgs += getTypeSize(*elem)/StackDataSize - 1
+			virtualArgs += getTypeSize(*elem)/32 - 1
 		}
 		if err != nil {
 			return nil, err
@@ -191,8 +192,8 @@ func forTupleUnpack(t Type, output []byte) (interface{}, error) {
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (interface{}, error) {
-	if index+StackDataSize > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+StackDataSize)
+	if index+32 > len(output) {
+		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+32)
 	}
 
 	var (
@@ -247,8 +248,8 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case FixedBytesTy:
 		return ReadFixedBytes(t, returnOutput)
 	case FunctionTy:
-		return output[StackDataSize : StackDataSize+FunctionTypeLength], nil
-		//return readFunctionType(t, output[begin:])
+		panic("FunctionTy")
+		return readFunctionType(t, returnOutput)
 	default:
 		return nil, fmt.Errorf("abi: unknown type %v", t.T)
 	}
@@ -256,7 +257,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 
 // lengthPrefixPointsTo interprets a 32 byte slice as an offset and then determines which indices to look to decode the type.
 func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err error) {
-	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+StackDataSize])
+	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+32])
 	bigOffsetEnd.Add(bigOffsetEnd, common.Big32)
 	outputLength := big.NewInt(int64(len(output)))
 
@@ -288,7 +289,7 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 
 // tuplePointsTo resolves the location reference for dynamic tuple.
 func tuplePointsTo(index int, output []byte) (start int, err error) {
-	offset := big.NewInt(0).SetBytes(output[index : index+StackDataSize])
+	offset := big.NewInt(0).SetBytes(output[index : index+32])
 	outputLen := big.NewInt(int64(len(output)))
 
 	if offset.Cmp(big.NewInt(int64(len(output)))) > 0 {

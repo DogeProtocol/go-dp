@@ -72,7 +72,7 @@ const REQUEST_CONSENSUS_DATA_PERCENT = 20
 const BLOCK_CLEANUP_TIME_MS = 900
 const MAX_ROUND_WITH_TXNS = 2
 
-var STARTUP_DELAY_MS = int64(120000)
+var STARTUP_DELAY_MS = int64(12000)
 
 type BlockRoundState byte
 type VoteType byte
@@ -1788,7 +1788,7 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 
 	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
 		log.Info("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime))
-		fmt.Println("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime))
+		fmt.Println("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), len(txns))
 		return errors.New("starting up")
 	}
 
@@ -1815,11 +1815,11 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	cph.processOutOfOrderPackets(parentHash)
 
 	err = errors.New("not ready yet")
-	if shouldPropose {
-		fmt.Println("parentHash", parentHash, "round", blockStateDetails.currentRound, "state", blockRoundDetails.state, "vote", blockRoundDetails.blockVoteType,
-			"shouldPropose", shouldPropose, "currTxns", len(txns), "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks,
-			"totalTxs", cph.totalTransactions, "maxTxns", cph.maxTransactionsInBlock, "blockTIme", cph.maxTransactionsBlockTime, "txns", len(txns))
-	}
+	//if shouldPropose {
+	fmt.Println("parentHash", parentHash, "round", blockStateDetails.currentRound, "state", blockRoundDetails.state, "vote", blockRoundDetails.blockVoteType,
+		"shouldPropose", shouldPropose, "currTxns", len(txns), "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks,
+		"totalTxs", cph.totalTransactions, "maxTxns", cph.maxTransactionsInBlock, "blockTIme", cph.maxTransactionsBlockTime, "txns", len(txns))
+	//}
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {

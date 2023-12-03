@@ -70,7 +70,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 
 	addr2, err := sig.PublicKeyToAddress(pubKey1)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr2 {
@@ -80,7 +80,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	pubKeyDirect1 := PublicKey{PubData: pubBytes1}
 	addr3, err := sig.PublicKeyToAddress(&pubKeyDirect1)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr3 {
@@ -89,7 +89,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 
 	addr4, err := sig.PublicKeyToAddress(&key2.PublicKey)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr4 {
@@ -99,7 +99,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	pubKeyDirect2 := PublicKey{PubData: key2.PubData}
 	addr5, err := sig.PublicKeyToAddress(&pubKeyDirect2)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr5 {
@@ -292,7 +292,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("address compare failed")
 	}
 
-	addr := crypto.PublicKeyToAddress(pubBytes1)
+	addr := crypto.PublicKeyBytesToAddress(pubBytes1)
 
 	if generatedAddress != addr {
 		t.Fatal(err)

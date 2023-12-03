@@ -191,7 +191,7 @@ func TestDeriveFields(t *testing.T) {
 				{Address: common.BytesToAddress([]byte{0x22})},
 				{Address: common.BytesToAddress([]byte{0x02, 0x22})},
 			},
-			TxHash:          txs[1].Hash(),
+			TxHash:          txs[0].Hash(),
 			ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
 			GasUsed:         2,
 		},

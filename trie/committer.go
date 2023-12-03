@@ -231,12 +231,9 @@ func (c *committer) commitLoop(db *Database) {
 }
 
 func (c *committer) makeHashNode(data []byte) hashNode {
-	//n := make(hashNode, common.HashLength)
-	//c.sha.Reset()
-	//c.sha.Write(data)
-	//c.sha.Read(n)
+
 	return crypto.Keccak256(data)
-	//return n
+
 }
 
 // estimateSize estimates the size of an rlp-encoded node, without actually

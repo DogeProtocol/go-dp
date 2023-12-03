@@ -52,7 +52,6 @@ type EVMInterpreter struct {
 	evm *EVM
 	cfg Config
 
-	//hasher    hashingalgorithm.HashState // Keccak256 hasher instance shared across opcodes
 	hasherBuf common.Hash // Keccak256 hasher result array shared aross opcodes
 
 	readOnly   bool   // Whether to throw on stateful modifications

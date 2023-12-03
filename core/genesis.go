@@ -114,7 +114,7 @@ type storageJSON common.Hash
 
 func (h *storageJSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
-	if len(text) > common.AddressLength*2 {
+	if len(text) > common.HashLength*2 {
 		return fmt.Errorf("too many hex characters in storage key/value %q", text)
 	}
 	offset := len(h) - len(text)/2 // pad on the left

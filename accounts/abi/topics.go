@@ -151,8 +151,8 @@ func parseTopicWithSetter(fields Arguments, topics []common.Hash, setter func(Ar
 			// whose bytes can be decoded to the actual value- so the best we can do is retrieve that hash
 			reconstr = topics[i]
 		case FunctionTy:
-			var tmp [common.HashLength]byte
-			copy(tmp[:], topics[i][:])
+			var tmp [32]byte
+			copy(tmp[:], topics[i][0:32])
 			reconstr = tmp
 		default:
 			var err error

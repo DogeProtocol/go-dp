@@ -20,12 +20,12 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/math"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/blake2b"
 	"github.com/DogeProtocol/dp/crypto/bls12381"
 	"github.com/DogeProtocol/dp/crypto/bn256"
@@ -195,8 +195,8 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, nil
 	}
-	// the first byte of pubkey is bitcoin heritage
-	return crypto.PublicKeyToAddress(pubKey[:]).Bytes(), nil
+
+	return common.LeftPadBytes(crypto.Keccak256(pubKey[:])[common.AddressTruncateBytes:], common.HashLength), nil
 }
 
 // SHA256 implemented as a native contract.

@@ -54,8 +54,6 @@ func TestHeaderStorage(t *testing.T) {
 	if entry := ReadHeaderRLP(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header RLP not found")
 	} else {
-		//hasher := hashingalgorithm.NewHashState()
-		//hasher.Write(entry)
 
 		if hash := crypto.Keccak256Hash(entry); hash != header.Hash() {
 			t.Fatalf("Retrieved RLP header mismatch: have %v, want %v", entry, header)

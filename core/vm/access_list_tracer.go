@@ -148,13 +148,13 @@ func (a *AccessListTracer) CaptureState(env *EVM, pc uint64, op OpCode, gas, cos
 		a.list.addSlot(scope.Contract.Address(), slot)
 	}
 	if (op == EXTCODECOPY || op == EXTCODEHASH || op == EXTCODESIZE || op == BALANCE || op == SELFDESTRUCT) && stack.len() >= 1 {
-		addr := common.Address(stack.data[stack.len()-1].Bytes32())
+		addr := common.Address(stack.data[stack.len()-1].BytesAddress())
 		if _, ok := a.excl[addr]; !ok {
 			a.list.addAddress(addr)
 		}
 	}
 	if (op == DELEGATECALL || op == CALL || op == STATICCALL || op == CALLCODE) && stack.len() >= 5 {
-		addr := common.Address(stack.data[stack.len()-2].Bytes32())
+		addr := common.Address(stack.data[stack.len()-2].BytesAddress())
 		if _, ok := a.excl[addr]; !ok {
 			a.list.addAddress(addr)
 		}

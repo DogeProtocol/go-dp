@@ -259,7 +259,7 @@ func TestTypeCheck(t *testing.T) {
 		{"string", nil, []byte{}, "abi: cannot use slice as type string as argument"},
 		{"bytes32[]", nil, [][32]byte{{}}, ""},
 		{"function", nil, [24]byte{}, ""},
-		{"bytes32", nil, common.Address{}, ""},
+		{"bytes28", nil, common.Address{}, ""},
 		{"address", nil, [common.AddressLength]byte{}, ""},
 		{"address", nil, common.Address{}, ""},
 		{"bytes32[]]", nil, "", "invalid arg type in abi"},
@@ -339,7 +339,7 @@ func TestGetTypeSize(t *testing.T) {
 	}{
 		// simple array
 		{"uint256[2]", nil, 32 * 2},
-		{"address[3]", nil, common.AddressLength * 3},
+		{"address[3]", nil, 32 * 3},
 		{"bytes32[4]", nil, 32 * 4},
 		// array array
 		{"uint256[2][3][4]", nil, 32 * (2 * 3 * 4)},

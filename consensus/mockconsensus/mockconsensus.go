@@ -154,7 +154,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 		return common.Address{}, err
 	}
 	var validator common.Address
-	validator.CopyFrom(crypto.PublicKeyToAddress(pubkey[:]))
+	validator.CopyFrom(crypto.PublicKeyBytesToAddress(pubkey[:]))
 
 	//fmt.Println("validator", validator, "block", header.Number)
 	sigcache.Add(hash, validator)

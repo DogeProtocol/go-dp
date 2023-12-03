@@ -20,13 +20,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/DogeProtocol/dp/uint256"
 	"io/ioutil"
 	"testing"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/params"
-	"github.com/holiman/uint256"
 )
 
 type TwoOperandTestcase struct {

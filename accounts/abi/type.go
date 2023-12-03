@@ -352,7 +352,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 // requireLengthPrefix returns whether the type requires any sort of length
 // prefixing.
 func (t Type) requiresLengthPrefix() bool {
-	return t.T == StringTy || t.T == BytesTy || t.T == SliceTy || t.T == FunctionTy
+	return t.T == StringTy || t.T == BytesTy || t.T == SliceTy
 }
 
 // isDynamicType returns true if the type is dynamic.
@@ -388,7 +388,7 @@ func getTypeSize(t Type) int {
 		if t.Elem.T == ArrayTy || t.Elem.T == TupleTy {
 			return t.Size * getTypeSize(*t.Elem)
 		}
-		return t.Size * StackDataSize
+		return t.Size * 32
 	} else if t.T == TupleTy && !isDynamicType(t) {
 		total := 0
 		for _, elem := range t.TupleElems {
@@ -396,5 +396,5 @@ func getTypeSize(t Type) int {
 		}
 		return total
 	}
-	return StackDataSize
+	return 32
 }
