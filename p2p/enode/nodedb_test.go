@@ -150,7 +150,6 @@ func TestDBFetchStore(t *testing.T) {
 		hexPubkey(pubenckey1),
 		net.IP{192, 168, 0, 1},
 		30303,
-		30303,
 	)
 	inst := time.Now()
 	num := 314
@@ -213,7 +212,6 @@ var nodeDBSeedQueryNodes = []struct {
 			hexPubkey(pubenckey1),
 			net.IP{127, 0, 0, 3},
 			30303,
-			30303,
 		),
 		pong: time.Now().Add(-3 * time.Hour),
 	},
@@ -223,7 +221,6 @@ var nodeDBSeedQueryNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey2),
 			net.IP{127, 0, 0, 3},
-			30303,
 			30303,
 		),
 		pong: time.Now().Add(-4 * time.Second),
@@ -235,7 +232,6 @@ var nodeDBSeedQueryNodes = []struct {
 			hexPubkey(pubenckey3),
 			net.IP{127, 0, 0, 1},
 			30303,
-			30303,
 		),
 		pong: time.Now().Add(-2 * time.Second),
 	},
@@ -243,7 +239,6 @@ var nodeDBSeedQueryNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey4),
 			net.IP{127, 0, 0, 2},
-			30303,
 			30303,
 		),
 		pong: time.Now().Add(-3 * time.Second),
@@ -253,7 +248,6 @@ var nodeDBSeedQueryNodes = []struct {
 			hexPubkey(pubenckey5),
 			net.IP{127, 0, 0, 3},
 			30303,
-			30303,
 		),
 		pong: time.Now().Add(-1 * time.Second),
 	},
@@ -262,7 +256,6 @@ var nodeDBSeedQueryNodes = []struct {
 			hexPubkey(pubenckey6),
 			net.IP{127, 0, 0, 3},
 			30303,
-			30303,
 		),
 		pong: time.Now().Add(-2 * time.Second),
 	},
@@ -270,7 +263,6 @@ var nodeDBSeedQueryNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey7),
 			net.IP{127, 0, 0, 3},
-			30303,
 			30303,
 		),
 		pong: time.Now().Add(-2 * time.Second),
@@ -378,7 +370,6 @@ var nodeDBExpirationNodes = []struct {
 			hexPubkey(pubenckey8),
 			net.IP{127, 0, 0, 1},
 			30303,
-			30303,
 		),
 		storeNode: true,
 		pong:      time.Now().Add(-dbNodeExpiration + time.Minute),
@@ -389,7 +380,6 @@ var nodeDBExpirationNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey9),
 			net.IP{127, 0, 0, 2},
-			30303,
 			30303,
 		),
 		storeNode: true,
@@ -402,7 +392,6 @@ var nodeDBExpirationNodes = []struct {
 			hexPubkey(pubenckey10),
 			net.IP{127, 0, 0, 3},
 			30303,
-			30303,
 		),
 		storeNode: false,
 		pong:      time.Now().Add(-dbNodeExpiration - time.Minute),
@@ -414,7 +403,6 @@ var nodeDBExpirationNodes = []struct {
 			hexPubkey(pubenckey11),
 			net.IP{127, 0, 0, 4},
 			30303,
-			30303,
 		),
 		storeNode: true,
 		pong:      time.Now().Add(-dbNodeExpiration - time.Minute),
@@ -424,7 +412,6 @@ var nodeDBExpirationNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey12),
 			net.IP{127, 0, 0, 5},
-			30303,
 			30303,
 		),
 		storeNode: false,
@@ -437,7 +424,6 @@ var nodeDBExpirationNodes = []struct {
 			hexPubkey(pubenckey13),
 			net.IP{127, 0, 0, 6},
 			30303,
-			30303,
 		),
 		storeNode: true,
 		pong:      time.Now().Add(-dbNodeExpiration + time.Minute),
@@ -447,7 +433,6 @@ var nodeDBExpirationNodes = []struct {
 		node: NewV4(
 			hexPubkey(pubenckey14),
 			net.IP{127, 0, 0, 7},
-			30303,
 			30303,
 		),
 		storeNode: false,

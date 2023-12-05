@@ -18,7 +18,6 @@
 package eth
 
 import (
-	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/consensus/proofofstake"
 	"github.com/DogeProtocol/dp/handler"
@@ -43,7 +42,6 @@ import (
 	"github.com/DogeProtocol/dp/eth/filters"
 	"github.com/DogeProtocol/dp/eth/gasprice"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
-	"github.com/DogeProtocol/dp/eth/protocols/snap"
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/internal/ethapi"
@@ -101,10 +99,6 @@ type Ethereum struct {
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
 func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
-	// Ensure configuration values are compatible and sane
-	if config.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
-	}
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
@@ -122,10 +116,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		config.TrieDirtyCache = 0
 	}
 	log.Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
-
-	// Transfer mining-related config to the ethash config.
-	ethashConfig := config.Ethash
-	ethashConfig.NotifyFull = config.Miner.NotifyFull
 
 	// Assemble the Ethereum object
 	chainDb, err := stack.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/", false)
@@ -162,7 +152,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 	ethAPI := ethapi.NewPublicBlockChainAPI(eth.APIBackend)
 
-	eth.engine = ethconfig.CreateConsensusEngine(stack, chainConfig, &ethashConfig, config.Miner.Notify, config.Miner.Noverify, chainDb, ethAPI, genesisHash)
+	eth.engine = ethconfig.CreateConsensusEngine(stack, chainConfig, config.Miner.Notify, config.Miner.Noverify, chainDb, ethAPI, genesisHash)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -243,6 +233,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eng.SetP2PHandler(eth.handler)
 		var consensusHandler handler.ConsensusHandler = eng.GetConsensusPacketHandler()
 		eth.handler.SetConsensusHandler(consensusHandler)
+		eng.SetBlockchain(eth.blockchain)
 	}
 
 	eth.p2pServer.SetRequestPeersFn(eth.handler.RequestPeerList)
@@ -544,9 +535,6 @@ func (s *Ethereum) BloomIndexer() *core.ChainIndexer   { return s.bloomIndexer }
 // network protocols to start.
 func (s *Ethereum) Protocols() []p2p.Protocol {
 	protos := eth.MakeProtocols((*handler.EthHandler)(s.handler), s.networkID, s.ethDialCandidates)
-	if s.config.SnapshotCache > 0 {
-		protos = append(protos, snap.MakeProtocols((*handler.SnapHandler)(s.handler), s.snapDialCandidates)...)
-	}
 	return protos
 }
 

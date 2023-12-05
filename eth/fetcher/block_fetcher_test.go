@@ -18,6 +18,7 @@ package fetcher
 
 import (
 	"errors"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math/big"
 	"sync"
@@ -26,7 +27,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
@@ -42,7 +42,7 @@ var (
 	testKey, _     = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
 	testAddress    = cryptobase.SigAlg.PublicKeyToAddressNoError(&testKey.PublicKey)
 	genesis        = core.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000000000))
-	unknownBlock   = types.NewBlock(&types.Header{GasLimit: params.GenesisGasLimit, BaseFee: big.NewInt(params.InitialBaseFee)}, nil, nil, nil, trie.NewStackTrie(nil))
+	unknownBlock   = types.NewBlock(&types.Header{GasLimit: params.GenesisGasLimit}, nil, nil, trie.NewStackTrie(nil))
 )
 
 // makeChain creates a chain of n blocks starting at and including parent.
@@ -50,21 +50,17 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.Block) ([]common.Hash, map[common.Hash]*types.Block) {
-	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, mockconsensus.NewMockConsensus(), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 
 		// If the block number is multiple of 3, send a bonus transaction to the miner
 		if parent == genesis && i%3 == 0 {
 			signer := types.MakeSigner(params.TestChainConfig, block.Number())
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 			if err != nil {
 				panic(err)
 			}
 			block.AddTx(tx)
-		}
-		// If the block number is a multiple of 5, add a bonus uncle to the block
-		if i%5 == 0 {
-			block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
 		}
 	})
 	hashes := make([]common.Hash, n+1)
@@ -221,16 +217,14 @@ func (f *fetcherTester) makeBodyFetcher(peer string, blocks map[common.Hash]*typ
 	return func(hashes []common.Hash) error {
 		// Gather the block bodies to return
 		transactions := make([][]*types.Transaction, 0, len(hashes))
-		uncles := make([][]*types.Header, 0, len(hashes))
 
 		for _, hash := range hashes {
 			if block, ok := closure[hash]; ok {
 				transactions = append(transactions, block.Transactions())
-				uncles = append(uncles, block.Uncles())
 			}
 		}
 		// Return on a new thread
-		go f.fetcher.FilterBodies(peer, transactions, uncles, time.Now().Add(drift))
+		go f.fetcher.FilterBodies(peer, transactions, time.Now().Add(drift))
 
 		return nil
 	}
@@ -619,7 +613,7 @@ func TestDistantPropagationDiscarding(t *testing.T) {
 	hashes, blocks := makeChain(3*maxQueueDist, 0, genesis)
 	head := hashes[len(hashes)/2]
 
-	low, high := len(hashes)/2+maxUncleDist+1, len(hashes)/2-maxQueueDist-1
+	low, high := len(hashes)/2+1, len(hashes)/2-maxQueueDist-1
 
 	// Create a tester and simulate a head block being the middle of the above chain
 	tester := newTester(false)
@@ -654,7 +648,7 @@ func testDistantAnnouncementDiscarding(t *testing.T, light bool) {
 	hashes, blocks := makeChain(3*maxQueueDist, 0, genesis)
 	head := hashes[len(hashes)/2]
 
-	low, high := len(hashes)/2+maxUncleDist+1, len(hashes)/2-maxQueueDist-1
+	low, high := len(hashes)/2, len(hashes)/2-maxQueueDist-1
 
 	// Create a tester and simulate a head block being the middle of the above chain
 	tester := newTester(light)
@@ -789,7 +783,7 @@ func TestEmptyBlockShortCircuit(t *testing.T) {
 		verifyFetchingEvent(t, fetching, true)
 
 		// Only blocks with data contents should request bodies
-		verifyCompletingEvent(t, completing, len(blocks[hashes[i]].Transactions()) > 0 || len(blocks[hashes[i]].Uncles()) > 0)
+		verifyCompletingEvent(t, completing, len(blocks[hashes[i]].Transactions()) > 0)
 
 		// Irrelevant of the construct, import should succeed
 		verifyImportEvent(t, imported, true)

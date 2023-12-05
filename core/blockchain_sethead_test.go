@@ -21,6 +21,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -29,7 +30,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -1969,8 +1969,8 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 
 	// Initialize a fresh chain
 	var (
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
-		engine  = ethash.NewFullFaker()
+		genesis = (&Genesis{}).MustCommit(db)
+		engine  = mockconsensus.NewMockConsensus()
 		config  = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,

@@ -59,15 +59,11 @@ func TestFeeHistory(t *testing.T) {
 		backend := newTestBackend(t, big.NewInt(16), c.pending)
 		oracle := NewOracle(backend, config)
 
-		first, reward, baseFee, ratio, err := oracle.FeeHistory(context.Background(), c.count, c.last, c.percent)
+		first, reward, ratio, err := oracle.FeeHistory(context.Background(), c.count, c.last, c.percent)
 
 		expReward := c.expCount
 		if len(c.percent) == 0 {
 			expReward = 0
-		}
-		expBaseFee := c.expCount
-		if expBaseFee != 0 {
-			expBaseFee++
 		}
 
 		if first.Uint64() != c.expFirst {
@@ -76,9 +72,7 @@ func TestFeeHistory(t *testing.T) {
 		if len(reward) != expReward {
 			t.Fatalf("Test case %d: reward array length mismatch, want %d, got %d", i, expReward, len(reward))
 		}
-		if len(baseFee) != expBaseFee {
-			t.Fatalf("Test case %d: baseFee array length mismatch, want %d, got %d", i, expBaseFee, len(baseFee))
-		}
+
 		if len(ratio) != c.expCount {
 			t.Fatalf("Test case %d: gasUsedRatio array length mismatch, want %d, got %d", i, c.expCount, len(ratio))
 		}

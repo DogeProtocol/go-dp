@@ -126,7 +126,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err %v", err)
 	}
-	signer := types.NewEIP155Signer(big.NewInt(1))
+	signer := types.NewLondonSigner(big.NewInt(1))
 	tx, err := types.SignTx(unsignedTx, signer, privateKeyOQS)
 	if err != nil {
 		t.Fatalf("err %v", err)
@@ -177,7 +177,7 @@ func TestPrestateTracerCreate2(t *testing.T) {
 	}
 	evm := vm.NewEVM(context, txContext, statedb, params.MainnetChainConfig, vm.Config{Debug: true, Tracer: tracer})
 
-	msg, err := tx.AsMessage(signer, nil)
+	msg, err := tx.AsMessage(signer)
 	if err != nil {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestCallTracer(t *testing.T) {
 				t.Fatalf("failed to create call tracer: %v", err)
 			}
 			evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
-			msg, err := tx.AsMessage(signer, nil)
+			msg, err := tx.AsMessage(signer)
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
@@ -310,11 +310,11 @@ func BenchmarkTransactionTrace(b *testing.B) {
 	to := common.HexToAddress("0x00000000000000000000000000000000deadbeef")
 	signer := types.LatestSignerForChainID(big.NewInt(1337))
 	tx, err := types.SignNewTx(key, signer,
-		&types.LegacyTx{
-			Nonce:    1,
-			GasPrice: big.NewInt(500),
-			Gas:      gas,
-			To:       &to,
+		&types.DefaultFeeTx{
+			Nonce:      1,
+			MaxGasTier: types.GAS_TIER_DEFAULT,
+			Gas:        gas,
+			To:         &to,
 		})
 	if err != nil {
 		b.Fatal(err)
@@ -359,7 +359,7 @@ func BenchmarkTransactionTrace(b *testing.B) {
 		//DisableReturnData: true,
 	})
 	evm := vm.NewEVM(context, txContext, statedb, params.AllEthashProtocolChanges, vm.Config{Debug: true, Tracer: tracer})
-	msg, err := tx.AsMessage(signer, nil)
+	msg, err := tx.AsMessage(signer)
 	if err != nil {
 		b.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}

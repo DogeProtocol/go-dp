@@ -110,103 +110,18 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 	}
 }
 
-/*
-// SuggestTipCap returns a tip cap so that newly created transaction can have a
-// very high chance to be included in the following blocks.
-//
-// Note, for legacy transactions and the legacy eth_gasPrice RPC call, it will be
-// necessary to add the basefee to the returned number to fall back to the legacy
-// behavior.
-func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
-	head, _ := oracle.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
-	headHash := head.Hash()
-
-	// If the latest gasprice is still available, return it.
-	oracle.cacheLock.RLock()
-	lastHead, lastPrice := oracle.lastHead, oracle.lastPrice
-	oracle.cacheLock.RUnlock()
-	if headHash == lastHead {
-		return new(big.Int).Set(lastPrice), nil
-	}
-	oracle.fetchLock.Lock()
-	defer oracle.fetchLock.Unlock()
-
-	// Try checking the cache again, maybe the last fetch fetched what we need
-	oracle.cacheLock.RLock()
-	lastHead, lastPrice = oracle.lastHead, oracle.lastPrice
-	oracle.cacheLock.RUnlock()
-	if headHash == lastHead {
-		return new(big.Int).Set(lastPrice), nil
-	}
-	var (
-		sent, exp int
-		number    = head.Number.Uint64()
-		result    = make(chan results, oracle.checkBlocks)
-		quit      = make(chan struct{})
-		results   []*big.Int
-	)
-	for sent < oracle.checkBlocks && number > 0 {
-		go oracle.getBlockValues(ctx, types.MakeSigner(oracle.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, oracle.ignorePrice, result, quit)
-		sent++
-		exp++
-		number--
-	}
-	for exp > 0 {
-		res := <-result
-		if res.err != nil {
-			close(quit)
-			return new(big.Int).Set(lastPrice), res.err
-		}
-		exp--
-		// Nothing returned. There are two special cases here:
-		// - The block is empty
-		// - All the transactions included are sent by the miner itself.
-		// In these cases, use the latest calculated price for sampling.
-		if len(res.values) == 0 {
-			res.values = []*big.Int{lastPrice}
-		}
-		// Besides, in order to collect enough data for sampling, if nothing
-		// meaningful returned, try to query more blocks. But the maximum
-		// is 2*checkBlocks.
-		if len(res.values) == 1 && len(results)+1+exp < oracle.checkBlocks*2 && number > 0 {
-			go oracle.getBlockValues(ctx, types.MakeSigner(oracle.backend.ChainConfig(), big.NewInt(int64(number))), number, sampleNumber, oracle.ignorePrice, result, quit)
-			sent++
-			exp++
-			number--
-		}
-		results = append(results, res.values...)
-	}
-	price := lastPrice
-	if len(results) > 0 {
-		sort.Sort(bigIntArray(results))
-		price = results[(len(results)-1)*oracle.percentile/100]
-	}
-	if price.Cmp(oracle.maxPrice) > 0 {
-		price = new(big.Int).Set(oracle.maxPrice)
-	}
-	oracle.cacheLock.Lock()
-	oracle.lastHead = headHash
-	oracle.lastPrice = price
-	oracle.cacheLock.Unlock()
-
-	return new(big.Int).Set(price), nil
-}
-*/
-
 type results struct {
 	values []*big.Int
 	err    error
 }
 
 type txSorter struct {
-	txs     []*types.Transaction
-	baseFee *big.Int
+	txs []*types.Transaction
 }
 
-func newSorter(txs []*types.Transaction, baseFee *big.Int) *txSorter {
+func newSorter(txs []*types.Transaction) *txSorter {
 	return &txSorter{
-		txs:     txs,
-		baseFee: baseFee,
+		txs: txs,
 	}
 }
 
@@ -214,54 +129,6 @@ func (s *txSorter) Len() int { return len(s.txs) }
 func (s *txSorter) Swap(i, j int) {
 	s.txs[i], s.txs[j] = s.txs[j], s.txs[i]
 }
-
-/*func (s *txSorter) Less(i, j int) bool {
-	// It's okay to discard the error because a tx would never be
-	// accepted into a block with an invalid effective tip.
-	tip1, _ := s.txs[i].EffectiveGasTip(s.baseFee)
-	tip2, _ := s.txs[j].EffectiveGasTip(s.baseFee)
-	return tip1.Cmp(tip2) < 0
-}*/
-
-// getBlockPrices calculates the lowest transaction gas price in a given block
-// and sends it to the result channel. If the block is empty or all transactions
-// are sent by the miner itself(it doesn't make any sense to include this kind of
-// transaction prices for sampling), nil gasprice is returned.
-/*func (oracle *Oracle) getBlockValues(ctx context.Context, signer types.Signer, blockNum uint64, limit int, ignoreUnder *big.Int, result chan results, quit chan struct{}) {
-	block, err := oracle.backend.BlockByNumber(ctx, rpc.BlockNumber(blockNum))
-	if block == nil {
-		select {
-		case result <- results{nil, err}:
-		case <-quit:
-		}
-		return
-	}
-	// Sort the transaction by effective tip in ascending sort.
-	txs := make([]*types.Transaction, len(block.Transactions()))
-	copy(txs, block.Transactions())
-	sorter := newSorter(txs, block.BaseFee())
-	sort.Sort(sorter)
-
-	var prices []*big.Int
-	for _, tx := range sorter.txs {
-		//tip, _ := tx.EffectiveGasTip(block.BaseFee())
-		//if ignoreUnder != nil && tip.Cmp(ignoreUnder) == -1 {
-		//	continue
-		//}
-		sender, err := types.Sender(signer, tx)
-		if err == nil && sender != block.Coinbase() {
-			prices = append(prices, tip)
-			if len(prices) >= limit {
-				break
-			}
-		}
-	}
-
-	select {
-	case result <- results{prices, nil}:
-	case <-quit:
-	}
-}*/
 
 type bigIntArray []*big.Int
 

@@ -619,10 +619,10 @@ func (dl *diskLayer) generate(stats *generatorStats) {
 			dataLen := len(val) // Approximate size, saves us a round of RLP-encoding
 			if !write {
 				if bytes.Equal(acc.CodeHash, emptyCode[:]) {
-					dataLen -= 32
+					dataLen -= common.HashLength
 				}
 				if acc.Root == emptyRoot {
-					dataLen -= 32
+					dataLen -= common.HashLength
 				}
 				snapRecoveredAccountMeter.Mark(1)
 			} else {

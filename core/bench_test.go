@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"io/ioutil"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/math"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -51,12 +51,6 @@ func BenchmarkInsertChain_valueTx_100kB_memdb(b *testing.B) {
 }
 func BenchmarkInsertChain_valueTx_100kB_diskdb(b *testing.B) {
 	benchInsertChain(b, true, genValueTx(100*1024))
-}
-func BenchmarkInsertChain_uncles_memdb(b *testing.B) {
-	benchInsertChain(b, false, genUncles)
-}
-func BenchmarkInsertChain_uncles_diskdb(b *testing.B) {
-	benchInsertChain(b, true, genUncles)
 }
 func BenchmarkInsertChain_ring200_memdb(b *testing.B) {
 	benchInsertChain(b, false, genTxRing(200))
@@ -90,7 +84,7 @@ func genValueTx(nbytes int) func(int, *BlockGen) {
 		toaddr := common.Address{}
 		data := make([]byte, nbytes)
 		gas, _ := IntrinsicGas(data, nil, false, false, false)
-		tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(benchRootAddr), toaddr, big.NewInt(1), gas, nil, data), types.HomesteadSigner{}, benchRootKey)
+		tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(benchRootAddr), toaddr, big.NewInt(1), gas, nil, data), types.NewLondonSignerDefaultChain(), benchRootKey)
 		gen.AddTx(tx)
 	}
 }
@@ -135,22 +129,10 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 				nil,
 				nil,
 			)
-			tx, _ = types.SignTx(tx, types.HomesteadSigner{}, ringKeys[from])
+			tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), ringKeys[from])
 			gen.AddTx(tx)
 			from = to
 		}
-	}
-}
-
-// genUncles generates blocks with two uncle headers.
-func genUncles(i int, gen *BlockGen) {
-	if i >= 6 {
-		b2 := gen.PrevBlock(i - 6).Header()
-		b2.Extra = []byte("foo")
-		gen.AddUncle(b2)
-		b3 := gen.PrevBlock(i - 6).Header()
-		b3.Extra = []byte("bar")
-		gen.AddUncle(b3)
 	}
 }
 
@@ -179,11 +161,11 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 		Alloc:  GenesisAlloc{benchRootAddr: {Balance: benchRootFunds}},
 	}
 	genesis := gspec.MustCommit(db)
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, b.N, gen)
+	chain, _ := GenerateChain(gspec.Config, genesis, mockconsensus.NewMockConsensus(), db, b.N, gen)
 
 	// Time the insertion of the new chain.
 	// State and blocks are stored in the same DB.
-	chainman, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+	chainman, _ := NewBlockChain(db, nil, gspec.Config, mockconsensus.NewMockConsensus(), vm.Config{}, nil, nil)
 	defer chainman.Stop()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -239,7 +221,6 @@ func makeChainForBench(db ethdb.Database, full bool, count uint64) {
 			Number:      big.NewInt(int64(n)),
 			ParentHash:  hash,
 			Difficulty:  big.NewInt(1),
-			UncleHash:   types.EmptyUncleHash,
 			TxHash:      types.EmptyRootHash,
 			ReceiptHash: types.EmptyRootHash,
 		}
@@ -295,7 +276,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		chain, err := NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+		chain, err := NewBlockChain(db, nil, params.TestChainConfig, mockconsensus.NewMockConsensus(), vm.Config{}, nil, nil)
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}

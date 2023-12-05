@@ -20,7 +20,7 @@ import (
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/holiman/uint256"
+	"github.com/DogeProtocol/dp/uint256"
 )
 
 // ContractRef is a reference to the contract's backing object

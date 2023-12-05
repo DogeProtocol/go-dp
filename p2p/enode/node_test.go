@@ -37,7 +37,7 @@ func TestPythonInterop(t *testing.T) {
 	testKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexprvkeytest1)
 	var r1 enr.Record
 	r1.Set(enr.IP{127, 0, 0, 1})
-	r1.Set(enr.UDP(30303))
+	r1.Set(enr.TCP(30303))
 	r1.SetSeq(1)
 	SignV4(&r1, testKey)
 	result1, _ := New(ValidSchemes, &r1)
@@ -59,7 +59,7 @@ func TestPythonInterop(t *testing.T) {
 		wantID  = HexID(crypto.Keccak256Hash(testKey.PublicKey.PubData).Hex())
 		wantSeq = uint64(1)
 		wantIP  = enr.IPv4{127, 0, 0, 1}
-		wantUDP = enr.UDP(30303)
+		wantUDP = enr.TCP(30303)
 	)
 
 	if n.Seq() != wantSeq {
@@ -68,7 +68,7 @@ func TestPythonInterop(t *testing.T) {
 	if n.ID() != wantID {
 		t.Errorf("wrong id: got %x, want %x", n.ID(), wantID)
 	}
-	want := map[enr.Entry]interface{}{new(enr.IPv4): &wantIP, new(enr.UDP): &wantUDP}
+	want := map[enr.Entry]interface{}{new(enr.IPv4): &wantIP, new(enr.TCP): &wantUDP}
 	for k, v := range want {
 		desc := fmt.Sprintf("loading key %q", k.ENRKey())
 		if assert.NoError(t, n.Load(k), desc) {

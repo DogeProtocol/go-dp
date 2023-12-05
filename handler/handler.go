@@ -31,7 +31,6 @@ import (
 	"github.com/DogeProtocol/dp/eth/downloader"
 	"github.com/DogeProtocol/dp/eth/fetcher"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
-	"github.com/DogeProtocol/dp/eth/protocols/snap"
 	"github.com/DogeProtocol/dp/ethdb"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/log"
@@ -209,9 +208,6 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 		} else {
 			// If fast sync was requested and our database is empty, grant it
 			h.fastSync = uint32(1)
-			if config.Sync == downloader.SnapSync {
-				h.snapSync = uint32(1)
-			}
 		}
 	}
 	// If we have trusted checkpoints, enforce them on the chain
@@ -282,13 +278,6 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
 // various subsistems and starts handling messages.
 func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
-	// If the peer has a `snap` extension, wait for it to connect so we can have
-	// a uniform initialization/teardown mechanism
-	snap, err := h.peers.waitSnapExtension(peer)
-	if err != nil {
-		peer.Log().Error("Snapshot extension barrier failed", "err", err)
-		return err
-	}
 	// TODO(karalabe): Not sure why this is needed
 	if !h.chainSync.handlePeerEvent(peer) {
 		return p2p.DiscQuitting
@@ -310,16 +299,7 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 		return err
 	}
 	reject := false // reserved peer slots
-	if atomic.LoadUint32(&h.snapSync) == 1 {
-		if snap == nil {
-			// If we are running snap-sync, we want to reserve roughly half the peer
-			// slots for peers supporting the snap protocol.
-			// The logic here is; we only allow up to 5 more non-snap peers than snap-peers.
-			if all, snp := h.peers.len(), h.peers.snapLen(); all-snp > snp+5 {
-				reject = true
-			}
-		}
-	}
+
 	// Ignore maxPeers if this is a trusted peer
 	if !peer.Peer.Info().Network.Trusted {
 		if reject || h.peers.len() >= h.maxPeers {
@@ -329,7 +309,7 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
 
 	// Register the peer locally
-	if err := h.peers.registerPeer(peer, snap); err != nil {
+	if err := h.peers.registerPeer(peer); err != nil {
 		peer.Log().Error("Ethereum peer registration failed", "err", err)
 		return err
 	}
@@ -343,12 +323,6 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	if err := h.Downloader.RegisterPeer(peer.ID(), peer.Version(), peer); err != nil {
 		peer.Log().Error("Failed to register peer in eth syncer", "err", err)
 		return err
-	}
-	if snap != nil {
-		if err := h.Downloader.SnapSyncer.Register(snap); err != nil {
-			peer.Log().Error("Failed to register peer in snap syncer", "err", err)
-			return err
-		}
 	}
 	h.chainSync.handlePeerEvent(peer)
 
@@ -385,21 +359,6 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	return handler(peer)
 }
 
-// runSnapExtension registers a `snap` peer into the joint eth/snap peerset and
-// starts handling inbound messages. As `snap` is only a satellite protocol to
-// `eth`, all subsystem registrations and lifecycle management will be done by
-// the main `eth` P2PHandler to prevent strange races.
-func (h *P2PHandler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error {
-	h.peerWG.Add(1)
-	defer h.peerWG.Done()
-
-	if err := h.peers.registerSnapExtension(peer); err != nil {
-		peer.Log().Error("Snapshot extension registration failed", "err", err)
-		return err
-	}
-	return handler(peer)
-}
-
 // removePeer requests disconnection of a peer.
 func (h *P2PHandler) removePeer(id string) {
 	peer := h.peers.peer(id)
@@ -425,12 +384,8 @@ func (h *P2PHandler) unregisterPeer(id string) {
 		return
 	}
 	// Remove the `eth` peer if it exists
-	logger.Debug("Removing Ethereum peer", "snap", peer.snapExt != nil)
+	logger.Debug("Removing Ethereum peer")
 
-	// Remove the `snap` extension if it exists
-	if peer.snapExt != nil {
-		h.Downloader.SnapSyncer.Unregister(id)
-	}
 	h.Downloader.UnregisterPeer(id)
 	h.txFetcher.Drop(id)
 

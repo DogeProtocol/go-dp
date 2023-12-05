@@ -62,7 +62,6 @@ type Genesis struct {
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
-	BaseFee    *big.Int    `json:"baseFeePerGas"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -98,7 +97,6 @@ type genesisSpecMarshaling struct {
 	GasUsed    math.HexOrDecimal64
 	Number     math.HexOrDecimal64
 	Difficulty *math.HexOrDecimal256
-	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
 }
 
@@ -116,7 +114,7 @@ type storageJSON common.Hash
 
 func (h *storageJSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
-	if len(text) > 64 {
+	if len(text) > common.HashLength*2 {
 		return fmt.Errorf("too many hex characters in storage key/value %q", text)
 	}
 	offset := len(h) - len(text)/2 // pad on the left
@@ -283,7 +281,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Extra:      g.ExtraData,
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
-		BaseFee:    g.BaseFee,
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
@@ -295,18 +292,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
-	if g.Config != nil && g.Config.IsLondon(common.Big0) {
-		if g.BaseFee != nil {
-			head.BaseFee = g.BaseFee
-		} else {
-			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
-		}
-	}
 
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
+	return types.NewBlock(head, nil, nil, trie.NewStackTrie(nil))
 }
 
 // Commit writes the block and state of a genesis specification to the database.
@@ -347,8 +337,7 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{
-		Alloc:   GenesisAlloc{addr: {Balance: balance}},
-		BaseFee: big.NewInt(params.InitialBaseFee),
+		Alloc: GenesisAlloc{addr: {Balance: balance}},
 	}
 	return g.MustCommit(db)
 }
@@ -416,10 +405,10 @@ func DefaultCalaverasGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
-	config := *params.AllCliqueProtocolChanges
-	config.Clique = &params.CliqueConfig{
+	config := *params.AllProofOfStakeProtocolChanges
+	config.ProofOfStake = &params.ProofOfStakeConfig{
 		Period: period,
-		Epoch:  config.Clique.Epoch,
+		Epoch:  config.ProofOfStake.Epoch,
 	}
 
 	// Assemble and return the genesis with the precompiles and faucet pre-funded
@@ -427,7 +416,6 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 		Config:     &config,
 		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, cryptobase.SigAlg.SignatureWithPublicKeyLength())...),
 		GasLimit:   11500000,
-		BaseFee:    big.NewInt(params.InitialBaseFee),
 		Difficulty: big.NewInt(1),
 		Alloc: map[common.Address]GenesisAccount{
 			common.BytesToAddress([]byte{1}): {Balance: big.NewInt(1)}, // ECRecover

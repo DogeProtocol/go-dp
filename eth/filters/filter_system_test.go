@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/bloombits"
 	"github.com/DogeProtocol/dp/core/rawdb"
@@ -168,8 +168,8 @@ func TestBlockSubscription(t *testing.T) {
 		db          = rawdb.NewMemoryDatabase()
 		backend     = &testBackend{db: db}
 		api         = NewPublicFilterAPI(backend, false, deadline)
-		genesis     = (&core.Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
-		chain, _    = core.GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 10, func(i int, gen *core.BlockGen) {})
+		genesis     = (&core.Genesis{}).MustCommit(db)
+		chain, _    = core.GenerateChain(params.TestChainConfig, genesis, mockconsensus.NewMockConsensus(), db, 10, func(i int, gen *core.BlockGen) {})
 		chainEvents = []core.ChainEvent{}
 	)
 

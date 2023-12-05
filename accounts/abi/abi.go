@@ -26,6 +26,8 @@ import (
 	"io"
 )
 
+const FunctionTypeLength = 4 + common.AddressLength
+
 // The ABI holds information about a contract's context and available
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.

@@ -17,7 +17,7 @@
 package trie
 
 import (
-	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/crypto"
 	"sync"
 
 	"github.com/DogeProtocol/dp/rlp"
@@ -37,7 +37,6 @@ func (b *sliceBuffer) Reset() {
 // hasher is a type used for the trie Hash operation. A hasher has some
 // internal preallocated temp space
 type hasher struct {
-	sha      hashingalgorithm.HashState
 	tmp      sliceBuffer
 	parallel bool // Whether to use paralallel threads when hashing
 }
@@ -47,7 +46,6 @@ var hasherPool = sync.Pool{
 	New: func() interface{} {
 		return &hasher{
 			tmp: make(sliceBuffer, 0, 550), // cap is as large as a full fullNode.
-			sha: hashingalgorithm.NewHashState(),
 		}
 	},
 }
@@ -180,11 +178,8 @@ func (h *hasher) fullnodeToHash(n *fullNode, force bool) node {
 
 // hashData hashes the provided data
 func (h *hasher) hashData(data []byte) hashNode {
-	n := make(hashNode, 32)
-	h.sha.Reset()
-	h.sha.Write(data)
-	h.sha.Read(n)
-	return n
+	return crypto.Keccak256(data)
+
 }
 
 // proofHash is used to construct trie proofs, and returns the 'collapsed'

@@ -3,31 +3,43 @@ package main
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"github.com/DogeProtocol/dp/crypto/falcon"
-	"github.com/DogeProtocol/dp/crypto/hybrid"
-	"github.com/DogeProtocol/dp/crypto/oqs"
+	"github.com/DogeProtocol/dp/crypto/hybrideds"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"sync"
 	"time"
 )
 
 func main() {
-	sig1 := hybrid.CreateHybridSig()
-	SigPerf("hybrid", sig1)
+	sig1 := hybrideds.CreateHybridedsSig(true)
+	sig2 := hybrideds.CreateHybridedsSig(false)
 
-	sig2 := oqs.InitDilithium()
-	SigPerf("dilithiumoqs", sig2)
+	if len(os.Args) > 2 {
+		var wg sync.WaitGroup
 
-	sig3 := falcon.CreateFalconSig()
-	SigPerf("falcon", sig3)
+		fmt.Println("Multi routine test start")
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("hybrideds native", sig1, &wg)
+		}
+		wg.Wait()
 
-	sig4 := oqs.InitFalcon()
-	SigPerf("falconoqs", sig4)
+		for i := 0; i <= 32; i++ {
+			wg.Add(1)
+			go SigPerf("hybrideds default", sig2, &wg)
+		}
+		wg.Wait()
+	}
+
+	fmt.Println("Multi routine test done")
+
+	SigPerf("hybrideds", sig1, nil)
+	SigPerf("hybrideds", sig2, nil)
 }
 
-func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
+func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm, wg *sync.WaitGroup) {
 	fmt.Println("SigPerf", name)
 	f, err := os.Create(name + ".prof")
 	if err != nil {
@@ -65,7 +77,7 @@ func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
 		return
 	}
 
-	fmt.Println("Running verify...", count)
+	fmt.Println("Running verify...", name, count)
 	start := time.Now()
 	for i := 0; i < count; i++ {
 		if sig.Verify(pubBytes, digestHash, signature) != true {
@@ -74,5 +86,8 @@ func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm) {
 		}
 	}
 	duration := time.Since(start)
-	fmt.Println("Verify Time Taken", duration)
+	fmt.Println("Verify Time Taken", "sigalg", name, "iterations", count, "totaltime ms", duration.Milliseconds(), "avg time ms", float64(duration.Milliseconds())/float64(count))
+	if wg != nil {
+		wg.Done()
+	}
 }

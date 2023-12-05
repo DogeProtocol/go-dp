@@ -49,8 +49,8 @@ func TestMakeTopics(t *testing.T) {
 		},
 		{
 			"support address types in topics",
-			args{[][]interface{}{{common.Address{1, 2, 3, 4, 5}}}},
-			[][]common.Hash{{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}}},
+			args{[][]interface{}{{common.Address{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}}}},
+			[][]common.Hash{{common.Hash{0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}}},
 			false,
 		},
 		{
@@ -153,7 +153,7 @@ type hashStruct struct {
 }
 
 type funcStruct struct {
-	FuncValue [24]byte
+	FuncValue [32]byte
 }
 
 type topicTest struct {
@@ -254,12 +254,10 @@ func setupTopicsTests() []topicTest {
 			args: args{
 				createObj: func() interface{} { return &funcStruct{} },
 				resultObj: func() interface{} {
-					return &funcStruct{[24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					return &funcStruct{[32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
 				},
 				resultMap: func() map[string]interface{} {
-					return map[string]interface{}{"funcValue": [24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					return map[string]interface{}{"funcValue": [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
@@ -267,8 +265,7 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.Hash{
-					{0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
 				},
 			},
 			wantErr: false,
@@ -322,12 +319,14 @@ func setupTopicsTests() []topicTest {
 			wantErr: true,
 		},
 		{
-			name: "error on improper encoded function",
+			name: "proper encoded function",
 			args: args{
 				createObj: func() interface{} { return &funcStruct{} },
-				resultObj: func() interface{} { return &funcStruct{} },
+				resultObj: func() interface{} {
+					return &funcStruct{[32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
+				},
 				resultMap: func() map[string]interface{} {
-					return make(map[string]interface{})
+					return map[string]interface{}{"funcValue": [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
@@ -335,11 +334,10 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.Hash{
-					{0, 0, 0, 0, 0, 0, 0, 128, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 

@@ -264,7 +264,7 @@ func (api *API) traceChain(ctx context.Context, start, end *types.Block, config 
 				blockCtx := core.NewEVMBlockContext(task.block.Header(), api.chainContext(localctx), nil)
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
-					msg, _ := tx.AsMessage(signer, task.block.BaseFee())
+					msg, _ := tx.AsMessage(signer)
 					txctx := &Context{
 						BlockHash: task.block.Hash(),
 						TxIndex:   i,
@@ -516,7 +516,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 			defer pend.Done()
 			// Fetch and execute the next transaction trace tasks
 			for task := range jobs {
-				msg, _ := txs[task.index].AsMessage(signer, block.BaseFee())
+				msg, _ := txs[task.index].AsMessage(signer)
 				txctx := &Context{
 					BlockHash: blockHash,
 					TxIndex:   task.index,
@@ -538,7 +538,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		jobs <- &txTraceTask{statedb: statedb.Copy(), index: i}
 
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, block.BaseFee())
+		msg, _ := tx.AsMessage(signer)
 		statedb.Prepare(tx.Hash(), i)
 		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), statedb, api.backend.ChainConfig(), vm.Config{})
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas())); err != nil {
@@ -623,7 +623,7 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 	for i, tx := range block.Transactions() {
 		// Prepare the trasaction for un-traced execution
 		var (
-			msg, _    = tx.AsMessage(signer, block.BaseFee())
+			msg, _    = tx.AsMessage(signer)
 			txContext = core.NewEVMTxContext(msg)
 			vmConf    vm.Config
 			dump      *os.File
@@ -755,7 +755,7 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 		}
 	}
 	// Execute the trace
-	msg, err := args.ToMessage(api.backend.RPCGasCap(), block.BaseFee())
+	msg, err := args.ToMessage(api.backend.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}
@@ -813,7 +813,7 @@ func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Contex
 		tracer = vm.NewStructLogger(config.LogConfig)
 	}
 	// Run the transaction with tracing enabled.
-	vmenv := vm.NewEVM(vmctx, txContext, statedb, api.backend.ChainConfig(), vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true})
+	vmenv := vm.NewEVM(vmctx, txContext, statedb, api.backend.ChainConfig(), vm.Config{Debug: true, Tracer: tracer})
 
 	// Call Prepare to clear out the statedb access list
 	statedb.Prepare(txctx.TxHash, txctx.TxIndex)

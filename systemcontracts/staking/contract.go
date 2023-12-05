@@ -17,7 +17,7 @@ import (
 //4) copy StakingContract.abi into stakingabi.go
 //5) copy StakingContract.bin into stakingbin.go
 
-const STAKING_CONTRACT = "0x0000000000000000000000000000000000001000"
+const STAKING_CONTRACT = "0x0000000000000000000000000000000000000000000000000000000000001000"
 
 const PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER = 1
 
@@ -59,6 +59,8 @@ type Validator struct {
 	ListValidators           string `json:"listValidators"`
 	GetDepositorOfValidator  string `json:"getDepositorOfValidator"`
 	GetNetBalanceOfDepositor string `json:"getNetBalanceOfDepositor"`
+	AddDepositorSlashing     string `json:"addDepositorSlashing"`
+	AddDepositorReward       string `json:"addDepositorReward"`
 }
 
 var (
@@ -68,9 +70,12 @@ var (
 			GetTotalDepositedBalance: "getTotalDepositedBalance",
 		},
 		Validators: &Validator{
-			GetBalanceOfDepositor:   "getBalanceOfDepositor",
-			ListValidators:          "listValidators",
-			GetDepositorOfValidator: "getDepositorOfValidator",
+			GetBalanceOfDepositor:    "getBalanceOfDepositor",
+			ListValidators:           "listValidators",
+			GetDepositorOfValidator:  "getDepositorOfValidator",
+			GetNetBalanceOfDepositor: "getNetBalanceOfDepositor",
+			AddDepositorSlashing:     "addDepositorSlashing",
+			AddDepositorReward:       "addDepositorReward",
 		},
 	}
 )
@@ -154,6 +159,14 @@ func GetContract_Method_GetDepositorCount() string {
 
 func GetContract_Method_GetTotalDepositedBalance() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetTotalDepositedBalance
+}
+
+func GetContract_Method_AddDepositorSlashing() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorSlashing
+}
+
+func GetContract_Method_AddDepositorReward() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorReward
 }
 
 func IsStakingContractCreated(currentBlockNumber uint64) bool {

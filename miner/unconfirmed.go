@@ -110,12 +110,7 @@ func (set *unconfirmedBlocks) Shift(height uint64) {
 			included := false
 			for number := next.index; !included && number < next.index+uint64(set.depth) && number <= height; number++ {
 				if block := set.chain.GetBlockByNumber(number); block != nil {
-					for _, uncle := range block.Uncles() {
-						if uncle.Hash() == next.hash {
-							included = true
-							break
-						}
-					}
+
 				}
 			}
 			if included {

@@ -203,7 +203,7 @@ func (d *dialScheduler) addStatic(n *enode.Node) {
 
 // addNode adds a dial candidate.
 func (d *dialScheduler) addNode(n *enode.Node) {
-	tmpNode := enode.NewV4(n.Pubkey(), n.IP(), defaultPort, defaultPort)
+	tmpNode := enode.NewV4(n.Pubkey(), n.IP(), defaultPort)
 	select {
 	case d.nodesIn <- tmpNode:
 	case <-d.ctx.Done():

@@ -33,6 +33,7 @@ import (
 // TestPack tests the general pack/unpack tests in packing_test.go
 func TestPack(t *testing.T) {
 	for i, test := range packUnpackTests {
+		fmt.Println("test ", i, test.def)
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			encb, err := hex.DecodeString(test.packed)
 			if err != nil {
@@ -45,7 +46,7 @@ func TestPack(t *testing.T) {
 			}
 			var packed []byte
 			packed, err = inAbi.Pack("method", test.unpacked)
-
+			//fmt.Println("unpacked", hex.EncodeToString(test.unpacked))
 			if err != nil {
 				t.Fatalf("test %d (%v) failed: %v", i, test.def, err)
 			}

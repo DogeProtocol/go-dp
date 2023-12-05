@@ -183,8 +183,8 @@ func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
 	hash := crypto.Keccak256Hash([]byte("mockFunction(address,uint)"))
 	functionSelector := hash[:4]
 	functionTyBytes := append(addrBytes, functionSelector...)
-	var functionTy [24]byte
-	copy(functionTy[:], functionTyBytes[0:24])
+	var functionTy [abi.FunctionTypeLength]byte
+	copy(functionTy[:], functionTyBytes[0:abi.FunctionTypeLength])
 	topics := []common.Hash{
 		common.HexToHash("0x99b5620489b6ef926d4518936cfec15d305452712b88bd59da2d9c10fb0953e8"),
 		common.BytesToHash(functionTyBytes),

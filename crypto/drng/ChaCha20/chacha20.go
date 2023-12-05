@@ -1,6 +1,8 @@
 package ChaCha20
 
 import (
+	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/crypto"
 	"golang.org/x/crypto/chacha20"
 )
 
@@ -11,14 +13,20 @@ type ChaCha20DRNG struct {
 type ChaCha20DRNGInitializer struct {
 }
 
-func (g *ChaCha20DRNGInitializer) InitializeWithSeed(seed [32]byte) (*ChaCha20DRNG, error) {
+func (g *ChaCha20DRNGInitializer) InitializeWithSeed(seed [common.HashLength]byte) (*ChaCha20DRNG, error) {
 
 	// bounds restriction
 	nonce := []byte("DogeProtocol")
 	nonce = nonce[:chacha20.NonceSize]
 
 	// create the underlying chacha20 cipher instance
-	cipher, err := chacha20.NewUnauthenticatedCipher(seed[:], nonce)
+	var key []byte
+	if common.HashLength == chacha20.KeySize {
+		key = seed[:]
+	} else {
+		key = crypto.Sha256(seed[:])
+	}
+	cipher, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 	if err != nil {
 		return nil, err
 	}

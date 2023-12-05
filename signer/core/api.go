@@ -22,13 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"reflect"
 
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
-	"github.com/DogeProtocol/dp/accounts/scwallet"
-	"github.com/DogeProtocol/dp/accounts/usbwallet"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/internal/ethapi"
@@ -139,49 +136,6 @@ func StartClefAccountManager(ksLocation string, nousb, lightKDF bool, scpath str
 	if len(ksLocation) > 0 {
 		backends = append(backends, keystore.NewKeyStore(ksLocation, n, p))
 	}
-	if !nousb {
-		// Start a USB hub for Ledger hardware wallets
-		if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
-		} else {
-			backends = append(backends, ledgerhub)
-			log.Debug("Ledger support enabled")
-		}
-		// Start a USB hub for Trezor hardware wallets (HID version)
-		if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
-		} else {
-			backends = append(backends, trezorhub)
-			log.Debug("Trezor support enabled via HID")
-		}
-		// Start a USB hub for Trezor hardware wallets (WebUSB version)
-		if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
-			log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
-		} else {
-			backends = append(backends, trezorhub)
-			log.Debug("Trezor support enabled via WebUSB")
-		}
-	}
-
-	// Start a smart card hub
-	if len(scpath) > 0 {
-		// Sanity check that the smartcard path is valid
-		fi, err := os.Stat(scpath)
-		if err != nil {
-			log.Info("Smartcard socket file missing, disabling", "err", err)
-		} else {
-			if fi.Mode()&os.ModeType != os.ModeSocket {
-				log.Error("Invalid smartcard socket file type", "path", scpath, "type", fi.Mode().String())
-			} else {
-				if schub, err := scwallet.NewHub(scpath, scwallet.Scheme, ksLocation); err != nil {
-					log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
-				} else {
-					backends = append(backends, schub)
-				}
-			}
-		}
-	}
-
 	// Clef doesn't allow insecure http account unlock.
 	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: false}, backends...)
 }
@@ -284,9 +238,6 @@ func NewSignerAPI(am *accounts.Manager, chainID int64, noUSB bool, ui UIClientAP
 		log.Info("Clef is in advanced mode: will warn instead of reject")
 	}
 	signer := &SignerAPI{big.NewInt(chainID), am, ui, validator, !advancedMode, credentials}
-	if !noUSB {
-		signer.startUSBListener()
-	}
 	return signer
 }
 func (api *SignerAPI) openTrezor(url accounts.URL) {
@@ -320,23 +271,6 @@ func (api *SignerAPI) openTrezor(url accounts.URL) {
 
 }
 
-// startUSBListener starts a listener for USB events, for hardware wallet interaction
-func (api *SignerAPI) startUSBListener() {
-	eventCh := make(chan accounts.WalletEvent, 16)
-	am := api.am
-	am.Subscribe(eventCh)
-	// Open any wallets already attached
-	for _, wallet := range am.Wallets() {
-		if err := wallet.Open(""); err != nil {
-			log.Warn("Failed to open wallet", "url", wallet.URL(), "err", err)
-			if err == usbwallet.ErrTrezorPINNeeded {
-				go api.openTrezor(wallet.URL())
-			}
-		}
-	}
-	go api.derivationLoop(eventCh)
-}
-
 // derivationLoop listens for wallet events
 func (api *SignerAPI) derivationLoop(events chan accounts.WalletEvent) {
 	// Listen for wallet event till termination
@@ -345,9 +279,7 @@ func (api *SignerAPI) derivationLoop(events chan accounts.WalletEvent) {
 		case accounts.WalletArrived:
 			if err := event.Wallet.Open(""); err != nil {
 				log.Warn("New wallet appeared, failed to open", "url", event.Wallet.URL(), "err", err)
-				if err == usbwallet.ErrTrezorPINNeeded {
-					go api.openTrezor(event.Wallet.URL())
-				}
+
 			}
 		case accounts.WalletOpened:
 			status, _ := event.Wallet.Status()
@@ -482,14 +414,6 @@ func logDiff(original *SignTxRequest, new *SignTxResponse) bool {
 	}
 	if a, b := original.Transaction.GasPrice, new.Transaction.GasPrice; intPtrModified(a, b) {
 		log.Info("GasPrice changed by UI", "was", a, "is", b)
-		modified = true
-	}
-	if a, b := original.Transaction.MaxPriorityFeePerGas, new.Transaction.MaxPriorityFeePerGas; intPtrModified(a, b) {
-		log.Info("maxPriorityFeePerGas changed by UI", "was", a, "is", b)
-		modified = true
-	}
-	if a, b := original.Transaction.MaxFeePerGas, new.Transaction.MaxFeePerGas; intPtrModified(a, b) {
-		log.Info("maxFeePerGas changed by UI", "was", a, "is", b)
 		modified = true
 	}
 	if v0, v1 := big.Int(original.Transaction.Value), big.Int(new.Transaction.Value); v0.Cmp(&v1) != 0 {

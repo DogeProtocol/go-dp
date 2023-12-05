@@ -18,6 +18,7 @@ package tests
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
@@ -73,13 +74,7 @@ func (tt *TransactionTest) Run(config *params.ChainConfig) error {
 		isHomestead bool
 		isIstanbul  bool
 	}{
-		{"Frontier", types.FrontierSigner{}, tt.Frontier, false, false},
-		{"Homestead", types.HomesteadSigner{}, tt.Homestead, true, false},
-		{"EIP150", types.HomesteadSigner{}, tt.EIP150, true, false},
-		{"EIP158", types.NewEIP155Signer(config.ChainID), tt.EIP158, true, false},
-		{"Byzantium", types.NewEIP155Signer(config.ChainID), tt.Byzantium, true, false},
-		{"Constantinople", types.NewEIP155Signer(config.ChainID), tt.Constantinople, true, false},
-		{"Istanbul", types.NewEIP155Signer(config.ChainID), tt.Istanbul, true, true},
+		{"Frontier", types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID)), tt.Frontier, false, false},
 	} {
 		sender, txhash, err := validateTx(tt.RLP, testcase.signer, testcase.isHomestead, testcase.isIstanbul)
 

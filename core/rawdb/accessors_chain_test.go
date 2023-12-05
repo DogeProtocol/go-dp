@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"io/ioutil"
 	"math/big"
@@ -53,10 +54,8 @@ func TestHeaderStorage(t *testing.T) {
 	if entry := ReadHeaderRLP(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header RLP not found")
 	} else {
-		hasher := hashingalgorithm.NewHashState()
-		hasher.Write(entry)
 
-		if hash := common.BytesToHash(hasher.Sum(nil)); hash != header.Hash() {
+		if hash := crypto.Keccak256Hash(entry); hash != header.Hash() {
 			t.Fatalf("Retrieved RLP header mismatch: have %v, want %v", entry, header)
 		}
 	}
@@ -72,7 +71,7 @@ func TestBodyStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a test body to move around the database and make sure it's really new
-	body := &types.Body{Uncles: []*types.Header{{Extra: []byte("test header")}}}
+	body := &types.Body{}
 
 	hasher := hashingalgorithm.NewHashState()
 	rlp.Encode(hasher, body)
@@ -85,7 +84,7 @@ func TestBodyStorage(t *testing.T) {
 	WriteBody(db, hash, 0, body)
 	if entry := ReadBody(db, hash, 0); entry == nil {
 		t.Fatalf("Stored body not found")
-	} else if types.DeriveSha(types.Transactions(entry.Transactions), newHasher()) != types.DeriveSha(types.Transactions(body.Transactions), newHasher()) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(body.Uncles) {
+	} else if types.DeriveSha(types.Transactions(entry.Transactions), newHasher()) != types.DeriveSha(types.Transactions(body.Transactions), newHasher()) {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, body)
 	}
 	if entry := ReadBodyRLP(db, hash, 0); entry == nil {
@@ -112,7 +111,6 @@ func TestBlockStorage(t *testing.T) {
 	// Create a test block to move around the database and make sure it's really new
 	block := types.NewBlockWithHeader(&types.Header{
 		Extra:       []byte("test block"),
-		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})
@@ -139,7 +137,7 @@ func TestBlockStorage(t *testing.T) {
 	}
 	if entry := ReadBody(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored body not found")
-	} else if types.DeriveSha(types.Transactions(entry.Transactions), newHasher()) != types.DeriveSha(block.Transactions(), newHasher()) || types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(block.Uncles()) {
+	} else if types.DeriveSha(types.Transactions(entry.Transactions), newHasher()) != types.DeriveSha(block.Transactions(), newHasher()) {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, block.Body())
 	}
 	// Delete the block and verify the execution
@@ -160,7 +158,6 @@ func TestPartialBlockStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 	block := types.NewBlockWithHeader(&types.Header{
 		Extra:       []byte("test block"),
-		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})
@@ -197,7 +194,6 @@ func TestBadBlockStorage(t *testing.T) {
 	block := types.NewBlockWithHeader(&types.Header{
 		Number:      big.NewInt(1),
 		Extra:       []byte("bad block"),
-		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})
@@ -215,7 +211,6 @@ func TestBadBlockStorage(t *testing.T) {
 	blockTwo := types.NewBlockWithHeader(&types.Header{
 		Number:      big.NewInt(2),
 		Extra:       []byte("bad block two"),
-		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})
@@ -234,7 +229,6 @@ func TestBadBlockStorage(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
 			Number:      big.NewInt(int64(n)),
 			Extra:       []byte("bad block"),
-			UncleHash:   types.EmptyUncleHash,
 			TxHash:      types.EmptyRootHash,
 			ReceiptHash: types.EmptyRootHash,
 		})
@@ -448,7 +442,6 @@ func TestAncientStorage(t *testing.T) {
 	block := types.NewBlockWithHeader(&types.Header{
 		Number:      big.NewInt(0),
 		Extra:       []byte("test block"),
-		UncleHash:   types.EmptyUncleHash,
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})

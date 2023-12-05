@@ -163,28 +163,12 @@ func encodeAsV3StoredReceiptRLP(want *Receipt) ([]byte, error) {
 // Tests that receipt data can be correctly derived from the contextual infos
 func TestDeriveFields(t *testing.T) {
 	// Create a few transactions to have receipts for
-	to2 := common.HexToAddress("0x2")
-	to3 := common.HexToAddress("0x3")
 	txs := Transactions{
-		NewTx(&LegacyTx{
-			Nonce:    1,
-			Value:    big.NewInt(1),
-			Gas:      1,
-			GasPrice: big.NewInt(1),
-		}),
-		NewTx(&LegacyTx{
-			To:       &to2,
-			Nonce:    2,
-			Value:    big.NewInt(2),
-			Gas:      2,
-			GasPrice: big.NewInt(2),
-		}),
-		NewTx(&AccessListTx{
-			To:       &to3,
-			Nonce:    3,
-			Value:    big.NewInt(3),
-			Gas:      3,
-			GasPrice: big.NewInt(3),
+		NewTx(&DefaultFeeTx{
+			Nonce:      1,
+			Value:      big.NewInt(1),
+			Gas:        1,
+			MaxGasTier: GAS_TIER_DEFAULT,
 		}),
 	}
 	// Create the corresponding receipts
@@ -207,21 +191,9 @@ func TestDeriveFields(t *testing.T) {
 				{Address: common.BytesToAddress([]byte{0x22})},
 				{Address: common.BytesToAddress([]byte{0x02, 0x22})},
 			},
-			TxHash:          txs[1].Hash(),
+			TxHash:          txs[0].Hash(),
 			ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
 			GasUsed:         2,
-		},
-		&Receipt{
-			Type:              AccessListTxType,
-			PostState:         common.Hash{3}.Bytes(),
-			CumulativeGasUsed: 6,
-			Logs: []*Log{
-				{Address: common.BytesToAddress([]byte{0x33})},
-				{Address: common.BytesToAddress([]byte{0x03, 0x33})},
-			},
-			TxHash:          txs[2].Hash(),
-			ContractAddress: common.BytesToAddress([]byte{0x03, 0x33, 0x33}),
-			GasUsed:         3,
 		},
 	}
 	// Clear all the computed fields and re-derive them

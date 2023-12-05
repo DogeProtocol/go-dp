@@ -72,7 +72,6 @@ func newNode(id enode.ID, addr string) *enode.Node {
 				panic(fmt.Errorf("invalid port in %q", addr))
 			}
 			r.Set(enr.TCP(port))
-			r.Set(enr.UDP(port))
 			addr = hs
 		}
 		// Set the IP.

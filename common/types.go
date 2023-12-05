@@ -37,12 +37,16 @@ const (
 	// HashLength is the expected length of the hash
 	HashLength = 32
 	// AddressLength is the expected length of the address
-	AddressLength = 20
+	AddressLength        = 32
+	AddressTruncateBytes = HashLength - AddressLength
 )
 
 var (
 	hashT    = reflect.TypeOf(Hash{})
 	addressT = reflect.TypeOf(Address{})
+
+	ZERO_HASH    Hash    = BytesToHash([]byte{0})
+	ZERO_ADDRESS Address = BytesToAddress([]byte{0})
 )
 
 type HashDynamic []byte
@@ -213,7 +217,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 /////////// Address
 
-// Address represents the 20 byte address of an Ethereum account.
+// Address represents the 28 byte address of an Ethereum account.
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.

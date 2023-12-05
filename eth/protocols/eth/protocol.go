@@ -30,7 +30,6 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	ETH65 = 65
 	ETH66 = 66
 )
 
@@ -40,14 +39,14 @@ const ProtocolName = "eth"
 
 // ProtocolVersions are the supported versions of the `eth` protocol (first
 // is primary).
-var ProtocolVersions = []uint{ETH66, ETH65}
+var ProtocolVersions = []uint{ETH66}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ETH66: 34, ETH65: 34}
+var protocolLengths = map[uint]uint64{ETH66: 34}
 
 // maxMessageSize is the maximum cap on the size of a protocol message.
-const maxMessageSize = 10 * 1024 * 1024
+const maxMessageSize = 4294967295
 
 const (
 	// Protocol messages in eth/64
@@ -236,20 +235,18 @@ type BlockBodiesRLPPacket66 struct {
 // BlockBody represents the data content of a single block.
 type BlockBody struct {
 	Transactions []*types.Transaction // Transactions contained within a block
-	Uncles       []*types.Header      // Uncles contained within a block
 }
 
-// Unpack retrieves the transactions and uncles from the range packet and returns
+// Unpack retrieves the transactions from the range packet and returns
 // them in a split flat format that's more consistent with the internal data structures.
-func (p *BlockBodiesPacket) Unpack() ([][]*types.Transaction, [][]*types.Header) {
+func (p *BlockBodiesPacket) Unpack() [][]*types.Transaction {
 	var (
-		txset    = make([][]*types.Transaction, len(*p))
-		uncleset = make([][]*types.Header, len(*p))
+		txset = make([][]*types.Transaction, len(*p))
 	)
 	for i, body := range *p {
-		txset[i], uncleset[i] = body.Transactions, body.Uncles
+		txset[i] = body.Transactions
 	}
-	return txset, uncleset
+	return txset
 }
 
 // GetNodeDataPacket represents a trie node data query.

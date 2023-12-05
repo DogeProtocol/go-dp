@@ -95,7 +95,7 @@ func sendTxnBulkFromSingleAddress() {
 
 	connectionContext, err := GetConnectionContext(from)
 	if err != nil {
-		fmt.Errorf("GetConnectionContext error occurred", err)
+		fmt.Errorf("GetConnectionContext error occurred", "error", err)
 	}
 
 	for i := 0; i < len(addresses); i++ {
@@ -211,7 +211,7 @@ func sendTxnSingleSender(txn Txn) {
 	defer wg.Done()
 	connectionContext, err := GetConnectionContext(txn.FromAddress)
 	if err != nil {
-		fmt.Errorf("GetConnectionContext error occurred", err)
+		fmt.Errorf("GetConnectionContext error occurred", "error", err)
 	}
 
 	var nonce uint64

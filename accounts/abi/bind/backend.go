@@ -82,10 +82,6 @@ type ContractTransactor interface {
 	// execution of a transaction.
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 
-	// SuggestGasTipCap retrieves the currently suggested 1559 priority fee to allow
-	// a timely execution of a transaction.
-	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
-
 	// EstimateGas tries to estimate the gas needed to execute a specific
 	// transaction based on the current pending state of the backend blockchain.
 	// There is no guarantee that this is the true gas limit requirement as other

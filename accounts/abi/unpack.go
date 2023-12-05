@@ -92,16 +92,17 @@ func readBool(word []byte) (bool, error) {
 
 // A function type is simply the address with the function selection signature at the end.
 //
-// readFunctionType enforces that standard by always presenting it as a 24-array (address + sig = 24 bytes)
-func readFunctionType(t Type, word []byte) (funcTy [24]byte, err error) {
+// readFunctionType enforces that standard by always presenting it as a 32-array (address + sig = 32 bytes)
+func readFunctionType(t Type, word []byte) (funcTy [FunctionTypeLength]byte, err error) {
 	if t.T != FunctionTy {
-		return [24]byte{}, fmt.Errorf("abi: invalid type in call to make function type byte array")
+		return [FunctionTypeLength]byte{}, fmt.Errorf("abi: invalid type in call to make function type byte array")
 	}
-	if garbage := binary.BigEndian.Uint64(word[24:32]); garbage != 0 {
-		err = fmt.Errorf("abi: got improperly encoded function type, got %v", word)
-	} else {
-		copy(funcTy[:], word[0:24])
+	if len(word) < FunctionTypeLength {
+		return [FunctionTypeLength]byte{}, fmt.Errorf("abi: invalid function type length")
 	}
+
+	copy(funcTy[:], word[0:FunctionTypeLength])
+
 	return
 }
 
@@ -247,6 +248,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case FixedBytesTy:
 		return ReadFixedBytes(t, returnOutput)
 	case FunctionTy:
+		panic("FunctionTy")
 		return readFunctionType(t, returnOutput)
 	default:
 		return nil, fmt.Errorf("abi: unknown type %v", t.T)

@@ -17,8 +17,6 @@ var _ = (*stTransactionMarshaling)(nil)
 func (s stTransaction) MarshalJSON() ([]byte, error) {
 	type stTransaction struct {
 		GasPrice             *math.HexOrDecimal256 `json:"gasPrice"`
-		MaxFeePerGas         *math.HexOrDecimal256 `json:"maxFeePerGas"`
-		MaxPriorityFeePerGas *math.HexOrDecimal256 `json:"maxPriorityFeePerGas"`
 		Nonce                math.HexOrDecimal64   `json:"nonce"`
 		To                   string                `json:"to"`
 		Data                 []string              `json:"data"`
@@ -29,8 +27,6 @@ func (s stTransaction) MarshalJSON() ([]byte, error) {
 	}
 	var enc stTransaction
 	enc.GasPrice = (*math.HexOrDecimal256)(s.GasPrice)
-	enc.MaxFeePerGas = (*math.HexOrDecimal256)(s.MaxFeePerGas)
-	enc.MaxPriorityFeePerGas = (*math.HexOrDecimal256)(s.MaxPriorityFeePerGas)
 	enc.Nonce = math.HexOrDecimal64(s.Nonce)
 	enc.To = s.To
 	enc.Data = s.Data
@@ -50,8 +46,6 @@ func (s stTransaction) MarshalJSON() ([]byte, error) {
 func (s *stTransaction) UnmarshalJSON(input []byte) error {
 	type stTransaction struct {
 		GasPrice             *math.HexOrDecimal256 `json:"gasPrice"`
-		MaxFeePerGas         *math.HexOrDecimal256 `json:"maxFeePerGas"`
-		MaxPriorityFeePerGas *math.HexOrDecimal256 `json:"maxPriorityFeePerGas"`
 		Nonce                *math.HexOrDecimal64  `json:"nonce"`
 		To                   *string               `json:"to"`
 		Data                 []string              `json:"data"`
@@ -66,12 +60,6 @@ func (s *stTransaction) UnmarshalJSON(input []byte) error {
 	}
 	if dec.GasPrice != nil {
 		s.GasPrice = (*big.Int)(dec.GasPrice)
-	}
-	if dec.MaxFeePerGas != nil {
-		s.MaxFeePerGas = (*big.Int)(dec.MaxFeePerGas)
-	}
-	if dec.MaxPriorityFeePerGas != nil {
-		s.MaxPriorityFeePerGas = (*big.Int)(dec.MaxPriorityFeePerGas)
 	}
 	if dec.Nonce != nil {
 		s.Nonce = uint64(*dec.Nonce)

@@ -19,12 +19,11 @@ package core
 import (
 	"errors"
 	"fmt"
-	"math/big"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"testing"
 	"time"
 
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/log"
@@ -71,17 +70,17 @@ func testInsert(t *testing.T, hc *HeaderChain, chain []*types.Header, wantStatus
 func TestHeaderInsertion(t *testing.T) {
 	var (
 		db      = rawdb.NewMemoryDatabase()
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
+		genesis = (&Genesis{}).MustCommit(db)
 	)
 
-	hc, err := NewHeaderChain(db, params.AllEthashProtocolChanges, ethash.NewFaker(), func() bool { return false })
+	hc, err := NewHeaderChain(db, params.AllEthashProtocolChanges, mockconsensus.NewMockConsensus(), func() bool { return false })
 	if err != nil {
 		t.Fatal(err)
 	}
 	// chain A: G->A1->A2...A128
-	chainA := makeHeaderChain(genesis.Header(), 128, ethash.NewFaker(), db, 10)
+	chainA := makeHeaderChain(genesis.Header(), 128, mockconsensus.NewMockConsensus(), db, 10)
 	// chain B: G->A1->B2...B128
-	chainB := makeHeaderChain(chainA[0], 128, ethash.NewFaker(), db, 10)
+	chainB := makeHeaderChain(chainA[0], 128, mockconsensus.NewMockConsensus(), db, 10)
 	log.Root().SetHandler(log.StdoutHandler)
 
 	// Inserting 64 headers on an empty chain, expecting

@@ -18,9 +18,8 @@ package vm
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/uint256"
 	"sync"
-
-	"github.com/holiman/uint256"
 )
 
 var stackPool = sync.Pool{

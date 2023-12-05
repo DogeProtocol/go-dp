@@ -144,7 +144,7 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 	case "bool":
 		typ.T = BoolTy
 	case "address":
-		typ.Size = 20
+		typ.Size = common.AddressLength
 		typ.T = AddressTy
 	case "string":
 		typ.T = StringTy
@@ -206,7 +206,7 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 
 	case "function":
 		typ.T = FunctionTy
-		typ.Size = 24
+		typ.Size = FunctionTypeLength
 	default:
 		return Type{}, fmt.Errorf("unsupported arg type: %s", t)
 	}
@@ -239,12 +239,12 @@ func (t Type) GetType() reflect.Type {
 		return reflect.SliceOf(reflect.TypeOf(byte(0)))
 	case HashTy:
 		// hashtype currently not used
-		return reflect.ArrayOf(32, reflect.TypeOf(byte(0)))
+		return reflect.ArrayOf(common.HashLength, reflect.TypeOf(byte(0)))
 	case FixedPointTy:
 		// fixedpoint type currently not used
 		return reflect.ArrayOf(32, reflect.TypeOf(byte(0)))
 	case FunctionTy:
-		return reflect.ArrayOf(24, reflect.TypeOf(byte(0)))
+		return reflect.ArrayOf(FunctionTypeLength, reflect.TypeOf(byte(0)))
 	default:
 		panic("Invalid type")
 	}

@@ -22,15 +22,14 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -71,8 +70,8 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Blo
 	}
 	// Initialize a fresh chain
 	var (
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee)}).MustCommit(db)
-		engine  = ethash.NewFullFaker()
+		genesis = (&Genesis{}).MustCommit(db)
+		engine  = mockconsensus.NewMockConsensus()
 		gendb   = rawdb.NewMemoryDatabase()
 
 		// Snapshot is enabled, the first snapshot is created from the Genesis.

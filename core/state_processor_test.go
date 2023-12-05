@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
 	"math/big"
@@ -24,8 +25,6 @@ import (
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/ethash"
-	"github.com/DogeProtocol/dp/consensus/misc"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -64,17 +63,6 @@ func TestStateProcessorErrors(t *testing.T) {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data), signer, testKey)
 		return tx
 	}
-	var mkDynamicTx = func(nonce uint64, to common.Address, gasLimit uint64, gasTipCap, gasFeeCap *big.Int) *types.Transaction {
-		tx, _ := types.SignTx(types.NewTx(&types.DynamicFeeTx{
-			Nonce:     nonce,
-			GasTipCap: gasTipCap,
-			GasFeeCap: gasFeeCap,
-			Gas:       gasLimit,
-			To:        &to,
-			Value:     big.NewInt(0),
-		}), signer, testKey)
-		return tx
-	}
 	{ // Tests against a 'recent' chain definition
 		var (
 			db    = rawdb.NewMemoryDatabase()
@@ -88,7 +76,7 @@ func TestStateProcessorErrors(t *testing.T) {
 				},
 			}
 			genesis       = gspec.MustCommit(db)
-			blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+			blockchain, _ = NewBlockChain(db, nil, gspec.Config, mockconsensus.NewMockConsensus(), vm.Config{}, nil, nil)
 		)
 		defer blockchain.Stop()
 		bigNumber := new(big.Int).SetBytes(common.FromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
@@ -145,49 +133,8 @@ func TestStateProcessorErrors(t *testing.T) {
 				},
 				want: "could not apply tx 0 [0xbd49d8dadfd47fb846986695f7d4da3f7b2c48c8da82dbc211a26eb124883de9]: gas limit reached",
 			},
-			{ // ErrFeeCapTooLow
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, big.NewInt(0), big.NewInt(0)),
-				},
-				want: "could not apply tx 0 [0xc4ab868fef0c82ae0387b742aee87907f2d0fc528fc6ea0a021459fb0fc4a4a8]: max fee per gas less than block base fee: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxFeePerGas: 0 baseFee: 875000000",
-			},
-			{ // ErrTipVeryHigh
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, tooBigNumber, big.NewInt(1)),
-				},
-				want: "could not apply tx 0 [0x15b8391b9981f266b32f3ab7da564bbeb3d6c21628364ea9b32a21139f89f712]: max priority fee per gas higher than 2^256-1: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxPriorityFeePerGas bit length: 257",
-			},
-			{ // ErrFeeCapVeryHigh
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, big.NewInt(1), tooBigNumber),
-				},
-				want: "could not apply tx 0 [0x48bc299b83fdb345c57478f239e89814bb3063eb4e4b49f3b6057a69255c16bd]: max fee per gas higher than 2^256-1: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxFeePerGas bit length: 257",
-			},
-			{ // ErrTipAboveFeeCap
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, big.NewInt(2), big.NewInt(1)),
-				},
-				want: "could not apply tx 0 [0xf987a31ff0c71895780a7612f965a0c8b056deb54e020bb44fa478092f14c9b4]: max priority fee per gas higher than max fee per gas: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxPriorityFeePerGas: 2, maxFeePerGas: 1",
-			},
-			{ // ErrInsufficientFunds
-				// Available balance:           1000000000000000000
-				// Effective cost:                   18375000021000
-				// FeeCap * gas:                1050000000000000000
-				// This test is designed to have the effective cost be covered by the balance, but
-				// the extended requirement on FeeCap*gas < balance to fail
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, big.NewInt(1), big.NewInt(50000000000000)),
-				},
-				want: "could not apply tx 0 [0x413603cd096a87f41b1660d3ed3e27d62e1da78eac138961c0a1314ed43bd129]: insufficient funds for gas * price + value: address 0x71562b71999873DB5b286dF957af199Ec94617F7 have 1000000000000000000 want 1050000000000000000",
-			},
-			{ // Another ErrInsufficientFunds, this one to ensure that feecap/tip of max u256 is allowed
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas, bigNumber, bigNumber),
-				},
-				want: "could not apply tx 0 [0xd82a0c2519acfeac9a948258c47e784acd20651d9d80f9a1c67b4137651c3a24]: insufficient funds for gas * price + value: address 0x71562b71999873DB5b286dF957af199Ec94617F7 have 1000000000000000000 want 2431633873983640103894990685182446064918669677978451844828609264166175722438635000",
-			},
 		} {
-			block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs, gspec.Config)
+			block := GenerateBadBlock(genesis, mockconsensus.NewMockConsensus(), tt.txs, gspec.Config)
 			_, err := blockchain.InsertChain(types.Blocks{block})
 			if err == nil {
 				t.Fatal("block imported without errors")
@@ -223,21 +170,14 @@ func TestStateProcessorErrors(t *testing.T) {
 				},
 			}
 			genesis       = gspec.MustCommit(db)
-			blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+			blockchain, _ = NewBlockChain(db, nil, gspec.Config, mockconsensus.NewMockConsensus(), vm.Config{}, nil, nil)
 		)
 		defer blockchain.Stop()
 		for i, tt := range []struct {
 			txs  []*types.Transaction
 			want string
-		}{
-			{ // ErrTxTypeNotSupported
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas-1000, big.NewInt(0), big.NewInt(0)),
-				},
-				want: "could not apply tx 0 [0x88626ac0d53cb65308f2416103c62bb1f18b805573d4f96a3640bbbfff13c14f]: transaction type not supported",
-			},
-		} {
-			block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs, gspec.Config)
+		}{} {
+			block := GenerateBadBlock(genesis, mockconsensus.NewMockConsensus(), tt.txs, gspec.Config)
 			_, err := blockchain.InsertChain(types.Blocks{block})
 			if err == nil {
 				t.Fatal("block imported without errors")
@@ -261,15 +201,10 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 			Number:     parent.Number(),
 			Time:       parent.Time(),
 			Difficulty: parent.Difficulty(),
-			UncleHash:  parent.UncleHash(),
 		}),
-		GasLimit:  parent.GasLimit(),
-		Number:    new(big.Int).Add(parent.Number(), common.Big1),
-		Time:      parent.Time() + 10,
-		UncleHash: types.EmptyUncleHash,
-	}
-	if config.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(config, parent.Header())
+		GasLimit: parent.GasLimit(),
+		Number:   new(big.Int).Add(parent.Number(), common.Big1),
+		Time:     parent.Time() + 10,
 	}
 	var receipts []*types.Receipt
 	// The post-state result doesn't need to be correct (this is a bad block), but we do need something there
@@ -288,5 +223,5 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 	}
 	header.Root = common.BytesToHash(hasher.Sum(nil))
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil))
+	return types.NewBlock(header, txs, receipts, trie.NewStackTrie(nil))
 }

@@ -7,6 +7,7 @@ package blake2b
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/DogeProtocol/dp/common"
 	"io"
 )
 
@@ -95,9 +96,9 @@ func (x *xof) Clone() XOF {
 
 func (x *xof) Reset() {
 	x.cfg[0] = byte(Size)
-	binary.LittleEndian.PutUint32(x.cfg[4:], uint32(Size)) // leaf length
-	binary.LittleEndian.PutUint32(x.cfg[12:], x.length)    // XOF length
-	x.cfg[17] = byte(Size)                                 // inner hash size
+	binary.LittleEndian.PutUint32(x.cfg[4:], uint32(Size))                       // leaf length
+	binary.LittleEndian.PutUint32(x.cfg[common.AddressTruncateBytes:], x.length) // XOF length
+	x.cfg[17] = byte(Size)                                                       // inner hash size
 
 	x.d.Reset()
 	x.d.h[1] ^= uint64(x.length) << 32

@@ -35,7 +35,6 @@ import (
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/log"
-	"github.com/DogeProtocol/dp/p2p/discover"
 	"github.com/DogeProtocol/dp/p2p/enode"
 	"github.com/DogeProtocol/dp/p2p/enr"
 	"github.com/DogeProtocol/dp/p2p/nat"
@@ -194,8 +193,6 @@ type Server struct {
 
 	nodedb    *enode.DB
 	localnode *enode.LocalNode
-	ntab      *discover.UDPv4
-	DiscV5    *discover.UDPv5
 	discmix   *enode.FairMix
 	dialsched *dialScheduler
 
@@ -404,7 +401,7 @@ func (srv *Server) Self() *enode.Node {
 	srv.lock.Unlock()
 
 	if ln == nil {
-		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0)
 	}
 	return ln.Node()
 }
@@ -443,32 +440,6 @@ func (srv *Server) Stop() {
 	close(srv.quit)
 	srv.lock.Unlock()
 	srv.loopWG.Wait()
-}
-
-// sharedUDPConn implements a shared connection. Write sends messages to the underlying connection while read returns
-// messages that were found unprocessable and sent to the unhandled channel by the primary listener.
-type sharedUDPConn struct {
-	*discover.DpUdpSessionManager
-	unhandled chan discover.ReadPacket
-}
-
-// ReadFromUDP implements discover.UdpSession
-func (s *sharedUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
-	packet, ok := <-s.unhandled
-	if !ok {
-		return 0, nil, errors.New("connection was closed")
-	}
-	l := len(packet.Data)
-	if l > len(b) {
-		l = len(b)
-	}
-	copy(b[:l], packet.Data[:l])
-	return l, packet.Addr, nil
-}
-
-// Close implements discover.UdpSession
-func (s *sharedUDPConn) Close() error {
-	return nil
 }
 
 // Start starts running the server.
@@ -590,74 +561,6 @@ func (srv *Server) setupDiscovery() error {
 		}
 	}
 
-	// Don't listen on UDP endpoint if DHT is disabled.
-	if srv.NoDiscovery && !srv.DiscoveryV5 {
-		return nil
-	}
-
-	sessionManager, err := discover.CreateDpUdpSessionManager(srv.ListenAddr)
-	if err != nil {
-		return err
-	}
-
-	realaddr := sessionManager.LocalAddr().(*net.UDPAddr)
-	srv.log.Debug("UDP listener up", "addr", realaddr)
-	if srv.NAT != nil {
-		if !realaddr.IP.IsLoopback() {
-			srv.loopWG.Add(1)
-			go func() {
-				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
-				srv.loopWG.Done()
-			}()
-		}
-	}
-	srv.localnode.SetFallbackUDP(realaddr.Port)
-
-	// Discovery V4
-	var unhandled chan discover.ReadPacket
-	var sconn *sharedUDPConn
-	if !srv.NoDiscovery {
-		if srv.DiscoveryV5 {
-			unhandled = make(chan discover.ReadPacket, 100)
-
-			sconn = &sharedUDPConn{sessionManager, unhandled}
-		}
-		cfg := discover.Config{
-			PrivateKey:  srv.PrivateKey,
-			NetRestrict: srv.NetRestrict,
-			Bootnodes:   srv.BootstrapNodes,
-			Unhandled:   unhandled,
-			Log:         srv.log,
-		}
-
-		ntab, err := discover.ListenV4(sessionManager, srv.localnode, cfg)
-		if err != nil {
-
-			return err
-		}
-		srv.ntab = ntab
-		srv.discmix.AddSource(ntab.RandomNodes(), "RandomNodes")
-	}
-
-	// Discovery V5
-	if srv.DiscoveryV5 {
-		cfg := discover.Config{
-			PrivateKey:  srv.PrivateKey,
-			NetRestrict: srv.NetRestrict,
-			Bootnodes:   srv.BootstrapNodesV5,
-			Log:         srv.log,
-		}
-		var err error
-		if sconn != nil {
-
-			srv.DiscV5, err = discover.ListenV5(nil, srv.localnode, cfg) //todo
-		} else {
-			srv.DiscV5, err = discover.ListenV5(nil, srv.localnode, cfg)
-		}
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -670,9 +573,6 @@ func (srv *Server) setupDialScheduler() {
 		netRestrict:    srv.NetRestrict,
 		dialer:         srv.Dialer,
 		clock:          srv.clock,
-	}
-	if srv.ntab != nil {
-		config.resolver = srv.ntab
 	}
 	if config.dialer == nil {
 		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
@@ -833,13 +733,6 @@ running:
 
 	srv.log.Trace("P2P networking is spinning down")
 
-	// Terminate discovery. If there is a running lookup it will terminate soon.
-	if srv.ntab != nil {
-		srv.ntab.Close()
-	}
-	if srv.DiscV5 != nil {
-		srv.DiscV5.Close()
-	}
 	// Disconnect all peers.
 	for _, p := range peers {
 		p.Disconnect(DiscQuitting)
@@ -1130,7 +1023,7 @@ func nodeFromConn(pubkey *signaturealgorithm.PublicKey, conn net.Conn) *enode.No
 		port = tcp.Port
 	}
 
-	return enode.NewV4(pubkey, ip, port, port)
+	return enode.NewV4(pubkey, ip, port)
 }
 
 // checkpoint sends the conn to run, which performs the
@@ -1196,8 +1089,7 @@ type NodeInfo struct {
 	ENR   string `json:"enr"`   // Ethereum Node Record
 	IP    string `json:"ip"`    // IP address of the node
 	Ports struct {
-		Discovery int `json:"discovery"` // UDP listening port for discovery protocol
-		Listener  int `json:"listener"`  // TCP listening port for RLPx
+		Listener int `json:"listener"` // TCP listening port for RLPx
 	} `json:"ports"`
 	ListenAddr string                 `json:"listenAddr"`
 	Protocols  map[string]interface{} `json:"protocols"`
@@ -1215,7 +1107,6 @@ func (srv *Server) NodeInfo() *NodeInfo {
 		ListenAddr: srv.ListenAddr,
 		Protocols:  make(map[string]interface{}),
 	}
-	info.Ports.Discovery = node.UDP()
 	info.Ports.Listener = node.TCP()
 	info.ENR = node.String()
 

@@ -180,7 +180,7 @@ func sendVia(connectionContext *ConnectionContext, to string, quantity string, n
 
 	var data []byte
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
-	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), connectionContext.Key.PrivateKey)
+	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), connectionContext.Key.PrivateKey)
 	if err != nil {
 		return "", 0, err
 	}
@@ -227,10 +227,10 @@ func send(from string, to string, quantity string) (string, error) {
 		return "", err
 	}
 	gasLimit := uint64(21000)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		return "", err
-	}
+	//gasPrice, err := client.SuggestGasPrice(context.Background())
+	//if err != nil {
+	//	return "", err
+	//}
 
 	v, err := ParseBigFloat(quantity)
 	if err != nil {
@@ -240,13 +240,15 @@ func send(from string, to string, quantity string) (string, error) {
 	value := etherToWeiFloat(v)
 
 	var data []byte
-	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+	tx := types.NewDefaultFeeTransaction(chainID, nonce, &toAddress, value, gasLimit, types.GAS_TIER_DEFAULT, data)
 	fmt.Println("chainID", chainID)
 
 	signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), key.PrivateKey)
 	if err != nil {
+		fmt.Println("signedTx err", err)
 		return "", err
 	}
+	fmt.Println("signedTx ok")
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		return "", err

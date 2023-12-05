@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto"
 	"io"
 	"sync"
 
@@ -392,7 +393,7 @@ func (st *StackTrie) hash() {
 				continue
 			}
 			child.hash()
-			if len(child.val) < 32 {
+			if len(child.val) < common.HashLength {
 				nodes[i] = rawNode(child.val)
 			} else {
 				nodes[i] = hashNode(child.val)
@@ -413,7 +414,7 @@ func (st *StackTrie) hash() {
 		defer returnHasherToPool(h)
 		h.tmp.Reset()
 		var valuenode node
-		if len(st.children[0].val) < 32 {
+		if len(st.children[0].val) < common.HashLength {
 			valuenode = rawNode(st.children[0].val)
 		} else {
 			valuenode = hashNode(st.children[0].val)
@@ -450,16 +451,16 @@ func (st *StackTrie) hash() {
 	}
 	st.key = st.key[:0]
 	st.nodeType = hashedNode
-	if len(h.tmp) < 32 {
+	if len(h.tmp) < common.HashLength {
 		st.val = common.CopyBytes(h.tmp)
 		return
 	}
 	// Write the hash to the 'val'. We allocate a new val here to not mutate
 	// input values
-	st.val = make([]byte, 32)
-	h.sha.Reset()
-	h.sha.Write(h.tmp)
-	h.sha.Read(st.val)
+	st.val = make([]byte, common.HashLength)
+	ret := crypto.Keccak256(h.tmp)
+	copy(st.val, ret)
+
 	if st.db != nil {
 		// TODO! Is it safe to Put the slice here?
 		// Do all db implementations copy the value provided?
@@ -470,16 +471,13 @@ func (st *StackTrie) hash() {
 // Hash returns the hash of the current node
 func (st *StackTrie) Hash() (h common.Hash) {
 	st.hash()
-	if len(st.val) != 32 {
+	if len(st.val) != common.HashLength {
 		// If the node's RLP isn't 32 bytes long, the node will not
 		// be hashed, and instead contain the  rlp-encoding of the
 		// node. For the top level node, we need to force the hashing.
-		ret := make([]byte, 32)
-		h := newHasher(false)
-		defer returnHasherToPool(h)
-		h.sha.Reset()
-		h.sha.Write(st.val)
-		h.sha.Read(ret)
+		//ret := make([]byte, 32)
+
+		ret := crypto.Keccak256(st.val)
 		return common.BytesToHash(ret)
 	}
 	return common.BytesToHash(st.val)
@@ -497,16 +495,12 @@ func (st *StackTrie) Commit() (common.Hash, error) {
 		return common.Hash{}, ErrCommitDisabled
 	}
 	st.hash()
-	if len(st.val) != 32 {
+	if len(st.val) != common.HashLength {
 		// If the node's RLP isn't 32 bytes long, the node will not
 		// be hashed (and committed), and instead contain the  rlp-encoding of the
 		// node. For the top level node, we need to force the hashing+commit.
-		ret := make([]byte, 32)
-		h := newHasher(false)
-		defer returnHasherToPool(h)
-		h.sha.Reset()
-		h.sha.Write(st.val)
-		h.sha.Read(ret)
+
+		ret := crypto.Keccak256(st.val)
 		st.db.Put(ret, st.val)
 		return common.BytesToHash(ret), nil
 	}

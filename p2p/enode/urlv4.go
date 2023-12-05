@@ -75,20 +75,17 @@ func ParseV4(rawurl string) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid public key (%v)", err)
 		}
-		return NewV4(id, nil, 0, 0), nil
+		return NewV4(id, nil, 0), nil
 	}
 	return parseComplete(rawurl)
 }
 
 // NewV4 creates a node from discovery v4 node information. The record
 // contained in the node has a zero-length signature.
-func NewV4(pubkey *signaturealgorithm.PublicKey, ip net.IP, tcp, udp int) *Node {
+func NewV4(pubkey *signaturealgorithm.PublicKey, ip net.IP, tcp int) *Node {
 	var r enr.Record
 	if len(ip) > 0 {
 		r.Set(enr.IP(ip))
-	}
-	if udp != 0 {
-		r.Set(enr.UDP(udp))
 	}
 	if tcp != 0 {
 		r.Set(enr.TCP(tcp))
@@ -109,8 +106,8 @@ func isNewV4(n *Node) bool {
 
 func parseComplete(rawurl string) (*Node, error) {
 	var (
-		id               *signaturealgorithm.PublicKey
-		tcpPort, udpPort uint64
+		id      *signaturealgorithm.PublicKey
+		tcpPort uint64
 	)
 	u, err := url.Parse(rawurl)
 	if err != nil {
@@ -143,15 +140,8 @@ func parseComplete(rawurl string) (*Node, error) {
 	if tcpPort, err = strconv.ParseUint(u.Port(), 10, 16); err != nil {
 		return nil, errors.New("invalid port")
 	}
-	udpPort = tcpPort
-	qv := u.Query()
-	if qv.Get("discport") != "" {
-		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
-		if err != nil {
-			return nil, errors.New("invalid discport in query")
-		}
-	}
-	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
+
+	return NewV4(id, ip, int(tcpPort)), nil
 }
 
 // parsePubkey parses a hex-encoded secp256k1 public key.
@@ -191,9 +181,6 @@ func (n *Node) URLv4() string {
 		addr := net.TCPAddr{IP: n.IP(), Port: n.TCP()}
 		u.User = url.User(nodeid)
 		u.Host = addr.String()
-		if n.UDP() != n.TCP() {
-			u.RawQuery = "discport=" + strconv.Itoa(n.UDP())
-		}
 	}
 	return u.String()
 }

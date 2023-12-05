@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/holiman/uint256"
+	"github.com/DogeProtocol/dp/uint256"
 )
 
 // Gas costs

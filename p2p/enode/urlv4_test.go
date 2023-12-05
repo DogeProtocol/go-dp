@@ -61,7 +61,6 @@ var parseNodeTests = []struct {
 			testKey, _ := cryptobase.SigAlg.HexToPrivateKey(hexprvkeytest1)
 			var r enr.Record
 			r.Set(enr.IP{127, 0, 0, 1})
-			r.Set(enr.UDP(30303))
 			r.SetSeq(99)
 			SignV4(&r, testKey)
 			n, _ := New(ValidSchemes, &r)
@@ -101,7 +100,6 @@ var parseNodeTests = []struct {
 			hexPubkey(hexpubkeytest1),
 			net.IP{127, 0, 0, 1},
 			52150,
-			52150,
 		),
 	},
 	{
@@ -109,7 +107,6 @@ var parseNodeTests = []struct {
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
 			net.ParseIP("::"),
-			52150,
 			52150,
 		),
 	},
@@ -119,7 +116,6 @@ var parseNodeTests = []struct {
 			hexPubkey(hexpubkeytest1),
 			net.ParseIP("2001:db8:3c4d:15::abcd:ef12"),
 			52150,
-			52150,
 		),
 	},
 	{
@@ -128,7 +124,6 @@ var parseNodeTests = []struct {
 			hexPubkey(hexpubkeytest1),
 			net.IP{0x7f, 0x0, 0x0, 0x1},
 			52150,
-			22334,
 		),
 	},
 	// Incomplete node URLs with no address
@@ -136,7 +131,7 @@ var parseNodeTests = []struct {
 		input: "enode://" + hexpubkeytest1,
 		wantResult: NewV4(
 			hexPubkey(hexpubkeytest1),
-			nil, 0, 0,
+			nil, 0,
 		),
 	},
 	// Invalid URLs
@@ -183,7 +178,6 @@ func TestParseNode(t *testing.T) {
 
 	var r enr.Record
 	r.Set(enr.IP{127, 0, 0, 1})
-	r.Set(enr.UDP(30303))
 	r.SetSeq(99)
 	SignV4(&r, testKey)
 	result1, _ := New(ValidSchemes, &r)

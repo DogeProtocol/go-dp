@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -25,7 +26,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/forkid"
 	"github.com/DogeProtocol/dp/core/rawdb"
@@ -80,14 +80,13 @@ func (h *testEthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 // Tests that peers are correctly accepted (or rejected) based on the advertised
 // fork IDs in the protocol handshake.
-func TestForkIDSplit65(t *testing.T) { testForkIDSplit(t, eth.ETH65) }
 func TestForkIDSplit66(t *testing.T) { testForkIDSplit(t, eth.ETH66) }
 
 func testForkIDSplit(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	var (
-		engine = ethash.NewFaker()
+		engine = mockconsensus.NewMockConsensus()
 
 		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
 		configProFork = &params.ChainConfig{
@@ -236,7 +235,6 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 }
 
 // Tests that received transactions are added to the local pool.
-func TestRecvTransactions65(t *testing.T) { testRecvTransactions(t, eth.ETH65) }
 func TestRecvTransactions66(t *testing.T) { testRecvTransactions(t, eth.ETH66) }
 
 func testRecvTransactions(t *testing.T, protocol uint) {
@@ -276,7 +274,7 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 	}
 	// Send the transaction to the sink and verify that it's added to the tx pool
 	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-	tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+	tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 	if err := src.SendTransactions([]*types.Transaction{tx}); err != nil {
 		t.Fatalf("failed to send transaction: %v", err)
@@ -294,7 +292,6 @@ func testRecvTransactions(t *testing.T, protocol uint) {
 }
 
 // This test checks that pending transactions are sent.
-func TestSendTransactions65(t *testing.T) { testSendTransactions(t, eth.ETH65) }
 func TestSendTransactions66(t *testing.T) { testSendTransactions(t, eth.ETH66) }
 
 func testSendTransactions(t *testing.T, protocol uint) {
@@ -307,7 +304,7 @@ func testSendTransactions(t *testing.T, protocol uint) {
 	insert := make([]*types.Transaction, 100)
 	for nonce := range insert {
 		tx := types.NewTransaction(uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), make([]byte, txsyncPackSize/10))
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 		insert[nonce] = tx
 	}
@@ -380,7 +377,6 @@ func testSendTransactions(t *testing.T, protocol uint) {
 
 // Tests that transactions get propagated to all attached peers, either via direct
 // broadcasts or via announcements/retrievals.
-func TestTransactionPropagation65(t *testing.T) { testTransactionPropagation(t, eth.ETH65) }
 func TestTransactionPropagation66(t *testing.T) { testTransactionPropagation(t, eth.ETH66) }
 
 func testTransactionPropagation(t *testing.T, protocol uint) {
@@ -431,7 +427,7 @@ func testTransactionPropagation(t *testing.T, protocol uint) {
 	txs := make([]*types.Transaction, 1024)
 	for nonce := range txs {
 		tx := types.NewTransaction(uint64(nonce), common.Address{}, big.NewInt(0), 100000, big.NewInt(0), nil)
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, _ = types.SignTx(tx, types.NewLondonSignerDefaultChain(), testKey)
 
 		txs[nonce] = tx
 	}
@@ -521,8 +517,8 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	defer p2pLocal.Close()
 	defer p2pRemote.Close()
 
-	local := eth.NewPeer(eth.ETH65, p2p.NewPeerPipe(enode.ID{1}, "", nil, p2pLocal), p2pLocal, handler.txpool)
-	remote := eth.NewPeer(eth.ETH65, p2p.NewPeerPipe(enode.ID{2}, "", nil, p2pRemote), p2pRemote, handler.txpool)
+	local := eth.NewPeer(eth.ETH66, p2p.NewPeerPipe(enode.ID{1}, "", nil, p2pLocal), p2pLocal, handler.txpool)
+	remote := eth.NewPeer(eth.ETH66, p2p.NewPeerPipe(enode.ID{2}, "", nil, p2pRemote), p2pRemote, handler.txpool)
 	defer local.Close()
 	defer remote.Close()
 
@@ -619,8 +615,8 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 		defer sourcePipe.Close()
 		defer sinkPipe.Close()
 
-		sourcePeer := eth.NewPeer(eth.ETH65, p2p.NewPeerPipe(enode.ID{byte(i)}, "", nil, sourcePipe), sourcePipe, nil)
-		sinkPeer := eth.NewPeer(eth.ETH65, p2p.NewPeerPipe(enode.ID{0}, "", nil, sinkPipe), sinkPipe, nil)
+		sourcePeer := eth.NewPeer(eth.ETH66, p2p.NewPeerPipe(enode.ID{byte(i)}, "", nil, sourcePipe), sourcePipe, nil)
+		sinkPeer := eth.NewPeer(eth.ETH66, p2p.NewPeerPipe(enode.ID{0}, "", nil, sinkPipe), sinkPipe, nil)
 		defer sourcePeer.Close()
 		defer sinkPeer.Close()
 
@@ -671,7 +667,6 @@ func testBroadcastBlock(t *testing.T, peers, bcasts int) {
 
 // Tests that a propagated malformed block (uncles or transactions don't match
 // with the hashes in the header) gets discarded and not broadcast forward.
-func TestBroadcastMalformedBlock65(t *testing.T) { testBroadcastMalformedBlock(t, eth.ETH65) }
 func TestBroadcastMalformedBlock66(t *testing.T) { testBroadcastMalformedBlock(t, eth.ETH66) }
 
 func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
@@ -716,17 +711,14 @@ func testBroadcastMalformedBlock(t *testing.T, protocol uint) {
 	// Create various combinations of malformed blocks
 	head := source.chain.CurrentBlock()
 
-	malformedUncles := head.Header()
-	malformedUncles.UncleHash[0]++
 	malformedTransactions := head.Header()
 	malformedTransactions.TxHash[0]++
 	malformedEverything := head.Header()
-	malformedEverything.UncleHash[0]++
 	malformedEverything.TxHash[0]++
 
 	// Try to broadcast all malformations and ensure they all get discarded
-	for _, header := range []*types.Header{malformedUncles, malformedTransactions, malformedEverything} {
-		block := types.NewBlockWithHeader(header).WithBody(head.Transactions(), head.Uncles())
+	for _, header := range []*types.Header{malformedTransactions, malformedEverything} {
+		block := types.NewBlockWithHeader(header).WithBody(head.Transactions())
 		if err := src.SendNewBlock(block, big.NewInt(131136)); err != nil {
 			t.Fatalf("failed to broadcast block: %v", err)
 		}

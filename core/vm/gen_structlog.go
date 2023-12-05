@@ -4,11 +4,12 @@ package vm
 
 import (
 	"encoding/json"
+	"github.com/DogeProtocol/dp/uint256"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/common/math"
-	"github.com/holiman/uint256"
+
 )
 
 var _ = (*structLogMarshaling)(nil)

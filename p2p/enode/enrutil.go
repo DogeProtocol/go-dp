@@ -115,8 +115,6 @@ var attrFormatters = map[string]func(rlp.RawValue) (string, bool){
 	"ip6":  formatAttrIP,
 	"tcp":  formatAttrUint,
 	"tcp6": formatAttrUint,
-	"udp":  formatAttrUint,
-	"udp6": formatAttrUint,
 }
 
 func formatAttrRaw(v rlp.RawValue) (string, bool) {

@@ -18,6 +18,7 @@ package downloader
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -25,7 +26,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
@@ -43,12 +43,12 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.Block, empty bool) ([]*types.Block, []types.Receipts) {
-	blocks, receipts := core.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *core.BlockGen) {
+	blocks, receipts := core.GenerateChain(params.TestChainConfig, parent, mockconsensus.NewMockConsensus(), testdb, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 		// Add one tx to every secondblock
 		if !empty && i%2 == 0 {
 			signer := types.MakeSigner(params.TestChainConfig, block.Number())
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
 			if err != nil {
 				panic(err)
 			}
@@ -311,16 +311,13 @@ func XTestDelivery(t *testing.T) {
 			peer := dummyPeer(fmt.Sprintf("peer-%d", i))
 			f, _, _ := q.ReserveBodies(peer, rand.Intn(30))
 			if f != nil {
-				var emptyList []*types.Header
 				var txs [][]*types.Transaction
-				var uncles [][]*types.Header
 				numToSkip := rand.Intn(len(f.Headers))
 				for _, hdr := range f.Headers[0 : len(f.Headers)-numToSkip] {
 					txs = append(txs, world.getTransactions(hdr.Number.Uint64()))
-					uncles = append(uncles, emptyList)
 				}
 				time.Sleep(100 * time.Millisecond)
-				_, err := q.DeliverBodies(peer.id, txs, uncles)
+				_, err := q.DeliverBodies(peer.id, txs)
 				if err != nil {
 					fmt.Printf("delivered %d bodies %v\n", len(txs), err)
 				}

@@ -1792,6 +1792,10 @@ var bindTests = []struct {
 func TestGolangBindings(t *testing.T) {
 	// Skip the test if no Go command can be found
 	gocmd := runtime.GOROOT() + "/bin/go"
+	if runtime.GOOS == "windows" {
+		gocmd = runtime.GOROOT() + "/bin/go.exe"
+	}
+	fmt.Println("gocmd", gocmd)
 	if !common.FileExist(gocmd) {
 		t.Skip("go sdk not found for testing")
 	}

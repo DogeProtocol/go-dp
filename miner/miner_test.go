@@ -18,11 +18,11 @@
 package miner
 
 import (
+	"github.com/DogeProtocol/dp/consensus/proofofstake"
 	"testing"
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/clique"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/state"
@@ -63,7 +63,7 @@ type testBlockChain struct {
 func (bc *testBlockChain) CurrentBlock() *types.Block {
 	return types.NewBlock(&types.Header{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, nil, nil, trie.NewStackTrie(nil))
 }
 
 func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
@@ -243,7 +243,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 		t.Fatalf("can't create new chain config: %v", err)
 	}
 	// Create consensus engine
-	engine := clique.New(chainConfig.Clique, chainDB)
+	engine := proofofstake.New(chainConfig, chainDB, nil, genesis.ParentHash) //todo: fix test
 	// Create Ethereum backend
 	bc, err := core.NewBlockChain(chainDB, nil, chainConfig, engine, vm.Config{}, nil, nil)
 	if err != nil {

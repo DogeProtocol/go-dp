@@ -18,6 +18,7 @@ package graphql
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io/ioutil"
 	"math/big"
@@ -27,7 +28,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
@@ -243,9 +243,6 @@ func createGQLService(t *testing.T, stack *node.Node) {
 			GasLimit:   11500000,
 			Difficulty: big.NewInt(1048576),
 		},
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeFake,
-		},
 		NetworkId:               1337,
 		TrieCleanCache:          5,
 		TrieCleanCacheJournal:   "triecache",
@@ -260,7 +257,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	}
 	// Create some blocks and import them
 	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		ethash.NewFaker(), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
+		mockconsensus.NewMockConsensus(), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
@@ -304,10 +301,6 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 					Balance: big.NewInt(0),
 				},
 			},
-			BaseFee: big.NewInt(params.InitialBaseFee),
-		},
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeFake,
 		},
 		NetworkId:               1337,
 		TrieCleanCache:          5,
@@ -324,20 +317,20 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	}
 	signer := types.LatestSigner(ethConf.Genesis.Config)
 
-	legacyTx, _ := types.SignNewTx(key, signer, &types.LegacyTx{
-		Nonce:    uint64(0),
-		To:       &dad,
-		Value:    big.NewInt(100),
-		Gas:      50000,
-		GasPrice: big.NewInt(params.InitialBaseFee),
+	legacyTx, _ := types.SignNewTx(key, signer, &types.DefaultFeeTx{
+		Nonce:      uint64(0),
+		To:         &dad,
+		Value:      big.NewInt(100),
+		Gas:        50000,
+		MaxGasTier: types.GAS_TIER_DEFAULT,
 	})
-	envelopTx, _ := types.SignNewTx(key, signer, &types.AccessListTx{
-		ChainID:  ethConf.Genesis.Config.ChainID,
-		Nonce:    uint64(1),
-		To:       &dad,
-		Gas:      30000,
-		GasPrice: big.NewInt(params.InitialBaseFee),
-		Value:    big.NewInt(50),
+	envelopTx, _ := types.SignNewTx(key, signer, &types.DefaultFeeTx{
+		ChainID:    ethConf.Genesis.Config.ChainID,
+		Nonce:      uint64(1),
+		To:         &dad,
+		Gas:        30000,
+		MaxGasTier: types.GAS_TIER_DEFAULT,
+		Value:      big.NewInt(50),
 		AccessList: types.AccessList{{
 			Address:     dad,
 			StorageKeys: []common.Hash{{0}},
@@ -346,7 +339,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 
 	// Create some blocks and import them
 	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		ethash.NewFaker(), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
+		mockconsensus.NewFullMockConsensus(), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{1})
 			b.AddTx(legacyTx)
 			b.AddTx(envelopTx)

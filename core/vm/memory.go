@@ -18,8 +18,7 @@ package vm
 
 import (
 	"fmt"
-
-	"github.com/holiman/uint256"
+	"github.com/DogeProtocol/dp/uint256"
 )
 
 // Memory implements a simple memory model for the ethereum virtual machine.

@@ -17,7 +17,6 @@
 package abi
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -152,11 +151,8 @@ func parseTopicWithSetter(fields Arguments, topics []common.Hash, setter func(Ar
 			// whose bytes can be decoded to the actual value- so the best we can do is retrieve that hash
 			reconstr = topics[i]
 		case FunctionTy:
-			if garbage := binary.BigEndian.Uint64(topics[i][0:8]); garbage != 0 {
-				return fmt.Errorf("bind: got improperly encoded function type, got %v", topics[i].Bytes())
-			}
-			var tmp [24]byte
-			copy(tmp[:], topics[i][8:32])
+			var tmp [32]byte
+			copy(tmp[:], topics[i][0:32])
 			reconstr = tmp
 		default:
 			var err error

@@ -263,7 +263,7 @@ func bindBasicTypeGo(kind abi.Type) string {
 	case abi.BytesTy:
 		return "[]byte"
 	case abi.FunctionTy:
-		return "[24]byte"
+		return fmt.Sprintf("[%d]byte", abi.FunctionTypeLength)
 	default:
 		// string, bool types
 		return kind.String()
@@ -323,7 +323,7 @@ func bindBasicTypeJava(kind abi.Type) string {
 	case abi.StringTy:
 		return "String"
 	case abi.FunctionTy:
-		return "byte[24]"
+		return fmt.Sprintf("byte[%d]", abi.FunctionTypeLength)
 	default:
 		return kind.String()
 	}

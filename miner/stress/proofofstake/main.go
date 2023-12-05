@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// This file contains a miner stress test based on the Clique consensus engine.
+// This file contains a miner stress test based on the consensus engine.
 package main
 
 import (
@@ -115,7 +115,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		tx, err := types.SignTx(types.NewTransaction(nonces[index], pubKeyAddress, new(big.Int), 21000, big.NewInt(100000000000), nil), types.HomesteadSigner{}, faucets[index])
+		tx, err := types.SignTx(types.NewTransaction(nonces[index], pubKeyAddress, new(big.Int), 21000, big.NewInt(100000000000), nil), types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID)), faucets[index])
 		if err != nil {
 			panic(err)
 		}
@@ -139,7 +139,7 @@ func makeGenesis(faucets []*signaturealgorithm.PrivateKey, sealers []*signaturea
 	genesis.GasLimit = 25000000
 
 	genesis.Config.ChainID = big.NewInt(18)
-	genesis.Config.Clique.Period = 1
+	genesis.Config.ProofOfStake.Period = 1
 	genesis.Config.EIP150Hash = common.Hash{}
 
 	genesis.Alloc = core.GenesisAlloc{}

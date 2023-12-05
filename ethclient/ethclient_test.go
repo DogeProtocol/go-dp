@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
@@ -198,7 +198,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	}
 	// Create Ethereum Service
 	config := &ethconfig.Config{Genesis: genesis}
-	config.Ethash.PowMode = ethash.ModeFake
+
 	ethservice, err := eth.New(n, config)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
@@ -221,14 +221,13 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
-		BaseFee:   big.NewInt(params.InitialBaseFee),
 	}
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
 	gblock := genesis.ToBlock(db)
-	engine := ethash.NewFaker()
+	engine := mockconsensus.NewMockConsensus()
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
 	return genesis, blocks
@@ -462,14 +461,6 @@ func testStatusFunctions(t *testing.T, client *rpc.Client) {
 	if gasPrice.Cmp(big.NewInt(1875000000)) != 0 { // 1 gwei tip + 0.875 basefee after a 1 gwei fee empty block
 		t.Fatalf("unexpected gas price: %v", gasPrice)
 	}
-	// SuggestGasTipCap (should suggest 1 Gwei)
-	gasTipCap, err := ec.SuggestGasTipCap(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if gasTipCap.Cmp(big.NewInt(1000000000)) != 0 {
-		t.Fatalf("unexpected gas tip cap: %v", gasTipCap)
-	}
 }
 
 func testCallContract(t *testing.T, client *rpc.Client) {
@@ -569,7 +560,7 @@ func sendTransaction(ec *Client) error {
 		return err
 	}
 	// Create transaction
-	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(params.InitialBaseFee), nil)
+	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, nil, nil)
 	signer := types.LatestSignerForChainID(chainID)
 	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
 	if err != nil {

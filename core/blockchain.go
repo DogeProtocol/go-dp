@@ -20,7 +20,10 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"io"
+	"math"
 	"math/big"
 	mrand "math/rand"
 	"sort"
@@ -951,17 +954,6 @@ func (bc *BlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*type
 	return
 }
 
-// GetUnclesInChain retrieves all the uncles from a given block backwards until
-// a specific distance is reached.
-func (bc *BlockChain) GetUnclesInChain(block *types.Block, length int) []*types.Header {
-	uncles := []*types.Header{}
-	for i := 0; block != nil && i < length; i++ {
-		uncles = append(uncles, block.Uncles()...)
-		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-	}
-	return uncles
-}
-
 // TrieNode retrieves a blob of data associated with a trie node
 // either from ephemeral in-memory cache, or from persistent storage.
 func (bc *BlockChain) TrieNode(hash common.Hash) ([]byte, error) {
@@ -1792,14 +1784,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// its header and body was already in the database).
 		if err == ErrKnownBlock {
 			logger := log.Debug
-			if bc.chainConfig.Clique == nil {
-				logger = log.Warn
-			}
 			if bc.chainConfig.ProofOfStake == nil {
 				logger = log.Warn
 			}
 			logger("Inserted known block", "number", block.Number(), "hash", block.Hash(),
-				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
 			// Special case. Commit the empty receipt slice if we meet the known
@@ -1919,7 +1908,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		switch status {
 		case CanonStatTy:
 			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(),
-				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
 				"root", block.Root())
 
@@ -1931,7 +1920,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		case SideStatTy:
 			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(),
 				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 
 		default:
@@ -1939,7 +1928,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			// a log, instead of trying to track down blocks imports that don't emit logs.
 			log.Warn("Inserted block with unknown status", "number", block.Number(), "hash", block.Hash(),
 				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 		}
 		stats.processed++
@@ -2023,7 +2012,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 			}
 			log.Debug("Injected sidechain block", "number", block.Number(), "hash", block.Hash(),
 				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 		}
 	}
@@ -2525,4 +2514,56 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) getNoGasEVM(msg Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+	from := msg.From()
+	if from.IsEqualTo(common.ZERO_ADDRESS) == false {
+		return nil, nil, errors.New("NoGasEVM needs ZERO_ADDRESS sender")
+	}
+	vmError := func() error { return nil }
+	vmConfig := &vm.Config{OverrideGasFailure: true}
+
+	txContext := NewEVMTxContext(msg)
+	context := NewEVMBlockContext(header, bc, nil)
+	return vm.NewEVM(context, txContext, state, bc.Config(), *vmConfig), vmError, nil
+}
+
+// revertError is an API error that encompassas an EVM revertal with JSON error
+// code and a binary data blob.
+type revertError struct {
+	error
+	reason string // revert reason hex encoded
+}
+
+func newRevertError(result *ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert(result.Revert())
+	err := errors.New("execution reverted")
+	if errUnpack == nil {
+		err = fmt.Errorf("execution reverted: %v", reason)
+	}
+	return &revertError{
+		error:  err,
+		reason: hexutil.Encode(result.Revert()),
+	}
+}
+
+func (bc *BlockChain) ExecuteNoGas(msg Message, state *state.StateDB, header *types.Header) (hexutil.Bytes, error) {
+	evm, vmError, err := bc.getNoGasEVM(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	gp := new(GasPool).AddGas(math.MaxUint64)
+	result, err := ApplyMessage(evm, msg, gp)
+	if err := vmError(); err != nil {
+		return nil, err
+	}
+
+	// If the result contains a revert reason, try to unpack and return it.
+	if len(result.Revert()) > 0 {
+		return nil, newRevertError(result)
+	}
+
+	return result.Return(), result.Err
 }

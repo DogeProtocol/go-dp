@@ -27,7 +27,6 @@ import (
 	"math/big"
 
 	"github.com/DogeProtocol/dp/accounts"
-	"github.com/DogeProtocol/dp/accounts/external"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/types"
@@ -63,7 +62,7 @@ func NewTransactor(keyin io.Reader, passphrase string) (*TransactOpts, error) {
 // Deprecated: Use NewKeyStoreTransactorWithChainID instead.
 func NewKeyStoreTransactor(keystore *keystore.KeyStore, account accounts.Account) (*TransactOpts, error) {
 	log.Warn("WARNING: NewKeyStoreTransactor has been deprecated in favour of NewTransactorWithChainID")
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID))
 	return &TransactOpts{
 		From: account.Address,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -91,7 +90,7 @@ func NewKeyedTransactor(key *signaturealgorithm.PrivateKey) *TransactOpts {
 		fmt.Errorf("error in PubkeyToAddress")
 		return nil
 	}
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSigner(big.NewInt(types.DEFAULT_CHAIN_ID))
 	return &TransactOpts{
 		From: keyAddr,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -169,21 +168,7 @@ func NewKeyedTransactorWithChainID(key *signaturealgorithm.PrivateKey, chainID *
 			}
 			return tx.WithSignature(signer, signature)
 		},
-		Context: context.Background(),
+		Context:  context.Background(),
+		GasPrice: big.NewInt(100000),
 	}, nil
-}
-
-// NewClefTransactor is a utility method to easily create a transaction signer
-// with a clef backend.
-func NewClefTransactor(clef *external.ExternalSigner, account accounts.Account) *TransactOpts {
-	return &TransactOpts{
-		From: account.Address,
-		Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
-			if address != account.Address {
-				return nil, ErrNotAuthorized
-			}
-			return clef.SignTx(account, transaction, nil) // Clef enforces its own chain id
-		},
-		Context: context.Background(),
-	}
 }

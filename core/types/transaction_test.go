@@ -35,7 +35,7 @@ import (
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 
-var homesteadSigner HomesteadSigner
+var defaultSigner londonSigner
 var (
 	baseTx = NewTransaction(
 		3,
@@ -48,7 +48,7 @@ var (
 
 	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
 	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
-	sigtest, _     = cryptobase.SigAlg.Sign(homesteadSigner.Hash(baseTx).Bytes(), privtestkey)
+	sigtest, _     = cryptobase.SigAlg.Sign(defaultSigner.Hash(baseTx).Bytes(), privtestkey)
 	hexsigtest     = hex.EncodeToString(sigtest)
 	parentHash     = common.HexToHash("0xabcdbaea6a6c7c4c2dfeb977efac326af552d87")
 
@@ -62,21 +62,21 @@ var (
 	)
 
 	rightvrsTx, _ = baseTx.WithSignature(
-		HomesteadSigner{},
+		NewLondonSignerDefaultChain(),
 		common.Hex2Bytes(hexsigtest),
 	)
 
-	emptyEip2718Tx = NewTx(&AccessListTx{
-		ChainID:  big.NewInt(1),
-		Nonce:    3,
-		To:       &testAddr,
-		Value:    big.NewInt(10),
-		Gas:      25000,
-		GasPrice: big.NewInt(1),
-		Data:     common.FromHex("5544"),
+	emptyEip2718Tx = NewTx(&DefaultFeeTx{
+		ChainID:    big.NewInt(1),
+		Nonce:      3,
+		To:         &testAddr,
+		Value:      big.NewInt(10),
+		Gas:        25000,
+		MaxGasTier: GAS_TIER_DEFAULT,
+		Data:       common.FromHex("5544"),
 	})
 
-	eipSigner   = NewEIP2930Signer(big.NewInt(1))
+	eipSigner   = NewLondonSignerDefaultChain()
 	sigtest2, _ = cryptobase.SigAlg.Sign(eipSigner.Hash(emptyEip2718Tx).Bytes(), privtestkey)
 	hexsigtest2 = hex.EncodeToString(sigtest2)
 
@@ -96,7 +96,7 @@ func TestDecodeEmptyTypedTx(t *testing.T) {
 }
 
 func TestTransactionSigHash(t *testing.T) {
-	var homestead HomesteadSigner
+	homestead := NewLondonSignerDefaultChain()
 	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
@@ -114,122 +114,6 @@ func TestTransactionEncode(t *testing.T) {
 	should := common.FromHex(hex.EncodeToString(txb))
 	if !bytes.Equal(txb, should) {
 		t.Errorf("encoded RLP mismatch, got %x", txb)
-	}
-}
-
-func TestEIP2718TransactionSigHash(t *testing.T) {
-	s := NewEIP2930Signer(big.NewInt(1))
-	if s.Hash(emptyEip2718Tx) != common.HexToHash("49b486f0ec0a60dfbbca2d30cb07c9e8ffb2a2ff41f29a1ab6737475f6ff69f3") {
-		t.Errorf("empty EIP-2718 transaction hash mismatch, got %x", s.Hash(emptyEip2718Tx))
-	}
-	if s.Hash(signedEip2718Tx) != common.HexToHash("49b486f0ec0a60dfbbca2d30cb07c9e8ffb2a2ff41f29a1ab6737475f6ff69f3") {
-		t.Errorf("signed EIP-2718 transaction hash mismatch, got %x", s.Hash(signedEip2718Tx))
-	}
-}
-
-// This test checks signature operations on access list transactions.
-func TestEIP2930Signer(t *testing.T) {
-
-	var (
-		key, _  = cryptobase.SigAlg.HexToPrivateKey(hextestkey)
-		keyAddr = cryptobase.SigAlg.PublicKeyToAddressNoError(&key.PublicKey)
-		signer1 = NewEIP2930Signer(big.NewInt(1))
-		signer2 = NewEIP2930Signer(big.NewInt(2))
-		tx0     = NewTx(&AccessListTx{Nonce: 1})
-		tx1     = NewTx(&AccessListTx{ChainID: big.NewInt(1), Nonce: 1})
-		tx2, _  = SignNewTx(key, signer2, &AccessListTx{ChainID: big.NewInt(2), Nonce: 1})
-	)
-
-	tests := []struct {
-		tx             *Transaction
-		signer         Signer
-		wantSignerHash common.Hash
-		wantSenderErr  error
-		wantSignErr    error
-		wantHash       common.Hash // after signing
-	}{
-		{
-			tx:             tx0,
-			signer:         signer1,
-			wantSignerHash: common.HexToHash("846ad7672f2a3a40c1f959cd4a8ad21786d620077084d84c8d7c077714caa139"),
-			wantSenderErr:  ErrInvalidChainId,
-			wantHash:       common.HexToHash("1ccd12d8bbdb96ea391af49a35ab641e219b2dd638dea375f2bc94dd290f2549"),
-		},
-		{
-			tx:             tx1,
-			signer:         signer1,
-			wantSenderErr:  ErrInvalidSig,
-			wantSignerHash: common.HexToHash("846ad7672f2a3a40c1f959cd4a8ad21786d620077084d84c8d7c077714caa139"),
-			wantHash:       common.HexToHash("1ccd12d8bbdb96ea391af49a35ab641e219b2dd638dea375f2bc94dd290f2549"),
-		},
-		{
-			// This checks what happens when trying to sign an unsigned tx for the wrong chain.
-			tx:             tx1,
-			signer:         signer2,
-			wantSenderErr:  ErrInvalidChainId,
-			wantSignerHash: common.HexToHash("367967247499343401261d718ed5aa4c9486583e4d89251afce47f4a33c33362"),
-			wantSignErr:    ErrInvalidChainId,
-		},
-		{
-			// This checks what happens when trying to re-sign a signed tx for the wrong chain.
-			tx:             tx2,
-			signer:         signer1,
-			wantSenderErr:  ErrInvalidChainId,
-			wantSignerHash: common.HexToHash("846ad7672f2a3a40c1f959cd4a8ad21786d620077084d84c8d7c077714caa139"),
-			wantSignErr:    ErrInvalidChainId,
-		},
-	}
-
-	for i, test := range tests {
-		sigHash := test.signer.Hash(test.tx)
-		if sigHash != test.wantSignerHash {
-			t.Errorf("test %d: wrong sig hash: got %x, want %x", i, sigHash, test.wantSignerHash)
-		}
-		sender, err := Sender(test.signer, test.tx)
-		if err != test.wantSenderErr {
-			t.Errorf("test %d: wrong Sender error %q", i, err)
-		}
-		if err == nil && sender != keyAddr {
-			t.Errorf("test %d: wrong sender address %x", i, sender)
-		}
-		signedTx, err := SignTx(test.tx, test.signer, key)
-		if err != test.wantSignErr {
-			t.Fatalf("test %d: wrong SignTx error %q", i, err)
-		}
-
-		if signedTx != nil {
-
-			if signedTx.Hash() != test.wantHash {
-
-				t.Errorf("test %d: wrong tx hash after signing: got %x, want %x", i, signedTx.Hash(), test.wantHash)
-			}
-		}
-
-	}
-}
-
-func TestEIP2718TransactionEncode(t *testing.T) {
-	// RLP representation
-	{
-		have, err := rlp.EncodeToBytes(signedEip2718Tx)
-		if err != nil {
-			t.Fatalf("encode error: %v", err)
-		}
-		want := common.FromHex(hex.EncodeToString(have))
-		if !bytes.Equal(have, want) {
-			t.Errorf("encoded RLP mismatch, got %x", have)
-		}
-	}
-	// Binary representation
-	{
-		have, err := signedEip2718Tx.MarshalBinary()
-		if err != nil {
-			t.Fatalf("encode error: %v", err)
-		}
-		want := common.FromHex(hex.EncodeToString(have))
-		if !bytes.Equal(have, want) {
-			t.Errorf("encoded RLP mismatch, got %x", have)
-		}
 	}
 }
 
@@ -252,7 +136,7 @@ func TestRecipientEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender(NewLondonSignerDefaultChain(), tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +153,7 @@ func TestRecipientNormal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	from, err := Sender(HomesteadSigner{}, tx)
+	from, err := Sender(NewLondonSignerDefaultChain(), tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +170,7 @@ func TestTransactionSort(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -327,7 +211,7 @@ func TestTransactionSortIncreasing(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -369,7 +253,7 @@ func TestTransactionSortDecreasing(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -411,7 +295,7 @@ func TestTransactionSortIncreaseDecrease(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -457,7 +341,7 @@ func TestTransactionSortSingle(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -497,7 +381,7 @@ func TestTransactionSortSingleAccount(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -533,7 +417,7 @@ func TestTransactionSortSingleAccount(t *testing.T) {
 }
 
 func TestTransactionSortNoTxns(t *testing.T) {
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -564,7 +448,7 @@ func testTransactionNonceOrder_byCount(txnCount int, t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -623,7 +507,7 @@ func testTransactionNonceOrder_skip_byCount(txnCount int, skipMap map[int]bool, 
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := HomesteadSigner{}
+	signer := NewLondonSignerDefaultChain()
 
 	// Generate a batch of transactions with overlapping prices, but different creation times
 	groups := map[common.Address]Transactions{}
@@ -690,7 +574,7 @@ func TestTransactionCoding(t *testing.T) {
 		t.Fatalf("could not generate key: %v", err)
 	}
 	var (
-		signer    = NewEIP2930Signer(common.Big1)
+		signer    = NewLondonSigner(common.Big1)
 		addr      = common.HexToAddress("0x0000000000000000000000000000000000000001")
 		recipient = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 		accesses  = AccessList{{Address: addr, StorageKeys: []common.Hash{{0}}}}
@@ -700,50 +584,14 @@ func TestTransactionCoding(t *testing.T) {
 		switch i % 5 {
 		case 0:
 			// Legacy tx.
-			txdata = &LegacyTx{
-				Nonce:    i,
-				To:       &recipient,
-				Gas:      1,
-				GasPrice: big.NewInt(2),
-				Data:     []byte("abcdef"),
-			}
-		case 1:
-			// Legacy tx contract creation.
-			txdata = &LegacyTx{
-				Nonce:    i,
-				Gas:      1,
-				GasPrice: big.NewInt(2),
-				Data:     []byte("abcdef"),
-			}
-		case 2:
-			// Tx with non-zero access list.
-			txdata = &AccessListTx{
-				ChainID:    big.NewInt(1),
+			txdata = &DefaultFeeTx{
+				ChainID:    big.NewInt(DEFAULT_CHAIN_ID),
 				Nonce:      i,
 				To:         &recipient,
-				Gas:        123457,
-				GasPrice:   big.NewInt(10),
+				Gas:        1,
+				MaxGasTier: GAS_TIER_DEFAULT,
 				AccessList: accesses,
 				Data:       []byte("abcdef"),
-			}
-		case 3:
-			// Tx with empty access list.
-			txdata = &AccessListTx{
-				ChainID:  big.NewInt(1),
-				Nonce:    i,
-				To:       &recipient,
-				Gas:      123457,
-				GasPrice: big.NewInt(10),
-				Data:     []byte("abcdef"),
-			}
-		case 4:
-			// Contract creation with access list.
-			txdata = &AccessListTx{
-				ChainID:    big.NewInt(1),
-				Nonce:      i,
-				Gas:        123457,
-				GasPrice:   big.NewInt(10),
-				AccessList: accesses,
 			}
 		}
 		tx, err := SignNewTx(key, signer, txdata)

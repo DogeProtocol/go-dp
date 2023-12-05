@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/console/prompt"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/eth"
@@ -102,9 +101,6 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 		Genesis: core.DeveloperGenesisBlock(15, common.Address{}),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
-		},
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeTest,
 		},
 	}
 	if confOverride != nil {

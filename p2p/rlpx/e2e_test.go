@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"github.com/DogeProtocol/dp/p2p/simulations/pipes"
+	"github.com/DogeProtocol/dp/p2p/pipes"
 	"math/rand"
 	"testing"
 	"time"

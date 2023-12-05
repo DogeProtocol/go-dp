@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"math/big"
@@ -33,7 +34,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/state"
@@ -61,7 +61,7 @@ type testBackend struct {
 func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
 	backend := &testBackend{
 		chainConfig: params.TestChainConfig,
-		engine:      ethash.NewFaker(),
+		engine:      mockconsensus.NewMockConsensus(),
 		chaindb:     rawdb.NewMemoryDatabase(),
 	}
 	// Generate blocks for testing
@@ -161,7 +161,7 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(b.chainConfig, block.Number())
 	for idx, tx := range block.Transactions() {
-		msg, _ := tx.AsMessage(signer, block.BaseFee())
+		msg, _ := tx.AsMessage(signer)
 		txContext := core.NewEVMTxContext(msg)
 		context := core.NewEVMBlockContext(block.Header(), b.chain, nil)
 		if idx == txIndex {
@@ -187,12 +187,12 @@ func TestTraceCall(t *testing.T) {
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, b.BaseFee(), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 
@@ -317,12 +317,12 @@ func TestOverriddenTraceCall(t *testing.T) {
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, b.BaseFee(), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 	randomAccounts, tracer := newAccounts(3), "callTracer"
@@ -457,12 +457,12 @@ func TestTraceTransaction(t *testing.T) {
 		accounts[1].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	target := common.Hash{}
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 	api := NewAPI(newTestBackend(t, 1, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, b.BaseFee(), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
 		b.AddTx(tx)
 		target = tx.Hash()
 	}))
@@ -491,12 +491,12 @@ func TestTraceBlock(t *testing.T) {
 		accounts[2].addr: {Balance: big.NewInt(params.Ether)},
 	}}
 	genBlocks := 10
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 	api := NewAPI(newTestBackend(t, genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
-		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, b.BaseFee(), nil), signer, accounts[0].key)
+		tx, _ := types.SignTx(types.NewTransaction(uint64(i), accounts[1].addr, big.NewInt(1000), params.TxGas, nil, nil), signer, accounts[0].key)
 		b.AddTx(tx)
 	}))
 

@@ -50,11 +50,9 @@ type TransactOpts struct {
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
 	Signer SignerFn       // Method to use for signing the transaction (mandatory)
 
-	Value     *big.Int // Funds to transfer along the transaction (nil = 0 = no funds)
-	GasPrice  *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
-	GasFeeCap *big.Int // Gas fee cap to use for the 1559 transaction execution (nil = gas price oracle)
-	GasTipCap *big.Int // Gas priority fee cap to use for the 1559 transaction execution (nil = gas price oracle)
-	GasLimit  uint64   // Gas limit to set for the transaction execution (0 = estimate)
+	Value    *big.Int // Funds to transfer along the transaction (nil = 0 = no funds)
+	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
+	GasLimit uint64   // Gas limit to set for the transaction execution (0 = estimate)
 
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
 
@@ -249,43 +247,18 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		nonce = opts.Nonce.Uint64()
 	}
 	// Figure out reasonable gas price values
-	if opts.GasPrice != nil && (opts.GasFeeCap != nil || opts.GasTipCap != nil) {
-		return nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	if opts.GasPrice == nil {
+		return nil, errors.New("gasPrice is not specified")
 	}
 	head, err := c.transactor.HeaderByNumber(ensureContext(opts.Context), nil)
 	if err != nil {
 		return nil, err
 	}
-	if head.BaseFee != nil && opts.GasPrice == nil {
-		if opts.GasTipCap == nil {
-			tip, err := c.transactor.SuggestGasTipCap(ensureContext(opts.Context))
-			if err != nil {
-				return nil, err
-			}
-			opts.GasTipCap = tip
-		}
-		if opts.GasFeeCap == nil {
-			gasFeeCap := new(big.Int).Add(
-				opts.GasTipCap,
-				new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
-			)
-			opts.GasFeeCap = gasFeeCap
-		}
-		if opts.GasFeeCap.Cmp(opts.GasTipCap) < 0 {
-			return nil, fmt.Errorf("maxFeePerGas (%v) < maxPriorityFeePerGas (%v)", opts.GasFeeCap, opts.GasTipCap)
-		}
-	} else {
-		if opts.GasFeeCap != nil || opts.GasTipCap != nil {
-			return nil, errors.New("maxFeePerGas or maxPriorityFeePerGas specified but london is not active yet")
-		}
-		if opts.GasPrice == nil {
-			price, err := c.transactor.SuggestGasPrice(ensureContext(opts.Context))
-			if err != nil {
-				return nil, err
-			}
-			opts.GasPrice = price
-		}
+	fmt.Println("head", head.Number)
+	if opts.GasPrice == nil {
+		return nil, errors.New("gas price cannot be nil")
 	}
+
 	gasLimit := opts.GasLimit
 	if gasLimit == 0 {
 		// Gas estimation cannot succeed without code for method invocations
@@ -297,7 +270,7 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 			}
 		}
 		// If the contract surely has code (or code is not needed), estimate the transaction
-		msg := dp.CallMsg{From: opts.From, To: contract, GasPrice: opts.GasPrice, GasTipCap: opts.GasTipCap, GasFeeCap: opts.GasFeeCap, Value: value, Data: input}
+		msg := dp.CallMsg{From: opts.From, To: contract, GasPrice: opts.GasPrice, Value: value, Data: input}
 		gasLimit, err = c.transactor.EstimateGas(ensureContext(opts.Context), msg)
 
 		if err != nil {
@@ -306,32 +279,14 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 	}
 	// Create the transaction, sign it and schedule it for execution
 	var rawTx *types.Transaction
-	if opts.GasFeeCap == nil {
-		baseTx := &types.LegacyTx{
-			Nonce:    nonce,
-			GasPrice: opts.GasPrice,
-			Gas:      gasLimit,
-			Value:    value,
-			Data:     input,
-		}
-		if contract != nil {
-			baseTx.To = &c.address
-		}
-		rawTx = types.NewTx(baseTx)
-	} else {
-		baseTx := &types.DynamicFeeTx{
-			Nonce:     nonce,
-			GasFeeCap: opts.GasFeeCap,
-			GasTipCap: opts.GasTipCap,
-			Gas:       gasLimit,
-			Value:     value,
-			Data:      input,
-		}
-		if contract != nil {
-			baseTx.To = &c.address
-		}
-		rawTx = types.NewTx(baseTx)
+	var toAddress *common.Address
+	if contract != nil {
+		toAddress = &c.address
 	}
+
+	baseTx := types.NewDefaultFeeTransactionSimple(nonce, toAddress, value, gasLimit, input)
+
+	rawTx = types.NewTx(baseTx)
 	if opts.Signer == nil {
 		return nil, errors.New("no signer to authorize the transaction with")
 	}

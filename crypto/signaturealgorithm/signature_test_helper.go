@@ -3,7 +3,6 @@ package signaturealgorithm
 import (
 	"bytes"
 	"fmt"
-	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"io/ioutil"
@@ -71,7 +70,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 
 	addr2, err := sig.PublicKeyToAddress(pubKey1)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr2 {
@@ -81,7 +80,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	pubKeyDirect1 := PublicKey{PubData: pubBytes1}
 	addr3, err := sig.PublicKeyToAddress(&pubKeyDirect1)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr3 {
@@ -90,7 +89,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 
 	addr4, err := sig.PublicKeyToAddress(&key2.PublicKey)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr4 {
@@ -100,7 +99,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	pubKeyDirect2 := PublicKey{PubData: key2.PubData}
 	addr5, err := sig.PublicKeyToAddress(&pubKeyDirect2)
 	if err != nil {
-		t.Fatal("PublicKeyToAddress failed")
+		t.Fatal("PublicKeyBytesToAddress failed")
 	}
 
 	if addr1 != addr5 {
@@ -150,6 +149,48 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 
 	if sig.Verify(pubBytes1, digestHash2, signature1) != false {
 		t.Fatal("Verify negative failed")
+	}
+
+	if sig.Verify(pubBytes1, digestHash2, signature2) != true {
+		t.Fatal("Verify failed")
+	}
+
+	//Deep signature change test
+	for i := 0; i < len(signature2); i++ {
+		sigTemp := make([]byte, len(signature2))
+		copy(sigTemp, signature2)
+		sigTemp[i] = sigTemp[i] + 1
+		if sig.Verify(pubBytes1, digestHash2, sigTemp) != false {
+			t.Fatal("Verify signature change negative failed", i, len(signature2))
+		}
+	}
+
+	//Deep public key change test
+	for i := 0; i < len(pubBytes1); i++ {
+		pubTemp := make([]byte, len(pubBytes1))
+		copy(pubTemp, pubBytes1)
+		pubTemp[i] = pubTemp[i] + 1
+		if sig.Verify(pubTemp, digestHash2, signature2) != false {
+			t.Fatal("Verify signature change negative failed")
+		}
+	}
+
+	if sig.Verify(pubBytes1, digestHash2, signature2) != true {
+		t.Fatal("Verify failed")
+	}
+
+	//Deep message change test
+	for i := 0; i < len(digestHash2); i++ {
+		digestTemp := make([]byte, len(digestHash2))
+		copy(digestTemp, digestHash2)
+		digestTemp[i] = digestTemp[i] + 1
+		if sig.Verify(pubBytes1, digestTemp, signature2) != false {
+			t.Fatal("Verify signature change negative failed")
+		}
+	}
+
+	if sig.Verify(pubBytes1, digestHash2, signature2) != true {
+		t.Fatal("Verify failed")
 	}
 
 	sigExtracted, pubExtracted, err := sig.PublicKeyAndSignatureFromCombinedSignature(digestHash1, signature1)
@@ -264,7 +305,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 		t.Fatal("address compare failed")
 	}
 
-	addr := common.BytesToAddress(crypto.Keccak256(pubBytes1[:])[12:])
+	addr := crypto.PublicKeyBytesToAddress(pubBytes1)
 
 	if generatedAddress != addr {
 		t.Fatal(err)

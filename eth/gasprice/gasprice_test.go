@@ -18,13 +18,13 @@ package gasprice
 
 import (
 	"context"
+	"github.com/DogeProtocol/dp/consensus/mockconsensus"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/consensus/ethash"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
 	"github.com/DogeProtocol/dp/core/types"
@@ -108,7 +108,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	} else {
 		gspec.Config.LondonBlock = nil
 	}
-	engine := ethash.NewFaker()
+	engine := mockconsensus.NewMockConsensus()
 	db := rawdb.NewMemoryDatabase()
 	genesis, _ := gspec.Commit(db)
 
@@ -117,28 +117,17 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 		b.SetCoinbase(common.Address{1})
 
 		var tx *types.Transaction
-		if londonBlock != nil && b.Number().Cmp(londonBlock) >= 0 {
-			txdata := &types.DynamicFeeTx{
-				ChainID:   gspec.Config.ChainID,
-				Nonce:     b.TxNonce(addr),
-				To:        &common.Address{},
-				Gas:       30000,
-				GasFeeCap: big.NewInt(100 * params.GWei),
-				GasTipCap: big.NewInt(int64(i+1) * params.GWei),
-				Data:      []byte{},
-			}
-			tx = types.NewTx(txdata)
-		} else {
-			txdata := &types.LegacyTx{
-				Nonce:    b.TxNonce(addr),
-				To:       &common.Address{},
-				Gas:      21000,
-				GasPrice: big.NewInt(int64(i+1) * params.GWei),
-				Value:    big.NewInt(100),
-				Data:     []byte{},
-			}
-			tx = types.NewTx(txdata)
+
+		txdata := &types.DefaultFeeTx{
+			Nonce:      b.TxNonce(addr),
+			To:         &common.Address{},
+			Gas:        21000,
+			MaxGasTier: types.GAS_TIER_DEFAULT,
+			Value:      big.NewInt(100),
+			Data:       []byte{},
 		}
+		tx = types.NewTx(txdata)
+
 		tx, err := types.SignTx(tx, signer, key)
 		if err != nil {
 			t.Fatalf("failed to create tx: %v", err)

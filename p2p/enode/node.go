@@ -116,13 +116,6 @@ func (n *Node) IP() net.IP {
 	return nil
 }
 
-// UDP returns the UDP port of the node.
-func (n *Node) UDP() int {
-	var port enr.UDP
-	n.Load(&port)
-	return int(port)
-}
-
 // TCP returns the TCP port of the node.
 func (n *Node) TCP() int {
 	var port enr.TCP
@@ -150,14 +143,11 @@ func (n *Node) Record() *enr.Record {
 	return &cpy
 }
 
-// ValidateComplete checks whether n has a valid IP and UDP port.
+// ValidateComplete checks whether n has a valid IP ort.
 // Deprecated: don't use this method.
 func (n *Node) ValidateComplete() error {
 	if n.Incomplete() {
 		return errors.New("missing IP address")
-	}
-	if n.UDP() == 0 {
-		return errors.New("missing UDP port")
 	}
 	ip := n.IP()
 	if ip.IsMulticast() || ip.IsUnspecified() {
@@ -193,7 +183,7 @@ func (n *Node) UnmarshalText(text []byte) error {
 }
 
 // ID is a unique identifier for each node.
-type ID [32]byte
+type ID [common.HashLength]byte
 
 // Bytes returns a byte slice representation of the ID
 func (n ID) Bytes() []byte {

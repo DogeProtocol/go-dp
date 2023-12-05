@@ -4,29 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rpc"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
+	"math"
 	"math/big"
 )
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
 
-	_, err := p.GetDepositorCount(blockHash)
+	depositorCount, err := p.GetDepositorCount(blockHash)
 	if err != nil {
-		//fmt.Println("depositor count error", err)
+		return nil, err
 	} else {
-		//fmt.Println("depositorCount", depositorCount)
+		fmt.Println("depositorCount", depositorCount)
 	}
-
-	_, err = p.GetTotalDepositedBalance(blockHash)
+	totalDepositedBalance, err := p.GetTotalDepositedBalance(blockHash)
 	if err != nil {
-		//fmt.Println("totalDepositedBalance error", err)
+		fmt.Println("totalDepositedBalance error", err)
+		return nil, err
 	} else {
-		//fmt.Println("totalDepositedBalance", totalDepositedBalance)
+		fmt.Println("totalDepositedBalance", totalDepositedBalance)
 	}
 
 	err = staking.IsStakingContract()
@@ -61,14 +65,12 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
-		//fmt.Println("call error", err)
 		return nil, err
 	}
 	if len(result) == 0 {
 		//fmt.Println("result 0 length")
 		return nil, nil
 	}
-
 	_, err = abiData.Unpack(method, result)
 	if err != nil {
 		log.Error("Unpack", err)
@@ -88,7 +90,12 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	//valz := make([]common.Address, len(*ret0))
 
 	proposalsTxnsMap := make(map[common.Address]*big.Int)
-	//fmt.Println("len", len(*ret0))
+	for _, val := range *out {
+		if val.IsEqualTo(ZERO_ADDRESS) {
+			return nil, errors.New("invalid validator")
+		}
+		fmt.Println("......................val", val)
+	}
 	for _, val := range *out {
 		//valz[i] = val
 		depositor, err := p.GetDepositorOfValidator(val, blockHash)
@@ -115,6 +122,7 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 }
 
 func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHash common.Hash) (common.Address, error) {
+	//fmt.Println("GetDepositorOfValidator validator", validator)
 	err := staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
@@ -311,6 +319,150 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
 		//fmt.Println("UnpackIntoInterface", err)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func encodeCall(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return abi.Pack(method, args...)
+}
+
+func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
+	depositor common.Address, slashedAmount *big.Int,
+	state *state.StateDB, header *types.Header) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
+	}
+
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_AddDepositorSlashing()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("AddDepositorSlashing abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := encodeCall(&abiData, method, depositor, slashedAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorSlashing", "error", err)
+		return nil, err
+	}
+	// block
+	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
+		//Gas:  &gas,
+		From: &from,
+		To:   &contractAddress,
+		Data: &msgData,
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
+	if err != nil {
+		log.Error("Call", err)
+		return nil, err
+	}*/
+
+	if len(result) == 0 {
+		return nil, errors.New("AddDepositorSlashing result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
+	depositor common.Address, rewardAmount *big.Int,
+	state *state.StateDB, header *types.Header) (*big.Int, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return nil, err
+	}
+
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_AddDepositorReward()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("AddDepositorReward abi error", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := encodeCall(&abiData, method, depositor, rewardAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorReward", "error", err)
+		return nil, err
+	}
+	// block
+	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
+		//Gas:  &gas,
+		From: &from,
+		To:   &contractAddress,
+		Data: &msgData,
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
+	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
+	if err != nil {
+		log.Error("Call", err)
+		return nil, err
+	}*/
+
+	if len(result) == 0 {
+		return nil, errors.New("AddDepositorReward result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
 		return nil, err
 	}
 

@@ -17,13 +17,13 @@
 package vm
 
 import (
+	"github.com/DogeProtocol/dp/uint256"
 	"math/big"
 	"testing"
 
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/params"
-	"github.com/holiman/uint256"
 )
 
 type dummyContractRef struct {

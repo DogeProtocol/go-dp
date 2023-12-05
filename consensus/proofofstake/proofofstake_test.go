@@ -18,6 +18,7 @@ package proofofstake
 
 import (
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/rawdb"
@@ -26,6 +27,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math/big"
 	"testing"
 )
@@ -52,17 +54,16 @@ func TestReimportMirroredState(t *testing.T) {
 		Alloc: map[common.Address]core.GenesisAccount{
 			addr: {Balance: big.NewInt(10000000000000000)},
 		},
-		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
 	copy(genspec.ExtraData[extraVanity:], addr[:])
 	genesis := genspec.MustCommit(db)
 
 	// Generate a batch of blocks, each properly signed
-	chain, _ := core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil)
+	chain, _ := core.NewBlockChain(db, nil, params.AllProofOfStakeProtocolChanges, engine, vm.Config{}, nil, nil)
 	defer chain.Stop()
 	signer := types.NewLondonSigner(chain.Config().ChainID)
 
-	blocks, _ := core.GenerateChain(params.AllCliqueProtocolChanges, genesis, engine, db, 3, func(i int, block *core.BlockGen) {
+	blocks, _ := core.GenerateChain(params.AllProofOfStakeProtocolChanges, genesis, engine, db, 3, func(i int, block *core.BlockGen) {
 		// The chain maker doesn't have access to a chain, so the difficulty will be
 		// lets unset (nil). Set it here to the correct value.
 		block.SetDifficulty(diffInTurn)
@@ -70,7 +71,7 @@ func TestReimportMirroredState(t *testing.T) {
 		// We want to simulate an empty middle block, having the same state as the
 		// first one. The last is needs a state change again to force a reorg.
 		if i != 1 {
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, block.BaseFee(), nil), signer, key)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(addr), common.Address{0x00}, new(big.Int), params.TxGas, nil, nil), signer, key)
 			if err != nil {
 				panic(err)
 			}
@@ -95,7 +96,7 @@ func TestReimportMirroredState(t *testing.T) {
 	db = rawdb.NewMemoryDatabase()
 	genspec.MustCommit(db)
 
-	chain, _ = core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil)
+	chain, _ = core.NewBlockChain(db, nil, params.AllProofOfStakeProtocolChanges, engine, vm.Config{}, nil, nil)
 	defer chain.Stop()
 
 	if _, err := chain.InsertChain(blocks[:2]); err != nil {
@@ -108,7 +109,7 @@ func TestReimportMirroredState(t *testing.T) {
 	// Simulate a crash by creating a new chain on top of the database, without
 	// flushing the dirty states out. Insert the last block, triggering a sidechain
 	// reimport.
-	chain, _ = core.NewBlockChain(db, nil, params.AllCliqueProtocolChanges, engine, vm.Config{}, nil, nil)
+	chain, _ = core.NewBlockChain(db, nil, params.AllProofOfStakeProtocolChanges, engine, vm.Config{}, nil, nil)
 	defer chain.Stop()
 
 	if _, err := chain.InsertChain(blocks[2:]); err != nil {
@@ -124,7 +125,6 @@ func TestSealHash(t *testing.T) {
 		Difficulty: new(big.Int),
 		Number:     new(big.Int),
 		Extra:      make([]byte, 32+cryptobase.SigAlg.SignatureWithPublicKeyLength()),
-		BaseFee:    new(big.Int),
 	})
 	want := common.HexToHash("0xbd3d1fa43fbc4c5bfcc91b179ec92e2861df3654de60468beb908ff805359e8f") //sha3
 	//want := common.HexToHash("0xe28be2bd8ff4897d07cd4fbb59b291de87746ac2cf264f57b3b696c3ddf9f99b") //sha3sha256
@@ -144,7 +144,7 @@ func TestFlattenTxnMap(t *testing.T) {
 	for i := 0; i < len(keys); i++ {
 		keys[i], _ = cryptobase.SigAlg.GenerateKey()
 	}
-	signer := types.HomesteadSigner{}
+	signer := types.NewLondonSignerDefaultChain()
 
 	groups := map[common.Address]types.Transactions{}
 	txnCount := 0
@@ -250,4 +250,30 @@ func TestFlattenTxnMap(t *testing.T) {
 		}
 	}
 
+}
+
+func encCall(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return abi.Pack(method, args...)
+}
+
+func encCallOuter(abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	return encCall(abi, method, args...)
+}
+
+func TestPack(t *testing.T) {
+	method := staking.GetContract_Method_AddDepositorSlashing()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		fmt.Println("AddDepositorSlashing abi error", err)
+		t.Fatalf("failed")
+	}
+
+	// call
+	slashedAmount := big.NewInt(10)
+	_, err = encCallOuter(&abiData, method, ZERO_ADDRESS, slashedAmount)
+	//data, err := abiData.Pack(method, depositor, slashedAmount)
+	if err != nil {
+		fmt.Println("Unable to pack AddDepositorSlashing", "error", err)
+		t.Fatalf("failed")
+	}
 }

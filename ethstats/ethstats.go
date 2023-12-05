@@ -38,7 +38,6 @@ import (
 	"github.com/DogeProtocol/dp/eth/downloader"
 	ethproto "github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/event"
-	"github.com/DogeProtocol/dp/les"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/miner"
 	"github.com/DogeProtocol/dp/node"
@@ -77,7 +76,6 @@ type fullNodeBackend interface {
 	Miner() *miner.Miner
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
 	CurrentBlock() *types.Block
-	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
 // Service implements an Ethereum netstats reporting daemon that pushes local
@@ -474,7 +472,7 @@ func (s *Service) login(conn *connWrapper) error {
 	if info := infos.Protocols["eth"]; info != nil {
 		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
 	} else {
-		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
+		return errors.New("unknown")
 	}
 	auth := &authMsg{
 		ID: s.node,
@@ -576,23 +574,11 @@ type blockStats struct {
 	Txs        []txStats      `json:"transactions"`
 	TxHash     common.Hash    `json:"transactionsRoot"`
 	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
 }
 
 // txStats is the information to report about individual transactions.
 type txStats struct {
 	Hash common.Hash `json:"hash"`
-}
-
-// uncleStats is a custom wrapper around an uncle array to force serializing
-// empty arrays instead of returning null for them.
-type uncleStats []*types.Header
-
-func (s uncleStats) MarshalJSON() ([]byte, error) {
-	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
-		return json.Marshal(uncles)
-	}
-	return []byte("[]"), nil
 }
 
 // reportBlock retrieves the current chain head and reports it to the stats server.
@@ -621,7 +607,6 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		header *types.Header
 		td     *big.Int
 		txs    []txStats
-		uncles []*types.Header
 	)
 
 	// check if backend is a full node
@@ -637,7 +622,6 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		for i, tx := range block.Transactions() {
 			txs[i].Hash = tx.Hash()
 		}
-		uncles = block.Uncles()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
@@ -665,7 +649,6 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Txs:        txs,
 		TxHash:     header.TxHash,
 		Root:       header.Root,
-		Uncles:     uncles,
 	}
 }
 
@@ -780,12 +763,6 @@ func (s *Service) reportStats(conn *connWrapper) error {
 
 		sync := fullBackend.Downloader().Progress()
 		syncing = fullBackend.CurrentHeader().Number.Uint64() >= sync.HighestBlock
-
-		price, _ := fullBackend.SuggestGasTipCap(context.Background())
-		gasprice = int(price.Uint64())
-		if basefee := fullBackend.CurrentHeader().BaseFee; basefee != nil {
-			gasprice += int(basefee.Uint64())
-		}
 	} else {
 		sync := s.backend.Downloader().Progress()
 		syncing = s.backend.CurrentHeader().Number.Uint64() >= sync.HighestBlock
