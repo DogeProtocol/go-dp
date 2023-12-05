@@ -1,24 +1,25 @@
-package hybrid
+package hybrideds
 
 /*
 #cgo pkg-config: libhybridpqc
-#include <falcon/hybrid.h>
+#include <dilithium/hybrid.h>
 */
 import "C"
+
 import (
 	"bytes"
 	"errors"
-	"github.com/DogeProtocol/dp/common"
 	"unsafe"
 )
 
 const (
 	OK                     = 0
-	CRYPTO_SECRETKEY_BYTES = 64 + 1281 + 897
-	CRYPTO_PUBLICKEY_BYTES = 32 + 897
-	CRYPTO_SIGNATURE_BYTES = 2 + 2 + 64 + CRYPTO_MESSAGE_LEN + 40 + 690 //Nonce + 2 for size
-	CRYPTO_MESSAGE_LEN     = common.HashLength                          //todo: validate this
-	SIG_NAME               = "Falcon-512-ed25519"
+	CRYPTO_SECRETKEY_BYTES = 64 + 2560 + 1312 + 128
+	CRYPTO_PUBLICKEY_BYTES = 32 + 1312 + 64
+	CRYPTO_MESSAGE_LEN     = 32
+	CRYPTO_SIGNATURE_BYTES = 2 + 64 + 2420 + 40 + CRYPTO_MESSAGE_LEN //2558
+	HYBRID_DIGEST_LEN      = 64
+	SIG_NAME               = "dilithium-ed25519-sphincs"
 )
 
 var (
@@ -43,7 +44,7 @@ func GenerateKey() (publicKey []byte, secretKey []byte, err error) {
 	publicKey = make([]byte, CRYPTO_PUBLICKEY_BYTES)
 	secretKey = make([]byte, CRYPTO_SECRETKEY_BYTES)
 
-	rv := C.crypto_sign_falcon_ed25519_keypair(
+	rv := C.crypto_sign_dilithium_ed25519_sphincs_keypair(
 		(*C.uchar)(unsafe.Pointer(&publicKey[0])),
 		(*C.uchar)(unsafe.Pointer(&secretKey[0])))
 
@@ -55,7 +56,11 @@ func GenerateKey() (publicKey []byte, secretKey []byte, err error) {
 		return nil, nil, ErrKeypairFailed
 	}
 
-	if bytes.Compare(publicKey[32:], secretKey[64+1281:]) != 0 {
+	if bytes.Compare(publicKey[32:32+1312], secretKey[64+2560:64+2560+1312]) != 0 {
+		return nil, nil, ErrKeypairFailed
+	}
+
+	if bytes.Compare(publicKey[32+1312:], secretKey[64+2560+1312+64:]) != 0 {
 		return nil, nil, ErrKeypairFailed
 	}
 
@@ -75,7 +80,7 @@ func Sign(secretKey []byte, message []byte) ([]byte, error) {
 
 	var lenSig uint64
 
-	rv := C.crypto_sign_falcon_ed25519((*C.uchar)(unsafe.Pointer(&signature[0])),
+	rv := C.crypto_sign_compact_dilithium_ed25519_sphincs((*C.uchar)(unsafe.Pointer(&signature[0])),
 		(*C.ulonglong)(unsafe.Pointer(&lenSig)),
 		(*C.uchar)(unsafe.Pointer(&message[0])),
 		(C.ulonglong)(uint64(len(message))),
@@ -105,7 +110,7 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 		return ErrInvalidSignatureLen
 	}
 
-	rv := C.crypto_verify_falcon_ed25519((*C.uchar)(unsafe.Pointer(&message[0])),
+	rv := C.crypto_verify_compact_dilithium_ed25519_sphincs((*C.uchar)(unsafe.Pointer(&message[0])),
 		(C.ulonglong)(uint64(len(message))),
 		(*C.uchar)(unsafe.Pointer(&signature[0])),
 		(C.ulonglong)(uint64(len(signature))),
@@ -118,20 +123,49 @@ func Verify(message []byte, signature []byte, publicKey []byte) error {
 	return nil
 }
 
+// Verifies only with Dilithium
+func VerifyDilithium(digestHash []byte, signature []byte, publicKey []byte) error {
+	if len(digestHash) != HYBRID_DIGEST_LEN || len(signature) == 0 || len(publicKey) == 0 {
+		return ErrInvalidLen
+	}
+	if len(publicKey) != 1312 { //Dilithium public key length
+		return ErrInvalidPublicKeyLen
+	}
+	if len(signature) != 2420 { //Dilithium signature length
+		return ErrInvalidSignatureLen
+	}
+
+	rv := C.crypto_verify_dilithium((*C.uchar)(unsafe.Pointer(&digestHash[0])),
+		(C.ulonglong)(uint64(len(digestHash))),
+		(*C.uchar)(unsafe.Pointer(&signature[0])),
+		(C.ulonglong)(uint64(len(signature))),
+		(*C.uchar)(unsafe.Pointer(&publicKey[0])))
+
+	if rv != OK {
+		return ErrVerifyFailed
+	}
+
+	return nil
+}
+
 func PrivateAndPublicFromPrivateKey(compositePrivateKey []byte) (privateBytes []byte, publicBytes []byte, err error) {
+
 	if len(compositePrivateKey) != CRYPTO_SECRETKEY_BYTES {
 		return nil, nil, ErrInvalidPrivateKeyLen
 	}
 
+	pub1 := make([]byte, len(compositePrivateKey[32:64]))
+	copy(pub1, compositePrivateKey[32:64])
+
+	pub2 := make([]byte, len(compositePrivateKey[64+2560:64+2560+1312]))
+	copy(pub2, compositePrivateKey[64+2560:64+2560+1312])
+
+	pub3 := make([]byte, len(compositePrivateKey[64+2560+1312+64:]))
+	copy(pub3, compositePrivateKey[64+2560+1312+64:])
+
 	pubKeyBytes := make([]byte, CRYPTO_PUBLICKEY_BYTES)
-
-	rv := C.crypto_public_key_from_private_key_falcon_ed25519(
-		(*C.uchar)(unsafe.Pointer(&pubKeyBytes[0])),
-		(*C.uchar)(unsafe.Pointer(&compositePrivateKey[0])))
-
-	if rv != 0 {
-		return nil, nil, ErrRecoverPublicKeyFailed
-	}
+	pubKeyBytes = append(pub1, pub2...)
+	pubKeyBytes = append(pubKeyBytes, pub3...)
 
 	return compositePrivateKey, pubKeyBytes, nil
 }

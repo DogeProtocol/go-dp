@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"github.com/DogeProtocol/dp/crypto/hybrid"
+	"github.com/DogeProtocol/dp/crypto/hybrideds"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -20,7 +20,7 @@ func main() {
 	fmt.Println("Perf starting 2")
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
-	sig := hybrid.CreateHybridSig(true)
+	sig := hybrideds.CreateHybridedsSig(true)
 	keypair, err := sig.GenerateKey()
 	if err != nil {
 		fmt.Println("GenerateKey failed", err)
@@ -41,7 +41,7 @@ func main() {
 		fmt.Println("SerializePublicKey failed", err)
 		return
 	}
-	fmt.Println("Perf starting 5")
+
 	if len(os.Args) < 2 {
 		fmt.Println("enter count")
 		return

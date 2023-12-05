@@ -43,7 +43,7 @@ import (
 	"github.com/DogeProtocol/dp/rlp"
 )
 
-const SizeLimit = 3000 // maximum encoded size of a node record in bytes //todo: signature
+const SizeLimit = 55000 // maximum encoded size of a node record in bytes //todo: signature
 
 var (
 	ErrInvalidSig     = errors.New("invalid signature on node record")

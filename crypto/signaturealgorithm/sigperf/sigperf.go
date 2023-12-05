@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"github.com/DogeProtocol/dp/crypto/falcon"
-	"github.com/DogeProtocol/dp/crypto/hybrid"
-	"github.com/DogeProtocol/dp/crypto/oqs"
+	"github.com/DogeProtocol/dp/crypto/hybrideds"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"os"
 	"runtime/pprof"
@@ -15,11 +13,8 @@ import (
 )
 
 func main() {
-	sig1 := hybrid.CreateHybridSig(false)
-	sig2 := oqs.InitDilithium()
-	sig3 := falcon.CreateFalconSig()
-	sig4 := oqs.InitFalcon()
-	sig5 := hybrid.CreateHybridSig(true)
+	sig1 := hybrideds.CreateHybridedsSig(true)
+	sig2 := hybrideds.CreateHybridedsSig(false)
 
 	if len(os.Args) > 2 {
 		var wg sync.WaitGroup
@@ -27,42 +22,21 @@ func main() {
 		fmt.Println("Multi routine test start")
 		for i := 0; i <= 32; i++ {
 			wg.Add(1)
-			go SigPerf("hybrid", sig1, &wg)
+			go SigPerf("hybrideds native", sig1, &wg)
 		}
 		wg.Wait()
 
 		for i := 0; i <= 32; i++ {
 			wg.Add(1)
-			go SigPerf("dilithiumoqs", sig2, &wg)
-		}
-		wg.Wait()
-
-		for i := 0; i <= 32; i++ {
-			wg.Add(1)
-			go SigPerf("falcon", sig3, &wg)
-		}
-		wg.Wait()
-
-		for i := 0; i <= 32; i++ {
-			wg.Add(1)
-			go SigPerf("falconoqs", sig4, &wg)
-		}
-		wg.Wait()
-
-		for i := 0; i <= 32; i++ {
-			wg.Add(1)
-			go SigPerf("hybrid native", sig5, &wg)
+			go SigPerf("hybrideds default", sig2, &wg)
 		}
 		wg.Wait()
 	}
 
 	fmt.Println("Multi routine test done")
 
-	SigPerf("hybrid", sig1, nil)
-	SigPerf("dilithiumoqs", sig2, nil)
-	SigPerf("falcon", sig3, nil)
-	SigPerf("falconoqs", sig4, nil)
-	SigPerf("hybrid native", sig5, nil)
+	SigPerf("hybrideds", sig1, nil)
+	SigPerf("hybrideds", sig2, nil)
 }
 
 func SigPerf(name string, sig signaturealgorithm.SignatureAlgorithm, wg *sync.WaitGroup) {

@@ -1,59 +1,77 @@
-package falcon
+package hybrideds
 
 import (
 	"bufio"
 	"bytes"
+	"crypto/ed25519"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"golang.org/x/crypto/sha3"
 	"io"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"os"
 )
 
-type FalconSig struct {
+const CRYPTO_ED25519_PUBLICKEY_BYTES = 32
+const CRYPTO_ED25519_SIGNATURE_BYTES = 64
+
+const CRYPTO_DILITHIUM_PUBLICKEY_BYTES = 1312
+const CRYPTO_DILITHIUM_SIGNATURE_BYTES = 2420
+
+const CRYPTO_SPHINCS_PUBLICKEY_BYTES = 64
+const NONCE_SIZE = 40
+
+const CRYPTO_HYBRID_NONCE_LENGTH = 40
+const CRYPTO_HYBRID_SIGNATURE_BYTES = 2 + 64 + 2420 + 40 //+MESSAGE_LEN
+const SIGNATURE_ID = 1
+
+type HybridedsSig struct {
 	sigName                      string
+	publicKeyBytesIndexStart     int
 	publicKeyLength              int
 	privateKeyLength             int
 	signatureLength              int
 	signatureWithPublicKeyLength int
+	NativeGolangVerify           bool
 }
 
-func CreateFalconSig() FalconSig {
-	return FalconSig{sigName: SIG_NAME,
+func CreateHybridedsSig(mativeGolangVerify bool) HybridedsSig {
+	return HybridedsSig{sigName: SIG_NAME,
+		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
 		privateKeyLength:             CRYPTO_SECRETKEY_BYTES,
-		signatureLength:              CRYPTO_SIGNATURE_BYTES_WITH_LENGTH,
-		signatureWithPublicKeyLength: CRYPTO_PUBLICKEY_BYTES + CRYPTO_SIGNATURE_BYTES_WITH_LENGTH + common.LengthByteSize + common.LengthByteSize,
+		signatureLength:              CRYPTO_SIGNATURE_BYTES,
+		signatureWithPublicKeyLength: CRYPTO_PUBLICKEY_BYTES + CRYPTO_SIGNATURE_BYTES + common.LengthByteSize + common.LengthByteSize,
+		NativeGolangVerify:           mativeGolangVerify,
 	}
 }
 
-func (s FalconSig) SignatureName() string {
+func (s HybridedsSig) SignatureName() string {
 	return s.sigName
 }
 
-func (s FalconSig) PublicKeyLength() int {
+func (s HybridedsSig) PublicKeyLength() int {
 	return s.publicKeyLength
 }
 
-func (s FalconSig) PrivateKeyLength() int {
+func (s HybridedsSig) PrivateKeyLength() int {
 	return s.privateKeyLength
 }
 
-func (s FalconSig) SignatureLength() int {
+func (s HybridedsSig) SignatureLength() int {
 	return s.signatureLength
 }
 
-func (s FalconSig) SignatureWithPublicKeyLength() int {
+func (s HybridedsSig) SignatureWithPublicKeyLength() int {
 	return s.signatureWithPublicKeyLength
 }
 
-func (s FalconSig) GenerateKey() (*signaturealgorithm.PrivateKey, error) {
+func (s HybridedsSig) GenerateKey() (*signaturealgorithm.PrivateKey, error) {
 	pubKey, priKey, err := GenerateKey()
 	if err != nil {
 		return nil, err
@@ -73,28 +91,20 @@ func (s FalconSig) GenerateKey() (*signaturealgorithm.PrivateKey, error) {
 	return privy, nil
 }
 
-func (s FalconSig) SerializePrivateKey(priv *signaturealgorithm.PrivateKey) ([]byte, error) {
+func (s HybridedsSig) SerializePrivateKey(priv *signaturealgorithm.PrivateKey) ([]byte, error) {
 	priBytes, err := s.exportPrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}
 
-	pubBytes, err := s.SerializePublicKey(&priv.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return common.CombineTwoParts(priBytes, pubBytes), nil
+	return priBytes, err
 }
 
-func (s FalconSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.PrivateKey, error) {
-	privKeyBytes, pubKeyBytes, err := common.ExtractTwoParts(priv)
+func (s HybridedsSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.PrivateKey, error) {
+
+	privKeyBytes, pubKeyBytes, err := PrivateAndPublicFromPrivateKey(priv)
 	if err != nil {
 		return nil, err
-	}
-
-	if s.doesPrivateMatchPublic(privKeyBytes, pubKeyBytes) == false {
-		return nil, errors.New("publicKey does not match privateKey")
 	}
 
 	privKey, err := s.convertBytesToPrivate(privKeyBytes)
@@ -112,35 +122,16 @@ func (s FalconSig) DeserializePrivateKey(priv []byte) (*signaturealgorithm.Priva
 	return privKey, err
 }
 
-func (s FalconSig) doesPrivateMatchPublic(privKeyBytes []byte, pubKeyBytes []byte) bool {
-	tempPrivBytes := make([]byte, len(privKeyBytes))
-	copy(tempPrivBytes, privKeyBytes)
-
-	digestHash := make([]byte, 32)
-	rand.Read(digestHash)
-	signature, err := Sign(tempPrivBytes, digestHash)
-	if err != nil {
-		return false
-	}
-
-	err = Verify(digestHash, signature, pubKeyBytes)
-	if err == nil {
-		return true
-	} else {
-		return false
-	}
-}
-
-func (s FalconSig) SerializePublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
+func (s HybridedsSig) SerializePublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
 	return s.exportPublicKey(pub)
 }
 
-func (s FalconSig) DeserializePublicKey(pub []byte) (*signaturealgorithm.PublicKey, error) {
+func (s HybridedsSig) DeserializePublicKey(pub []byte) (*signaturealgorithm.PublicKey, error) {
 	pubKey, error := s.convertBytesToPublic(pub)
 	return pubKey, error
 }
 
-func (s FalconSig) HexToPrivateKey(hexkey string) (*signaturealgorithm.PrivateKey, error) {
+func (s HybridedsSig) HexToPrivateKey(hexkey string) (*signaturealgorithm.PrivateKey, error) {
 	b, err := hex.DecodeString(hexkey)
 	if err != nil {
 		return nil, err
@@ -154,7 +145,7 @@ func (s FalconSig) HexToPrivateKey(hexkey string) (*signaturealgorithm.PrivateKe
 	return s.DeserializePrivateKey(b)
 }
 
-func (s FalconSig) HexToPrivateKeyNoError(hexkey string) *signaturealgorithm.PrivateKey {
+func (s HybridedsSig) HexToPrivateKeyNoError(hexkey string) *signaturealgorithm.PrivateKey {
 	p, err := s.HexToPrivateKey(hexkey)
 	if err != nil {
 		panic("HexToPrivateKey")
@@ -162,7 +153,7 @@ func (s FalconSig) HexToPrivateKeyNoError(hexkey string) *signaturealgorithm.Pri
 	return p
 }
 
-func (s FalconSig) PrivateKeyToHex(priv *signaturealgorithm.PrivateKey) (string, error) {
+func (s HybridedsSig) PrivateKeyToHex(priv *signaturealgorithm.PrivateKey) (string, error) {
 	data, err := s.SerializePrivateKey(priv)
 	if err != nil {
 		return "", err
@@ -171,7 +162,7 @@ func (s FalconSig) PrivateKeyToHex(priv *signaturealgorithm.PrivateKey) (string,
 	return k, nil
 }
 
-func (s FalconSig) PublicKeyToHex(pub *signaturealgorithm.PublicKey) (string, error) {
+func (s HybridedsSig) PublicKeyToHex(pub *signaturealgorithm.PublicKey) (string, error) {
 	data, err := s.SerializePublicKey(pub)
 	if err != nil {
 		return "", err
@@ -180,7 +171,7 @@ func (s FalconSig) PublicKeyToHex(pub *signaturealgorithm.PublicKey) (string, er
 	return k, nil
 }
 
-func (s FalconSig) HexToPublicKey(hexkey string) (*signaturealgorithm.PublicKey, error) {
+func (s HybridedsSig) HexToPublicKey(hexkey string) (*signaturealgorithm.PublicKey, error) {
 	b, err := hex.DecodeString(hexkey)
 	if err != nil {
 		return nil, err
@@ -194,7 +185,7 @@ func (s FalconSig) HexToPublicKey(hexkey string) (*signaturealgorithm.PublicKey,
 	return s.DeserializePublicKey(b)
 }
 
-func (s FalconSig) LoadPrivateKeyFromFile(file string) (*signaturealgorithm.PrivateKey, error) {
+func (s HybridedsSig) LoadPrivateKeyFromFile(file string) (*signaturealgorithm.PrivateKey, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -202,7 +193,7 @@ func (s FalconSig) LoadPrivateKeyFromFile(file string) (*signaturealgorithm.Priv
 	defer fd.Close()
 
 	r := bufio.NewReader(fd)
-	buf := make([]byte, (s.privateKeyLength+s.publicKeyLength+common.LengthByteSize+common.LengthByteSize)*2)
+	buf := make([]byte, (s.privateKeyLength)*2)
 	n, err := readASCII(buf, r)
 	if err != nil {
 		return nil, err
@@ -215,7 +206,7 @@ func (s FalconSig) LoadPrivateKeyFromFile(file string) (*signaturealgorithm.Priv
 	return s.HexToPrivateKey(string(buf))
 }
 
-func (s FalconSig) SavePrivateKeyToFile(file string, key *signaturealgorithm.PrivateKey) error {
+func (s HybridedsSig) SavePrivateKeyToFile(file string, key *signaturealgorithm.PrivateKey) error {
 	k, err := s.PrivateKeyToHex(key)
 	if err != nil {
 		return err
@@ -223,7 +214,7 @@ func (s FalconSig) SavePrivateKeyToFile(file string, key *signaturealgorithm.Pri
 	return ioutil.WriteFile(file, []byte(k), 0600)
 }
 
-func (s FalconSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.Address, error) {
+func (s HybridedsSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.Address, error) {
 	pubBytes, err := s.SerializePublicKey(p)
 	tempAddr := common.Address{}
 	if err != nil {
@@ -232,15 +223,15 @@ func (s FalconSig) PublicKeyToAddress(p *signaturealgorithm.PublicKey) (common.A
 	return crypto.PublicKeyBytesToAddress(pubBytes), nil
 }
 
-func (s FalconSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {
+func (s HybridedsSig) PublicKeyToAddressNoError(p *signaturealgorithm.PublicKey) common.Address {
 	addr, err := s.PublicKeyToAddress(p)
 	if err != nil {
-		panic("PublicKeyBytesToAddress failed")
+		panic("PublicKeyToAddress failed")
 	}
 	return addr
 }
 
-func (s FalconSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (sig []byte, err error) {
+func (s HybridedsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (sig []byte, err error) {
 	seckey, err := s.exportPrivateKey(prv)
 	if err != nil {
 		return nil, err
@@ -265,10 +256,13 @@ func (s FalconSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (
 	return combinedSignature, nil
 }
 
-func (s FalconSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
+func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
+	if s.NativeGolangVerify {
+		return s.VerifyNative(pubKey, digestHash, signature)
+	}
+
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {
-
 		return false
 	}
 
@@ -277,14 +271,91 @@ func (s FalconSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bo
 	}
 
 	err = Verify(digestHash, sigBytes, pubKey)
-	if err == nil {
-		return true
-	} else {
+	if err != nil {
 		return false
 	}
+
+	//Important! Verify the original message
+	for i := 0; i < len(digestHash); i++ {
+		if sigBytes[2+CRYPTO_ED25519_SIGNATURE_BYTES+CRYPTO_DILITHIUM_SIGNATURE_BYTES+NONCE_SIZE+i] != digestHash[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
-func (s FalconSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error) {
+// Verify with GoLang's native ED25519 implementation, while using hybrid-pqc for Falcon verification
+func (s HybridedsSig) VerifyNative(pubKey []byte, digestHash []byte, signature []byte) bool {
+	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
+	if err != nil {
+		return false
+	}
+
+	if !bytes.Equal(pubKey, pubKeyBytes) {
+		return false
+	}
+
+	msgLen := len(digestHash)
+	if msgLen <= 0 || msgLen > 255 {
+		return false
+	}
+
+	if len(sigBytes) != CRYPTO_HYBRID_SIGNATURE_BYTES+msgLen {
+		return false
+	}
+
+	if sigBytes[0] != SIGNATURE_ID {
+		return false
+	}
+
+	if int(sigBytes[1]) != msgLen {
+		return false
+	}
+
+	//Form the hybrid signature
+	var hybridMsg [40 + 64 + 64]byte
+
+	//Copy the nonce
+	for i := 0; i < NONCE_SIZE; i++ {
+		hybridMsg[i] = sigBytes[2+CRYPTO_ED25519_SIGNATURE_BYTES+CRYPTO_DILITHIUM_SIGNATURE_BYTES+i]
+	}
+
+	//Copy the original message
+	for i := 0; i < msgLen; i++ {
+		//This is an important check
+		if sigBytes[2+CRYPTO_ED25519_SIGNATURE_BYTES+CRYPTO_DILITHIUM_SIGNATURE_BYTES+NONCE_SIZE+i] != digestHash[i] {
+			return false
+		}
+		hybridMsg[NONCE_SIZE+i] = digestHash[i]
+	}
+	//Copy the SPHINCS public key
+	for i := 0; i < CRYPTO_SPHINCS_PUBLICKEY_BYTES; i++ {
+		hybridMsg[NONCE_SIZE+msgLen+i] = pubKey[CRYPTO_ED25519_PUBLICKEY_BYTES+CRYPTO_DILITHIUM_PUBLICKEY_BYTES+i]
+	}
+
+	//Hash the hybrid message
+	hasher := sha3.New512()
+	hasher.Write(hybridMsg[:NONCE_SIZE+msgLen+CRYPTO_SPHINCS_PUBLICKEY_BYTES])
+	hybridDigest := hasher.Sum(nil)
+
+	ed25519Signature := sigBytes[2 : 2+CRYPTO_ED25519_SIGNATURE_BYTES]
+	ed25519PubKey := pubKey[:CRYPTO_ED25519_PUBLICKEY_BYTES]
+
+	ok := ed25519.Verify(ed25519PubKey, hybridDigest, ed25519Signature)
+	if ok == false {
+		return false
+	}
+
+	err = VerifyDilithium(hybridDigest, sigBytes[2+CRYPTO_ED25519_SIGNATURE_BYTES:2+CRYPTO_ED25519_SIGNATURE_BYTES+CRYPTO_DILITHIUM_SIGNATURE_BYTES], pubKey[CRYPTO_ED25519_PUBLICKEY_BYTES:CRYPTO_ED25519_PUBLICKEY_BYTES+CRYPTO_DILITHIUM_PUBLICKEY_BYTES])
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (s HybridedsSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error) {
 	signature, pubKey, err = common.ExtractTwoParts(sig)
 	if err != nil {
 		return nil, nil, err
@@ -299,7 +370,7 @@ func (s FalconSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte,
 	return signature, pubKey, nil
 }
 
-func (s FalconSig) CombinePublicKeySignature(sigBytes []byte, pubKeyBytes []byte) (combinedSignature []byte, err error) {
+func (s HybridedsSig) CombinePublicKeySignature(sigBytes []byte, pubKeyBytes []byte) (combinedSignature []byte, err error) {
 	if len(sigBytes) < s.signatureLength {
 		return nil, errors.New("invalid signature length")
 	}
@@ -311,7 +382,7 @@ func (s FalconSig) CombinePublicKeySignature(sigBytes []byte, pubKeyBytes []byte
 	return common.CombineTwoParts(sigBytes, pubKeyBytes), nil
 }
 
-func (s FalconSig) PublicKeyBytesFromSignature(digestHash []byte, sig []byte) ([]byte, error) {
+func (s HybridedsSig) PublicKeyBytesFromSignature(digestHash []byte, sig []byte) ([]byte, error) {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(sig)
 	if err != nil {
 		return nil, err
@@ -325,7 +396,7 @@ func (s FalconSig) PublicKeyBytesFromSignature(digestHash []byte, sig []byte) ([
 	return pubKeyBytes, nil
 }
 
-func (s FalconSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signaturealgorithm.PublicKey, error) {
+func (s HybridedsSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signaturealgorithm.PublicKey, error) {
 	b, err := s.PublicKeyBytesFromSignature(digestHash, sig)
 	if err != nil {
 		return nil, err
@@ -335,7 +406,7 @@ func (s FalconSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signa
 
 // ValidateSignatureValues verifies whether the signature values are valid with
 // the given chain rules. The v value is assumed to be either 0 or 1.
-func (osig FalconSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool {
+func (osig HybridedsSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool {
 	if v == 0 || v == 1 {
 		pubKey, signature := r.Bytes(), s.Bytes()
 
@@ -357,43 +428,28 @@ func (osig FalconSig) ValidateSignatureValues(digestHash []byte, v byte, r, s *b
 	return false
 }
 
-func (s FalconSig) PublicKeyStartValue() byte {
+func (s HybridedsSig) PublicKeyStartValue() byte {
 	return 0x00 + 9
 }
 
-func (s FalconSig) SignatureStartValue() byte {
+func (s HybridedsSig) SignatureStartValue() byte {
 	return 0x30 + 9
 }
 
-func (s FalconSig) Zeroize(prv *signaturealgorithm.PrivateKey) {
+func (s HybridedsSig) Zeroize(prv *signaturealgorithm.PrivateKey) {
 	b := prv.PriData
 	for i := range b {
 		b[i] = 0
 	}
 }
 
-/*
-func (s FalconSig) PrivateKeyAsBigInt(prv *signaturealgorithm.PrivateKey) *big.Int {
-	privKeyBytes, err := s.SerializePrivateKey(prv)
-	if err != nil {
-		panic(err) //todo: no panic
-	}
-
-	return new(big.Int).SetBytes(privKeyBytes)
-}
-
-func (s FalconSig) PublicKeyAsBigInt(pub *signaturealgorithm.PublicKey) *big.Int {
-	return pub.N
-}
-*/
-
-func (s FalconSig) EncodePublicKey(pubKey *signaturealgorithm.PublicKey) []byte {
+func (s HybridedsSig) EncodePublicKey(pubKey *signaturealgorithm.PublicKey) []byte {
 	encoded := make([]byte, s.publicKeyLength)
 	copy(encoded, pubKey.PubData)
 	return encoded
 }
 
-func (s FalconSig) DecodePublicKey(encoded []byte) (*signaturealgorithm.PublicKey, error) {
+func (s HybridedsSig) DecodePublicKey(encoded []byte) (*signaturealgorithm.PublicKey, error) {
 	if len(encoded) != s.publicKeyLength {
 		return nil, errors.New("wrong size public key data")
 	}
@@ -436,7 +492,7 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 }
 
 // convertBytesToPrivate exports the corresponding secret key from the sig receiver.
-func (s FalconSig) convertBytesToPrivate(privy []byte) (*signaturealgorithm.PrivateKey, error) {
+func (s HybridedsSig) convertBytesToPrivate(privy []byte) (*signaturealgorithm.PrivateKey, error) {
 	if len(privy) != s.privateKeyLength {
 		return nil, ErrInvalidPrivateKeyLen
 	}
@@ -448,7 +504,7 @@ func (s FalconSig) convertBytesToPrivate(privy []byte) (*signaturealgorithm.Priv
 }
 
 // convertBytesToPublic exports the corresponding secret key from the sig receiver.
-func (s FalconSig) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicKey, error) {
+func (s HybridedsSig) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicKey, error) {
 	if len(pub) != s.publicKeyLength {
 		return nil, ErrInvalidPublicKeyLen
 	}
@@ -459,7 +515,7 @@ func (s FalconSig) convertBytesToPublic(pub []byte) (*signaturealgorithm.PublicK
 }
 
 // exportPrivateKey exports a private key into a binary dump.
-func (s FalconSig) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byte, error) {
+func (s HybridedsSig) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byte, error) {
 	if len(privy.PriData) != s.privateKeyLength {
 		return nil, ErrInvalidPrivateKeyLen
 	}
@@ -470,7 +526,7 @@ func (s FalconSig) exportPrivateKey(privy *signaturealgorithm.PrivateKey) ([]byt
 }
 
 // exportPublicKey exports a public key into a binary dump.
-func (s FalconSig) exportPublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
+func (s HybridedsSig) exportPublicKey(pub *signaturealgorithm.PublicKey) ([]byte, error) {
 	if len(pub.PubData) != s.publicKeyLength {
 		return nil, ErrInvalidPublicKeyLen
 	}
