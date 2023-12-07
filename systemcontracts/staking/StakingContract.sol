@@ -35,15 +35,6 @@ library SafeMath {
     }
 }
 
-contract Callee {
-    uint public x;
-
-    function setX(uint _x) public returns (uint) {
-        x = _x;
-        return x + 1;
-    }
-}
-
 interface IStakingContract {
     //Deposit
     function newDeposit(address validatorAddress) external payable;
@@ -52,7 +43,7 @@ interface IStakingContract {
     function changeValidator(address newValidatorAddress) external payable;
 
     //get data
-    function getDepositorCount() external returns (uint256);
+    function getDepositorCount() external view returns (uint256);
     function getTotalDepositedBalance() external view returns (uint256);
     function listValidators() external view returns (address[] memory);
     function getDepositorOfValidator(address validatorAddress) external view returns (address);
@@ -252,12 +243,8 @@ contract StakingContract is IStakingContract {
         emit OnCompleteWithdrawal(depositorAddress);
     }
 
-    function getDepositorCount() override external returns (uint256) {
-        address addr1 = 0x0000000000000000000000000000000000000000000000000000000000002000;
-        Callee callee = Callee(addr1);
-        uint256 count = callee.setX(_depositorCount);
-
-        return count;
+    function getDepositorCount() override external view returns (uint256) {
+        return _depositorCount;
     }
 
     function getTotalDepositedBalance() override external view returns (uint256) {

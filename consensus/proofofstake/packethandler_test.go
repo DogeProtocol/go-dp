@@ -10,6 +10,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
+	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
 	"math/rand"
@@ -290,7 +291,7 @@ func NewValidatorManager(numKeys int) *ValidatorManager {
 		valAddress, _ := cryptobase.SigAlg.PublicKeyToAddress(&valKey.PublicKey)
 		valManager.valMap[valAddress] = &ValidatorDetails{
 			key:     valKey,
-			balance: big.NewInt(1000000),
+			balance: params.EtherToWei(big.NewInt(500000000)),
 		}
 	}
 
@@ -1561,7 +1562,7 @@ func TestPacketHandler_packet_loss_txns_some_unresponsive_extended(t *testing.T)
 }
 
 func testFilterValidatorsTest(t *testing.T, parentHash common.Hash, validatorsDepositMap map[common.Address]*big.Int, shouldPass bool) *big.Int {
-	resultMap, filteredDepositValue, minDepoitValue, err := filterValidators(parentHash, &validatorsDepositMap)
+	resultMap, filteredDepositValue, _, err := filterValidators(parentHash, &validatorsDepositMap)
 	if err == nil {
 		if shouldPass == false {
 			t.Fatalf("failed")
@@ -1574,7 +1575,7 @@ func testFilterValidatorsTest(t *testing.T, parentHash common.Hash, validatorsDe
 		return nil
 	}
 
-	if MIN_BLOCK_DEPOSIT.Cmp(minDepoitValue) > 0 {
+	if MIN_BLOCK_DEPOSIT.Cmp(filteredDepositValue) > 0 {
 		t.Fatalf("failed")
 	}
 
@@ -1656,33 +1657,37 @@ func TestFilterValidators_positive(t *testing.T) {
 	val2 := common.BytesToAddress([]byte{2})
 	val3 := common.BytesToAddress([]byte{3})
 
-	validatorsDepositMap[val1] = big.NewInt(1000000)
-	validatorsDepositMap[val2] = big.NewInt(2000000)
-	validatorsDepositMap[val3] = big.NewInt(3000000)
+	validatorsDepositMap[val1] = params.EtherToWei(big.NewInt(100000000))
+	validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(200000000))
+	validatorsDepositMap[val3] = params.EtherToWei(big.NewInt(400000000))
+	fmt.Println("Test1")
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
 
 	b := byte(0)
 	for i := 0; i < MAX_VALIDATORS/2; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = big.NewInt(1000000)
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(10000000))
 		b = b + 1
 	}
+	fmt.Println("Test2")
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
 
 	b = byte(0)
 	for i := 0; i < MAX_VALIDATORS; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = big.NewInt(1000000)
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
 		b = b + 1
 	}
+	fmt.Println("Test3")
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
 
 	b = byte(0)
 	for i := 0; i < MAX_VALIDATORS+1; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = big.NewInt(1000000)
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
 		b = b + 1
 	}
+	fmt.Println("Test4")
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
 }
 
@@ -1693,7 +1698,7 @@ func TestFilterValidators_positive_Extended(t *testing.T) {
 	b := byte(0)
 	for i := 0; i < MAX_VALIDATORS+1; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = big.NewInt(1000000)
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
 		b = b + 1
 	}
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
@@ -1706,32 +1711,33 @@ func TestFilterValidators_positive_Tough(t *testing.T) {
 		b := byte(0)
 		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
-			validatorsDepositMap[val] = big.NewInt(1000)
+			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(1000000))
 			b = b + 1
 		}
 
 		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
-			validatorsDepositMap[val] = common.SafeMulBigInt(big.NewInt(100000), big.NewInt(int64(i)))
+			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(20000000))
 			b = b + 1
 		}
 
 		parentHash1 := common.BytesToHash([]byte{100})
 		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(1554700000)) != 0 {
-			t.Fatalf("failed")
+		expected := params.EtherToWei(big.NewInt(2560000000))
+		if totalDeposit.Cmp(expected) != 0 {
+			t.Fatalf("failed a")
 		}
 
 		parentHash2 := common.BytesToHash([]byte{200})
 		totalDeposit = testFilterValidatorsTest(t, parentHash2, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(1603200000)) != 0 {
-			t.Fatalf("failed")
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2560000000))) != 0 {
+			t.Fatalf("failed b")
 		}
 
 		parentHash3 := common.BytesToHash([]byte{255})
 		totalDeposit = testFilterValidatorsTest(t, parentHash3, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(1627300000)) != 0 {
-			t.Fatalf("failed")
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2560000000))) != 0 {
+			t.Fatalf("failed c")
 		}
 	}
 }
@@ -1741,20 +1747,20 @@ func TestFilterValidators_positive_low_balance(t *testing.T) {
 		validatorsDepositMap := make(map[common.Address]*big.Int)
 
 		val1 := common.BytesToAddress([]byte{1})
-		validatorsDepositMap[val1] = big.NewInt(1000)
+		validatorsDepositMap[val1] = params.EtherToWei(big.NewInt(1000))
 
 		val2 := common.BytesToAddress([]byte{2})
-		validatorsDepositMap[val2] = big.NewInt(100000)
+		validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(900000000))
 
 		val3 := common.BytesToAddress([]byte{3})
-		validatorsDepositMap[val3] = big.NewInt(200000)
+		validatorsDepositMap[val3] = params.EtherToWei(big.NewInt(10000000))
 
 		val4 := common.BytesToAddress([]byte{4})
-		validatorsDepositMap[val4] = big.NewInt(10000000)
+		validatorsDepositMap[val4] = params.EtherToWei(big.NewInt(5000000))
 
 		parentHash1 := common.BytesToHash([]byte{100})
 		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
-		if totalDeposit.Cmp(big.NewInt(10300000)) != 0 {
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(915000000))) != 0 {
 			t.Fatalf("failed")
 		}
 	}

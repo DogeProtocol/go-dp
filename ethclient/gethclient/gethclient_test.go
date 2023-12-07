@@ -261,7 +261,11 @@ func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 	// Create transaction
 	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
+	txhash, err := signer.Hash(tx)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+	signature, err := cryptobase.SigAlg.Sign(txhash.Bytes(), testKey)
 	if err != nil {
 		t.Fatal(err)
 	}

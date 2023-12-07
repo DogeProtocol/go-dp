@@ -43,8 +43,9 @@ type TransactionArgs struct {
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	// "input" is the newer name and should be preferred by clients.
 	// Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
-	Data  *hexutil.Bytes `json:"data"`
-	Input *hexutil.Bytes `json:"input"`
+	Data    *hexutil.Bytes `json:"data"`
+	Input   *hexutil.Bytes `json:"input"`
+	Context *hexutil.Bytes `json:"context"`
 
 	// Introduced by AccessListTxType transaction.
 	AccessList *types.AccessList `json:"accessList,omitempty"`
@@ -66,6 +67,13 @@ func (arg *TransactionArgs) data() []byte {
 	}
 	if arg.Data != nil {
 		return *arg.Data
+	}
+	return nil
+}
+
+func (arg *TransactionArgs) context() []byte {
+	if arg.Context != nil {
+		return *arg.Context
 	}
 	return nil
 }
@@ -175,6 +183,7 @@ func (args *TransactionArgs) toTransaction() *types.Transaction {
 			MaxGasTier: types.GAS_TIER_DEFAULT,
 			Value:      (*big.Int)(args.Value),
 			Data:       args.data(),
+			Context:    args.context(),
 			AccessList: *args.AccessList,
 		}
 	default:
