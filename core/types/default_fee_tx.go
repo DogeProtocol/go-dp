@@ -6,12 +6,15 @@ import (
 )
 
 const DEFAULT_CHAIN_ID int64 = 123123
+const MAX_CONTEXT_LENGTH = 64
 
 type GasTier uint64
 
 const (
 	GAS_TIER_DEFAULT GasTier = 1
 	GAS_TIER_2X      GasTier = 2
+	GAS_TIER_5X      GasTier = 5
+	GAS_TIER_10X     GasTier = 10
 )
 
 type AccessList []AccessTuple
@@ -31,8 +34,10 @@ func (al AccessList) StorageKeys() int {
 	return sum
 }
 
-var GAS_TIER_DEFAULT_PRICE = big.NewInt(10)
-var GAS_TIER_2x_PRICE = big.NewInt(20)
+var GAS_TIER_DEFAULT_PRICE = big.NewInt(47619047619047600) // 1000 DP / 21000 in wei (1000/21000 = 0.0476190476190476)
+var GAS_TIER_2x_PRICE = common.SafeMulBigInt(GAS_TIER_DEFAULT_PRICE, big.NewInt(2))
+var GAS_TIER_5x_PRICE = common.SafeMulBigInt(GAS_TIER_DEFAULT_PRICE, big.NewInt(5))
+var GAS_TIER_10x_PRICE = common.SafeMulBigInt(GAS_TIER_DEFAULT_PRICE, big.NewInt(10))
 
 type DefaultFeeTx struct {
 	ChainID    *big.Int
@@ -42,6 +47,7 @@ type DefaultFeeTx struct {
 	To         *common.Address `rlp:"nil"` // nil means contract creation
 	Value      *big.Int
 	Data       []byte
+	Context    []byte
 	AccessList AccessList
 
 	// Signature values
@@ -65,6 +71,7 @@ func (tx *DefaultFeeTx) copy() TxData {
 		V:          new(big.Int),
 		R:          new(big.Int),
 		S:          new(big.Int),
+		Context:    common.CopyBytes(tx.Context),
 	}
 	copy(cpy.AccessList, tx.AccessList)
 	if tx.Value != nil {
@@ -98,18 +105,27 @@ func (tx *DefaultFeeTx) gasPrice() *big.Int {
 		return GAS_TIER_DEFAULT_PRICE
 	} else if tx.MaxGasTier == GAS_TIER_2X {
 		return GAS_TIER_2x_PRICE
+	} else if tx.MaxGasTier == GAS_TIER_5X {
+		return GAS_TIER_5x_PRICE
+	} else if tx.MaxGasTier == GAS_TIER_10X {
+		return GAS_TIER_10x_PRICE
 	}
+
 	return GAS_TIER_DEFAULT_PRICE
 }
 func (tx *DefaultFeeTx) maxGasTier() GasTier { return tx.MaxGasTier }
 func (tx *DefaultFeeTx) value() *big.Int     { return tx.Value }
 func (tx *DefaultFeeTx) nonce() uint64       { return tx.Nonce }
 func (tx *DefaultFeeTx) to() *common.Address { return tx.To }
+func (tx *DefaultFeeTx) verifyFields() bool  { return len(tx.Context) <= MAX_CONTEXT_LENGTH }
 
 func (tx *DefaultFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
 }
 
+func (tx *DefaultFeeTx) context() []byte {
+	return tx.Context
+}
 func (tx *DefaultFeeTx) setSignatureValues(chainID, v, r, s *big.Int) {
 	tx.ChainID, tx.V, tx.R, tx.S = chainID, v, r, s
 }

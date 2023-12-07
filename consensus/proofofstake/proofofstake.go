@@ -48,7 +48,6 @@ import (
 )
 
 const (
-	checkpointInterval = 1024                   // Number of blocks after which to save the vote snapshot to the database
 	inmemorySnapshots  = 128                    // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096                   // Number of recent block signatures to keep in memory
 	wiggleTime         = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
@@ -71,8 +70,8 @@ var (
 	diffInTurn = big.NewInt(2) // Block difficulty for in-turn signatures
 	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
 
-	slashAmount               = big.NewInt(1000)
-	blockProposerRewardAmount = big.NewInt(5000)
+	slashAmount               = params.EtherToWei(big.NewInt(1000))
+	blockProposerRewardAmount = params.EtherToWei(big.NewInt(5000))
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -647,7 +646,10 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		txs = make([]*types.Transaction, 0)
 	} else {
 		for _, tx := range txs {
-			signerHash := c.signer.Hash(tx)
+			signerHash, err := c.signer.Hash(tx)
+			if err != nil {
+				return err
+			}
 			if !tx.Verify(signerHash.Bytes()) {
 				fmt.Println("Txn Verify failed", tx.Hash())
 				return errors.New("Transaction verify failed")

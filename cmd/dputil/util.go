@@ -227,10 +227,6 @@ func send(from string, to string, quantity string) (string, error) {
 		return "", err
 	}
 	gasLimit := uint64(21000)
-	//gasPrice, err := client.SuggestGasPrice(context.Background())
-	//if err != nil {
-	//	return "", err
-	//}
 
 	v, err := ParseBigFloat(quantity)
 	if err != nil {

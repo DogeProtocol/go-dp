@@ -35,7 +35,9 @@ import (
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 
-var defaultSigner londonSigner
+var defaultSigner = londonSigner{
+	chainId: big.NewInt(DEFAULT_CHAIN_ID),
+}
 var (
 	baseTx = NewTransaction(
 		3,
@@ -48,7 +50,8 @@ var (
 
 	privtestkey, _ = cryptobase.SigAlg.GenerateKey()
 	hextestkey, _  = cryptobase.SigAlg.PrivateKeyToHex(privtestkey)
-	sigtest, _     = cryptobase.SigAlg.Sign(defaultSigner.Hash(baseTx).Bytes(), privtestkey)
+	hash1, _       = defaultSigner.Hash(baseTx)
+	sigtest, _     = cryptobase.SigAlg.Sign(hash1.Bytes(), privtestkey)
 	hexsigtest     = hex.EncodeToString(sigtest)
 	parentHash     = common.HexToHash("0xabcdbaea6a6c7c4c2dfeb977efac326af552d87")
 
@@ -76,8 +79,10 @@ var (
 		Data:       common.FromHex("5544"),
 	})
 
-	eipSigner   = NewLondonSignerDefaultChain()
-	sigtest2, _ = cryptobase.SigAlg.Sign(eipSigner.Hash(emptyEip2718Tx).Bytes(), privtestkey)
+	eipSigner  = NewLondonSignerDefaultChain()
+	hash2, err = eipSigner.Hash(emptyEip2718Tx)
+
+	sigtest2, _ = cryptobase.SigAlg.Sign(hash2.Bytes(), privtestkey)
 	hexsigtest2 = hex.EncodeToString(sigtest2)
 
 	signedEip2718Tx, _ = emptyEip2718Tx.WithSignature(
@@ -97,10 +102,18 @@ func TestDecodeEmptyTypedTx(t *testing.T) {
 
 func TestTransactionSigHash(t *testing.T) {
 	homestead := NewLondonSignerDefaultChain()
-	if homestead.Hash(emptyTx) != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
+	hash, err := homestead.Hash(emptyTx)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+	if hash != common.HexToHash("c775b99e7ad12f50d819fcd602390467e28141316969f4b57f0626f74fe3b386") {
 		t.Errorf("empty transaction hash mismatch, got %x", emptyTx.Hash())
 	}
-	if homestead.Hash(rightvrsTx) != common.HexToHash("fe7a79529ed5f7c3375d06b26b186a8644e0e16c373d7a12be41c62d6042b77a") {
+	hash, err = homestead.Hash(rightvrsTx)
+	if err != nil {
+		t.Fatalf("failed")
+	}
+	if hash != common.HexToHash("fe7a79529ed5f7c3375d06b26b186a8644e0e16c373d7a12be41c62d6042b77a") {
 		t.Errorf("RightVRS transaction hash mismatch, got %x", rightvrsTx.Hash())
 	}
 }

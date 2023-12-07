@@ -1722,9 +1722,16 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs Transact
 		return common.Hash{}, err
 	}
 	for _, p := range pending {
-		wantSigHash := s.signer.Hash(matchTx)
+		wantSigHash, err := s.signer.Hash(matchTx)
+		if err != nil {
+			return common.ZERO_HASH, err
+		}
 		pFrom, err := types.Sender(s.signer, p)
-		if err == nil && pFrom == sendArgs.from() && s.signer.Hash(p) == wantSigHash {
+		gotHash, err := s.signer.Hash(p)
+		if err != nil {
+			return common.ZERO_HASH, err
+		}
+		if err == nil && pFrom == sendArgs.from() && gotHash == wantSigHash {
 			// Match. Re-sign and send the transaction.
 			if gasPrice != nil && (*big.Int)(gasPrice).Sign() != 0 {
 				sendArgs.GasPrice = gasPrice

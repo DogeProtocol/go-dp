@@ -81,6 +81,8 @@ type TxData interface {
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
+	context() []byte
+	verifyFields() bool
 
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
@@ -249,6 +251,10 @@ func (tx *Transaction) Value() *big.Int { return new(big.Int).Set(tx.inner.value
 
 // Nonce returns the sender account nonce of the transaction.
 func (tx *Transaction) Nonce() uint64 { return tx.inner.nonce() }
+
+func (tx *Transaction) Context() []byte { return tx.inner.context() }
+
+func (tx *Transaction) VerifyFields() bool { return tx.inner.verifyFields() }
 
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.
@@ -593,6 +599,7 @@ type Message struct {
 	data       []byte
 	accessList AccessList
 	checkNonce bool
+	context    []byte
 }
 
 func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
@@ -620,6 +627,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		data:       tx.Data(),
 		accessList: tx.AccessList(),
 		checkNonce: true,
+		context:    tx.Context(),
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
@@ -635,3 +643,4 @@ func (m Message) Nonce() uint64          { return m.nonce }
 func (m Message) Data() []byte           { return m.data }
 func (m Message) AccessList() AccessList { return m.accessList }
 func (m Message) CheckNonce() bool       { return m.checkNonce }
+func (m Message) Context() []byte        { return m.context }

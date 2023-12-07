@@ -64,7 +64,10 @@ func LatestSignerForChainID(chainID *big.Int) Signer {
 
 // SignTx signs the transaction using the given signer and private key.
 func SignTx(tx *Transaction, s Signer, prv *signaturealgorithm.PrivateKey) (*Transaction, error) {
-	h := s.Hash(tx)
+	h, err := s.Hash(tx)
+	if err != nil {
+		return nil, err
+	}
 	sig, err := cryptobase.SigAlg.Sign(h[:], prv)
 	if err != nil {
 		return nil, err
@@ -75,7 +78,10 @@ func SignTx(tx *Transaction, s Signer, prv *signaturealgorithm.PrivateKey) (*Tra
 // SignNewTx creates a transaction and signs it.
 func SignNewTx(prv *signaturealgorithm.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
 	tx := NewTx(txdata)
-	h := s.Hash(tx)
+	h, err := s.Hash(tx)
+	if err != nil {
+		return nil, err
+	}
 	sig, err := cryptobase.SigAlg.Sign(h[:], prv)
 	if err != nil {
 		return nil, err
@@ -135,7 +141,7 @@ type Signer interface {
 
 	// Hash returns 'signature hash', i.e. the transaction hash that is signed by the
 	// private key. This hash does not uniquely identify the transaction.
-	Hash(tx *Transaction) common.Hash
+	Hash(tx *Transaction) (common.Hash, error)
 
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
@@ -172,7 +178,11 @@ func (s londonSigner) Sender(tx *Transaction) (common.Address, error) {
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	return recoverPlain(s.Hash(tx), R, S, V)
+	hash, err := s.Hash(tx)
+	if err != nil {
+		return common.ZERO_ADDRESS, err
+	}
+	return recoverPlain(hash, R, S, V)
 }
 
 func (s londonSigner) Equal(s2 Signer) bool {
@@ -188,7 +198,10 @@ func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 		if txdata1.ChainID.Sign() != 0 && txdata1.ChainID.Cmp(s.chainId) != 0 {
 			return nil, nil, nil, ErrInvalidChainId
 		}
-		sigHash := s.Hash(tx)
+		sigHash, err := s.Hash(tx)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		R, S, _, err = decodeSignature(sigHash.Bytes(), sig)
 		if err != nil {
 			return nil, nil, nil, err
@@ -203,7 +216,16 @@ func (s londonSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
-func (s londonSigner) Hash(tx *Transaction) common.Hash {
+func (s londonSigner) Hash(tx *Transaction) (common.Hash, error) {
+	if tx.VerifyFields() == false {
+		return common.ZERO_HASH, errors.New("txn field verify failed")
+	}
+	if s.chainId == nil || tx.ChainId() == nil {
+		return common.ZERO_HASH, errors.New("chain id is nil")
+	}
+	if s.chainId.Cmp(tx.ChainId()) != 0 {
+		return common.ZERO_HASH, errors.New("signing failed, chainId mismatch")
+	}
 	return prefixedRlpHash(
 		tx.Type(),
 		[]interface{}{
@@ -215,7 +237,8 @@ func (s londonSigner) Hash(tx *Transaction) common.Hash {
 			tx.Value(),
 			tx.Data(),
 			tx.AccessList(),
-		})
+			tx.Context(),
+		}), nil
 }
 
 func decodeSignature(digestHash []byte, sig []byte) (r, s, v *big.Int, err error) {

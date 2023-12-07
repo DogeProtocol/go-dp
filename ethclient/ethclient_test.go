@@ -562,7 +562,11 @@ func sendTransaction(ec *Client) error {
 	// Create transaction
 	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, nil, nil)
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := cryptobase.SigAlg.Sign(signer.Hash(tx).Bytes(), testKey)
+	hash, err := signer.Hash(tx)
+	if err != nil {
+		return err
+	}
+	signature, err := cryptobase.SigAlg.Sign(hash.Bytes(), testKey)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
 	"math/rand"
@@ -109,14 +110,13 @@ const (
 )
 
 const (
-	MIN_BLOCK_VOTE_PERCENTAGE int64 = 70
-	MIN_VALIDATORS            int   = 3
-	MAX_VALIDATORS            int   = 128
+	MIN_VALIDATORS int = 3
+	MAX_VALIDATORS int = 128
 )
 
 var (
-	MIN_VALIDATOR_DEPOSIT                               *big.Int       = big.NewInt(100000)
-	MIN_BLOCK_DEPOSIT                                   *big.Int       = big.NewInt(1000000)
+	MIN_VALIDATOR_DEPOSIT                               *big.Int       = params.EtherToWei(big.NewInt(5000000))
+	MIN_BLOCK_DEPOSIT                                   *big.Int       = params.EtherToWei(big.NewInt(640000000))
 	MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE *big.Int       = big.NewInt(70)
 	ZERO_HASH                                           common.Hash    = common.BytesToHash([]byte{0})
 	ZERO_ADDRESS                                        common.Address = common.BytesToAddress([]byte{0})
