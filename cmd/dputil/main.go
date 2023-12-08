@@ -14,7 +14,7 @@ import (
 )
 
 func printHelp() {
-	fmt.Println("Set the environment variable GETH_RAW_URL")
+	fmt.Println("Set the environment variable DP_RAW_URL")
 	fmt.Println("dputil balance ACCOUNT_ADDRESS")
 	fmt.Println("dputil send FROM_ADDRESS TO_ADDRESS QUANTITY")
 	fmt.Println("dputil bulksend CSV_FILE")
@@ -30,7 +30,7 @@ func main() {
 		printHelp()
 		return
 	}
-	rawURL = os.Getenv("GETH_RAW_URL")
+	rawURL = os.Getenv("DP_RAW_URL")
 	if os.Args[1] == "balance" {
 		balance()
 	} else if os.Args[1] == "send" {

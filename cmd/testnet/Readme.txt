@@ -1,10 +1,10 @@
 TestNet
-set GETH_URL=http://172.31.34.126:8545
-set GETH_ALLOC_ACCOUNT=46f8c16c50b122a568c96fb5e97e44ca9cd205ce
-set GETH_ALLOC_ACCOUNT_PASSWORD=dummy
+set DP_URL=http://172.31.34.126:8545
+set DP_ALLOC_ACCOUNT=46f8c16c50b122a568c96fb5e97e44ca9cd205ce
+set DP_ALLOC_ACCOUNT_PASSWORD=dummy
 set TOKENS_INFO=C:\t2build\tokens.json
-set GETH_DATA_PATH=/data/
-set GETH_ACCOUNT_PASSWORD=dummy
+set DP_DATA_PATH=/data/
+set DP_ACCOUNT_PASSWORD=dummy
 
 1) startTestAccountByCoin
         * Primary Account

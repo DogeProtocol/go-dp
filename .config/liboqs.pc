@@ -1,5 +1,5 @@
-LIBOQS_INCLUDE_DIR=C:/github/liboqs/out/build/x64-release/include
-LIBOQS_LIB_DIR=C:/gethbuild
+LIBOQS_INCLUDE_DIR=C:/liboqs/build/include
+LIBOQS_LIB_DIR=C:/liboqs/build/bin
 
 Name: liboqs
 Description: C library for quantum resistant cryptography

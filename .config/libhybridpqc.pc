@@ -1,5 +1,5 @@
 HYBRIDPQC_INCLUDE_DIR=C:/github/hybrid-pqc/out/build/x64-release/include
-HYBRIDPQC_LIB_DIR=C:/gethbuild
+HYBRIDPQC_LIB_DIR=C:/github/hybrid-pqc/out/build/x64-release/bin
 
 Name: libhybridpqc
 Description: C library for quantum resistant cryptography

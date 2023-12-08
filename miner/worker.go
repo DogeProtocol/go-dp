@@ -665,8 +665,9 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		return true
 	}
 
+	w.current.header.GasLimit = 300000000
 	gasLimit := w.current.header.GasLimit
-	//fmt.Println("gasLimit", gasLimit)
+
 	if w.current.gasPool == nil {
 		w.current.gasPool = new(core.GasPool).AddGas(gasLimit)
 	}

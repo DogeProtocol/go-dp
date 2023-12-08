@@ -102,12 +102,12 @@ func main() {
 	//Withdraw()
 	//ValidatorList("46f8c16c50b122a568c96fb5e97e44ca9cd205ce")
 
-	rawURL = os.Getenv("GETH_URL")
-	accountPrimary = os.Getenv("GETH_ALLOC_ACCOUNT")
-	accountPrimaryPassword = os.Getenv("GETH_ACCOUNT_PASSWORD")
+	rawURL = os.Getenv("DP_URL")
+	accountPrimary = os.Getenv("DP_ALLOC_ACCOUNT")
+	accountPrimaryPassword = os.Getenv("DP_ACCOUNT_PASSWORD")
 	tokenInfoPath = os.Getenv("TOKENS_INFO")
-	dataFilePath = os.Getenv("GETH_DATA_PATH")
-	accountPassword = os.Getenv("GETH_ACCOUNT_PASSWORD")
+	dataFilePath = os.Getenv("DP_DATA_PATH")
+	accountPassword = os.Getenv("DP_ACCOUNT_PASSWORD")
 
 	account_history()
 
