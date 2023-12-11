@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var contractAddress = os.Getenv("GETH_STAKING_CONTRACT_ADDRESS")
+var contractAddress = os.Getenv("DP_STAKING_CONTRACT_ADDRESS")
 
 func AccountPasswordCheckManual() {
 	password := "dummy"

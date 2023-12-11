@@ -176,7 +176,7 @@ func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHa
 func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockHash common.Hash) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -226,7 +226,7 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -277,7 +277,7 @@ func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error
 func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -334,7 +334,7 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
 	state *state.StateDB, header *types.Header) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
 
@@ -404,7 +404,7 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 	state *state.StateDB, header *types.Header) (*big.Int, error) {
 	err := staking.IsStakingContract()
 	if err != nil {
-		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
 		return nil, err
 	}
 

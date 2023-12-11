@@ -54,9 +54,9 @@ func getBalance(address string) (ethBalance string, weiBalance string, err error
 }
 
 func findAllAddresses() ([]string, error) {
-	keyfileDir := os.Getenv("GETH_KEY_FILE_DIR")
+	keyfileDir := os.Getenv("DP_KEY_FILE_DIR")
 	if len(keyfileDir) == 0 {
-		return nil, errors.New("Both GETH_KEY_FILE and GETH_KEY_FILE_DIR environment variables not set")
+		return nil, errors.New("Both DP_KEY_FILE and DP_KEY_FILE_DIR environment variables not set")
 	}
 
 	files, err := ioutil.ReadDir(keyfileDir)
@@ -82,14 +82,14 @@ func findAllAddresses() ([]string, error) {
 }
 
 func findKeyFile(from string) (string, error) {
-	keyfile := os.Getenv("GETH_KEY_FILE")
+	keyfile := os.Getenv("DP_KEY_FILE")
 	if len(keyfile) > 0 {
 		return keyfile, nil
 	}
 
-	keyfileDir := os.Getenv("GETH_KEY_FILE_DIR")
+	keyfileDir := os.Getenv("DP_KEY_FILE_DIR")
 	if len(keyfileDir) == 0 {
-		return "", errors.New("Both GETH_KEY_FILE and GETH_KEY_FILE_DIR environment variables not set")
+		return "", errors.New("Both DP_KEY_FILE and DP_KEY_FILE_DIR environment variables not set")
 	}
 
 	files, err := ioutil.ReadDir(keyfileDir)
@@ -128,7 +128,7 @@ func GetConnectionContext(from string) (*ConnectionContext, error) {
 		return nil, err
 	}
 
-	password := os.Getenv("GETH_ACC_PWD")
+	password := os.Getenv("DP_ACC_PWD")
 	key, err := keystore.DecryptKey(secretKey, password)
 	if err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func send(from string, to string, quantity string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	password := os.Getenv("GETH_ACC_PWD")
+	password := os.Getenv("DP_ACC_PWD")
 	key, err := keystore.DecryptKey(secretKey, password)
 	if err != nil {
 		return "", err
@@ -316,7 +316,7 @@ func (ks *KeyStore) GetAllKeys() []accounts.Account {
 }
 
 func SetUpKeyStore() *KeyStore {
-	dataDir := os.Getenv("GETH_DATA_PATH")
+	dataDir := os.Getenv("DP_DATA_PATH")
 	if dataDir == "" {
 		dataDir = "data"
 	}

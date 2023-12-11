@@ -449,14 +449,14 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 	}
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
-	passphrase := os.Getenv("GETH_ACC_PWD")
+	passphrase := os.Getenv("DP_ACC_PWD")
 	if len(passphrase) == 0 {
 		passwords := utils.MakePasswordList(ctx)
 		for i, account := range unlocks {
 			unlockAccount(ks, account, i, passwords)
 		}
 	} else {
-		fmt.Println("Password passed from environment variable GETH_ACC_PWD")
+		fmt.Println("Password passed from environment variable DP_ACC_PWD")
 		for i, account := range unlocks {
 			unlockAccount(ks, account, i, []string{passphrase})
 		}

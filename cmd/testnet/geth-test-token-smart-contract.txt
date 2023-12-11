@@ -1,5 +1,5 @@
 
-geth attach \\.\pipe\geth.ipc
+dp attach \\.\pipe\geth.ipc
 
 TOKEN CONTRACT MANUAL
 ---------------------------------------------------------------------
