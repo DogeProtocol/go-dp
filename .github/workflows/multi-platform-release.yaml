@@ -30,7 +30,7 @@ jobs:
       run: |
          dir ${{ github.workspace }}\templibs
          echo "${{ github.workspace }}\templibs\liboqs" >> $GITHUB_PATH
-         echo ;${{ github.workspace }}\templibs\hybrid-pqc" >> $GITHUB_PATH
+         echo "${{ github.workspace }}\templibs\hybrid-pqc" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\pkg-config\bin" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\mingw\mingw64\bin" >> $GITHUB_PATH
          echo "PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config" >> $GITHUB_ENV
