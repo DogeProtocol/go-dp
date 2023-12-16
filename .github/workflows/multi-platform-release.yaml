@@ -26,12 +26,27 @@ jobs:
     - name: Install Dependencies
       run: cd ${{ github.workspace }} && powershell ./install.ps1
 
+    - name: Setup Environment Variables
+      run: |
+         dir ${{ github.workspace }}\templibs
+         echo "${{ github.workspace }}\templibs\liboqs" >> $GITHUB_PATH
+         echo ;${{ github.workspace }}\templibs\hybrid-pqc" >> $GITHUB_PATH
+         echo "${{ github.workspace }}\templibs\pkg-config\bin" >> $GITHUB_PATH
+         echo "${{ github.workspace }}\templibs\mingw\mingw64\bin" >> $GITHUB_PATH
+         echo "PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config" >> $GITHUB_ENV
+         
     - name: Build
       run: |
-         dir ${{ github.workspace }}
-         set PATH=${{ github.workspace }}\templibs\liboqs;${{ github.workspace }}\templibs\hybrid-pqc;${{ github.workspace }}\templibs\pkg-config\bin;${{ github.workspace }}\templibs\mingw\mingw64\bin;%PATH%
-         set PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config
          mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
+
+    - name: Create Release
+      run: |
+         mkdir ${{ github.workspace }}\build\release
+         cp ${{ github.workspace }}\build\dp.exe mkdir ${{ github.workspace }}\build\release\dp.exe
+         cp ${{ github.workspace }}\build\dputil.exe mkdir ${{ github.workspace }}\build\release\dputil.exe
+         cp ${{ github.workspace }}\templibs\liboqs\oqs.dll mkdir ${{ github.workspace }}\build\release\oqs.dll
+         cp ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll mkdir ${{ github.workspace }}\build\release\hybridpqc.dll
+         powershell Compress-Archive ${{ github.workspace }}\build\release ${{ github.workspace }}\build\release.zip
 
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
