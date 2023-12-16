@@ -1,0 +1,41 @@
+name: Multi Platform Release
+
+on:
+  push:
+    tags:
+    - '*'    
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: false
+
+      matrix:
+        os: [windows-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+
+    - name: Install Dependencies
+      run: cd ${{ github.workspace }} && powershell ./install.ps1
+
+    - name: Build
+      run: mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
+
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: hybridpqc
+        path: |
+              ${{ github.workspace }}/build/*.*
+              
+    - name: release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifacts: "build/*.*"
