@@ -16,7 +16,6 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -176,18 +175,14 @@ func depositContract(fromaddress string, contractaddress string, validatorPubKey
 	auth.Nonce = big.NewInt(int64(nonce))
 	p, _ := ParseBigFloat(depositAmount) //ether
 	auth.Value = etherToWei(p)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		//log.Println(err.Error())
-		return "4", err
-	}
-	auth.GasPrice = gasPrice
-	fmt.Println("gasPrice ", gasPrice)
-	gLimit, err := strconv.Atoi(os.Getenv("GAS_LIMIT"))
-	fmt.Println("gaslimit", gLimit)
-	if err != nil {
-		return "4.5", err
-	}
+
+	auth.GasLimit = uint64(21000)
+	//gasPrice, err := client.SuggestGasPrice(context.Background())
+	//if err != nil {
+	//	return "4", err
+	//}
+	//auth.GasPrice = big.NewInt(1000000)
+	//fmt.Println("gasPrice", gasPrice)
 
 	contract, err := staking.NewStaking(contractAddress, client)
 	if err != nil {
