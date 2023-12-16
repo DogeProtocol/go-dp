@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$ProgressPreference = 'SilentlyContinue'
 
 if (test-path templibs) {
   Remove-Item -Recurse -Force templibs
@@ -10,6 +11,7 @@ mkdir templibs\hybrid-pqc
 $hybridConfig = Get-Content -Path '.config\template\libhybridpqc-template.pc'
 $hybridConfig = $hybridConfig.Replace('[INCLUDE_DIR]', $PWD.Path + '\templibs\hybrid-pqc\build\include')
 $hybridConfig = $hybridConfig.Replace('[LIB_DIR]', $PWD.Path + '\templibs\hybrid-pqc')
+$hybridConfig = $hybridConfig.Replace('\','/')
 Set-Content -Path 'templibs\pkg-config\libhybridpqc.pc' -Value $hybridConfig
 
 $hybridpqcincludeszipfile = $PWD.Path + '\templibs\hybrid-pqc\includes.zip'
@@ -35,6 +37,7 @@ mkdir templibs\liboqs
 $oqsConfig = Get-Content -Path '.config\template\liboqs-template.pc'
 $oqsConfig = $oqsConfig.Replace('[INCLUDE_DIR]', $PWD.Path + '\templibs\liboqs\build\include')
 $oqsConfig = $oqsConfig.Replace('[LIB_DIR]', $PWD.Path + '\templibs\liboqs')
+$oqsConfig = $oqsConfig.Replace('\','/')
 Set-Content -Path 'templibs\pkg-config\liboqs.pc' -Value $oqsConfig
 
 $oqsincludeszipfile = $PWD.Path + '\templibs\liboqs\includes.zip'
