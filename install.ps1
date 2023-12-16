@@ -10,7 +10,7 @@ mkdir templibs\hybrid-pqc
 $hybridConfig = Get-Content -Path '.config\template\libhybridpqc-template.pc'
 $hybridConfig = $hybridConfig.Replace('[INCLUDE_DIR]', $PWD.Path + '\templibs\hybrid-pqc\build\include')
 $hybridConfig = $hybridConfig.Replace('[LIB_DIR]', $PWD.Path + '\templibs\hybrid-pqc')
-Set-Content -Path '.config\libhybridpqc.pc' -Value $hybridConfig
+Set-Content -Path 'templibs\pkg-config\libhybridpqc.pc' -Value $hybridConfig
 
 $hybridpqcincludeszipfile = $PWD.Path + '\templibs\hybrid-pqc\includes.zip'
 Invoke-WebRequest -Uri "https://github.com/DogeProtocol/hybrid-pqc/releases/download/v0.1.12/includes.zip" -OutFile $hybridpqcincludeszipfile
@@ -33,9 +33,9 @@ if ($FileHash.Hash -ne 'E5015CE6360F55F61DFCF4EFB105932BA8E716D5A669E262A4A46D37
 
 mkdir templibs\liboqs
 $oqsConfig = Get-Content -Path '.config\template\liboqs-template.pc'
-$oqsConfig = $oqsConfig.Replace('[INCLUDE_DIR]', $PWD.Path + '\templibs\oqs\build\include')
-$oqsConfig = $oqsConfig.Replace('[LIB_DIR]', $PWD.Path + '\templibs\oqs')
-Set-Content -Path '.config\liboqs.pc' -Value $oqsConfig
+$oqsConfig = $oqsConfig.Replace('[INCLUDE_DIR]', $PWD.Path + '\templibs\liboqs\build\include')
+$oqsConfig = $oqsConfig.Replace('[LIB_DIR]', $PWD.Path + '\templibs\liboqs')
+Set-Content -Path 'templibs\pkg-config\liboqs.pc' -Value $oqsConfig
 
 $oqsincludeszipfile = $PWD.Path + '\templibs\liboqs\includes.zip'
 Invoke-WebRequest -Uri "https://github.com/DogeProtocol/liboqs/releases/download/v0.0.4/includes.zip" -OutFile $oqsincludeszipfile
@@ -97,9 +97,9 @@ if ($FileHash.Hash -ne '30AA368DE90A5143557F3B5CF2FC811BFFAA9CA81FF16B4A73B90F5C
 $dest = $PWD.Path + '\templibs\mingw\'
 Expand-Archive $mingwfile -DestinationPath $dest -Force
 
-$setenv = 'set PATH=' + $PWD.Path + '\templibs\liboqs;' + $PWD.Path + 'templibs\hybrid-pqc;' + $PWD.Path + 'templibs\pkg-config\bin;' + $PWD.Path + "templibs\mingw\mingw64\bin;%PATH%"
-$setenv = $setenv + "`r`n" + 'set PKG_CONFIG_PATH=' + $PWD.Path + '\templibs\pkg-config;'
+$setenv = 'set PATH=' + $PWD.Path + '\templibs\liboqs;' + $PWD.Path + '\templibs\hybrid-pqc;' + $PWD.Path + '\templibs\pkg-config\bin;' + $PWD.Path + "\templibs\mingw\mingw64\bin;%PATH%"
+$setenv = $setenv + "`r`n" + 'set PKG_CONFIG_PATH=' + $PWD.Path + '\templibs\pkg-config'
 Set-Content -Path 'templibs\setenv.cmd' -Value $setenv
 
-Write-Host "Installation Complete. Before building, run the following command line each time a new terminal or command-prompt is opened:"
+Write-Host "Installation Complete. Before building, run the following command line each time a new command-prompt is opened. If you are using terminal or powershell, copy and run the contents of setenv.cmd directly to setup the environment variables."
 Write-Host 'templibs\setenv.cmd'
