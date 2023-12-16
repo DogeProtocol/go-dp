@@ -49,10 +49,10 @@ jobs:
       
       run: |
          mkdir ${{ github.workspace }}\build\release
-         cp ${{ github.workspace }}\build\dp.exe mkdir ${{ github.workspace }}\build\release\dp.exe
-         cp ${{ github.workspace }}\build\dputil.exe mkdir ${{ github.workspace }}\build\release\dputil.exe
-         cp ${{ github.workspace }}\templibs\liboqs\oqs.dll mkdir ${{ github.workspace }}\build\release\oqs.dll
-         cp ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll mkdir ${{ github.workspace }}\build\release\hybridpqc.dll
+         copy ${{ github.workspace }}\build\dp.exe mkdir ${{ github.workspace }}\build\release\dp.exe
+         copy ${{ github.workspace }}\build\dputil.exe mkdir ${{ github.workspace }}\build\release\dputil.exe
+         copy ${{ github.workspace }}\templibs\liboqs\oqs.dll mkdir ${{ github.workspace }}\build\release\oqs.dll
+         copy ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll mkdir ${{ github.workspace }}\build\release\hybridpqc.dll
          powershell Compress-Archive ${{ github.workspace }}\build\release ${{ github.workspace }}\build\release.zip
 
     - name: 'Upload Artifact'
