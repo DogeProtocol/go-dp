@@ -16,15 +16,17 @@ go-dp is a Golang implementation of the Doge Protocol blockchain node client. Th
 apt-get install -y pkg-config
 ```
 #### Windows
-- 1) Download and extract https://download.gnome.org/binaries/win64/dependencies/pkg-config_0.23-2_win64.zip to c:\pkg-config
-- 2) Download and extract https://download.gnome.org/binaries/win64/glib/2.26/glib_2.26.1-1_win64.zip to c:\pkg-config
-- 3) Download and extract https://download.gnome.org/binaries/win64/dependencies/gettext-runtime-dev_0.18.1.1-2_win64.zip to c:\pkg-config
-- 4) Add c:\pkg-config to the PATH environment variable
-4) Edit go-dp/.config/liboqs.pc to point to the liboqs build folder from Step 1)
-5) Set the PKG_CONFIG_PATH environment variable to point to the absolute path of go-dp/.config/liboqc.pc file in your computer.
-6) Add the build/bin folder where liboqs.dll (example C:\liboqs\build\bin) is located to the PATH environment variable.
-7) Add the build/bin folder where libhybridpqc.dll (example C:\hybrid-pqc\build\bin) is located to the PATH environment variable.
+Ensure you have allowed Powershell local script execution.
 
+##### Setup 
+- 1) Open a new terminal and navigate to the go-dp folder.
+- 2) Run ./install.ps1
+ 
+#### Building     
+
+- 1) Open a new command prompt and navigate to the go-dp folder. If you are using Terminal or Powershell prompt, then copy the content of the templibs/setenv.cmd file and run them directly.
+- 2) Run templibs/setenv.cmd 
+     
 ## Building geth
 
 Building `geth` requires both a Go (version 1.14 or later) and a C compiler. You can install

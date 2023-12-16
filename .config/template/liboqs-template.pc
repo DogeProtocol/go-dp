@@ -1,5 +1,5 @@
-LIBOQS_INCLUDE_DIR=C:/liboqs/build/include
-LIBOQS_LIB_DIR=C:/liboqs/build/bin
+LIBOQS_INCLUDE_DIR=[INCLUDE_DIR]
+LIBOQS_LIB_DIR=[LIB_DIR]
 
 Name: liboqs
 Description: C library for quantum resistant cryptography

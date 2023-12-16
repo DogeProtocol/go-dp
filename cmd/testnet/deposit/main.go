@@ -21,16 +21,16 @@ import (
 	"time"
 )
 
-var rawURL = os.Getenv("GETH_RAW_URL")
-var contractAddress = os.Getenv("GETH_STAKING_CONTRACT_ADDRESS")
-var depositorAddress = os.Getenv("GETH_STAKING_DEPOSITER")
-var validatorAddress = os.Getenv("GETH_STAKING_VALIDATOR")
-var depositorPassword = os.Getenv("GETH_STAKING_DEPOSITER_PASS")
-var validatorPassword = os.Getenv("GETH_STAKING_VALIDATOR_PASS")
-var depositAmount = os.Getenv("GETH_STAKING_DEPOSIT_AMOUNT")
+var rawURL = os.Getenv("DP_RAW_URL")
+var contractAddress = os.Getenv("DP_STAKING_CONTRACT_ADDRESS")
+var depositorAddress = os.Getenv("DP_STAKING_DEPOSITER")
+var validatorAddress = os.Getenv("DP_STAKING_VALIDATOR")
+var depositorPassword = os.Getenv("DP_STAKING_DEPOSITER_PASS")
+var validatorPassword = os.Getenv("DP_STAKING_VALIDATOR_PASS")
+var depositAmount = os.Getenv("DP_STAKING_DEPOSIT_AMOUNT")
 
-var depositorPath = os.Getenv("GETH_DEPOSITER_PATH")
-var validatorPath = os.Getenv("GETH_VALIDATOR_PATH")
+var depositorPath = os.Getenv("DP_DEPOSITER_PATH")
+var validatorPath = os.Getenv("DP_VALIDATOR_PATH")
 var e = "Error occurred. Please ensure that geth is running, is connected to the blockchain and all required environment variables have been set correctly."
 
 type KeyStore struct {
@@ -39,23 +39,23 @@ type KeyStore struct {
 
 func main() {
 	if len(rawURL) < 5 {
-		log.Println(e + " GETH_RAW_URL")
+		log.Println(e + " DP_RAW_URL")
 		return
 	}
 	if len(contractAddress) < 20 {
-		log.Println(e + " GETH_STAKING_CONTRACT_ADDRESS")
+		log.Println(e + " DP_STAKING_CONTRACT_ADDRESS")
 		return
 	}
 	if len(depositorAddress) < 20 {
-		log.Println(e + " GETH_STAKING_DEPOSITER")
+		log.Println(e + " DP_STAKING_DEPOSITER")
 		return
 	}
 	if len(validatorAddress) < 20 {
-		log.Println(e + " GETH_STAKING_VALIDATOR")
+		log.Println(e + " DP_STAKING_VALIDATOR")
 		return
 	}
 	if len(depositAmount) <= 0 {
-		log.Println(e + " GETH_STAKING_DEPOSIT_AMOUNT")
+		log.Println(e + " DP_STAKING_DEPOSIT_AMOUNT")
 		return
 	}
 	fmt.Println("Deposit ...")
@@ -81,12 +81,12 @@ func deposit(contractAddress string,
 		return
 	}
 	if depositorKey == nil {
-		log.Println(e + " GETH_STAKING_DEPOSITER_PASS")
+		log.Println(e + " DP_STAKING_DEPOSITER_PASS")
 		return
 	}
 
 	if depositorKey == nil {
-		log.Println(e + " GETH_STAKING_DEPOSITER GETH_DEPOSITER_PATH")
+		log.Println(e + " DP_STAKING_DEPOSITER DP_DEPOSITER_PATH")
 		return
 	}
 
@@ -103,7 +103,7 @@ func deposit(contractAddress string,
 	}
 
 	if validatorKey == nil {
-		log.Println(e + " GETH_STAKING_VALIDATOR_PASS")
+		log.Println(e + " DP_STAKING_VALIDATOR_PASS")
 		return
 	}
 	_, err = cryptobase.SigAlg.SerializePublicKey(&validatorKey.PrivateKey.PublicKey)
@@ -138,10 +138,10 @@ func deposit(contractAddress string,
 			fmt.Println("Tx hash: ", tx)
 			fmt.Println(" Successfully deposited ...")
 		} else {
-			log.Println(e + " GETH_DEPOSITER_PATH")
+			log.Println(e + " DP_DEPOSITER_PATH")
 		}
 	} else {
-		log.Println(e + " GETH_VALIDATOR_PATH")
+		log.Println(e + " DP_VALIDATOR_PATH")
 	}
 }
 
