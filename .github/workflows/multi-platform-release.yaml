@@ -25,7 +25,11 @@ jobs:
       run: cd ${{ github.workspace }} && powershell ./install.ps1
 
     - name: Build
-      run: mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
+      run: |
+         dir ${{ github.workspace }}
+         set PATH=${{ github.workspace }}\templibs\liboqs;${{ github.workspace }}\templibs\hybrid-pqc;${{ github.workspace }}\templibs\pkg-config\bin;${{ github.workspace }}\templibs\mingw\mingw64\bin;%PATH%
+         set PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config
+         mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
 
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
