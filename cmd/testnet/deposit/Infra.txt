@@ -1,0 +1,28 @@
+Deposit
+-------
+	Linux
+	-----
+	export DP_RAW_URL=/snap/bin/dogep/data/geth.ipc
+	export DP_STAKING_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000000000000000000000001000
+	export DP_STAKING_DEPOSITER=depositor address
+	export DP_STAKING_VALIDATOR=validator address
+	export DP_STAKING_DEPOSITER_PASS=depositor password
+	export DP_STAKING_VALIDATOR_PASS=validator password
+	export DP_STAKING_DEPOSIT_AMOUNT=deposit amount
+	export DP_DEPOSITER_PATH ="C:\keyfilepath"
+	export DP_VALIDATOR_PATH ="C:\keyfilepath"
+
+	Windows
+	-----
+	set DP_RAW_URL=\\.\pipe\geth.ipc
+	set DP_STAKING_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000000000000000000000001000
+	set DP_STAKING_DEPOSITER=depositor address
+	set DP_STAKING_VALIDATOR=validator address
+	set DP_STAKING_DEPOSITER_PASS=depositor password
+	set DP_STAKING_VALIDATOR_PASS=validator password
+	set DP_STAKING_DEPOSIT_AMOUNT=deposit amount
+	set DP_DEPOSITER_PATH="C:\keyfilepath"
+	set DP_VALIDATOR_PATH="C:\keyfilepath"
+
+
+

@@ -35,13 +35,17 @@ jobs:
          echo "${{ github.workspace }}\templibs\mingw\mingw64\bin" >> $GITHUB_PATH
          
     - name: Build
+      env:
+        PKG_CONFIG_PATH: PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config
       run: |
+         echo %PATH%
+         echo %PKG_CONFIG_PATH%
          mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
 
     - name: Create Release
       env:
         PKG_CONFIG_PATH: PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config
-         
+      
       run: |
          echo %PATH%
          echo %PKG_CONFIG_PATH%
