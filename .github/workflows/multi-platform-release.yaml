@@ -36,9 +36,11 @@ jobs:
          
     - name: Build
       env:
-        PKG_CONFIG_PATH: PKG_CONFIG_PATH=${{ github.workspace }}\templibs\pkg-config
+        PKG_CONFIG_PATH: ${{ github.workspace }}\templibs\pkg-config
       run: |
          dir ${{ github.workspace }}\templibs\pkg-config
+         echo %PATH%
+         echo %PKG_CONFIG_PATH%
          mkdir ${{ github.workspace }}\build && go build -o ${{ github.workspace }}\build ./...
 
     - name: Create Release
