@@ -139,7 +139,6 @@ func (ks keyStorePassphrase) JoinPath(filename string) string {
 
 // Encryptdata encrypts the data given as 'data' with the password 'auth'.
 func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) {
-
 	salt := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		panic("reading from crypto/rand failed: " + err.Error())
@@ -148,7 +147,7 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 	if err != nil {
 		return CryptoJSON{}, err
 	}
-	encryptKey := derivedKey[:16]
+	encryptKey := derivedKey[:32]
 
 	iv := make([]byte, aes.BlockSize) // 16
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -171,7 +170,7 @@ func EncryptDataV3(data, auth []byte, scryptN, scryptP int) (CryptoJSON, error) 
 	}
 
 	cryptoStruct := CryptoJSON{
-		Cipher:       "aes-128-ctr",
+		Cipher:       "aes-256-ctr",
 		CipherText:   hex.EncodeToString(cipherText),
 		CipherParams: cipherParamsJSON,
 		KDF:          keyHeaderKDF,
@@ -253,7 +252,7 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 }
 
 func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
-	if cryptoJson.Cipher != "aes-128-ctr" {
+	if cryptoJson.Cipher != "aes-256-ctr" {
 		return nil, fmt.Errorf("cipher not supported: %v", cryptoJson.Cipher)
 	}
 	mac, err := hex.DecodeString(cryptoJson.MAC)
@@ -281,7 +280,7 @@ func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
 		return nil, ErrDecrypt
 	}
 
-	plainText, err := aesCTRXOR(derivedKey[:16], cipherText, iv)
+	plainText, err := aesCTRXOR(derivedKey[:32], cipherText, iv)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +334,7 @@ func decryptKeyV1(keyProtected *encryptedKeyJSONV1, auth string) (keyBytes []byt
 		return nil, nil, ErrDecrypt
 	}
 
-	plainText, err := aesCBCDecrypt(crypto.Keccak256(derivedKey[:16])[:16], cipherText, iv)
+	plainText, err := aesCBCDecrypt(crypto.Keccak256(derivedKey[:32])[:16], cipherText, iv)
 	if err != nil {
 		return nil, nil, err
 	}

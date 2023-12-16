@@ -31,9 +31,9 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-// creates a Key and stores that in the given KeyStore by decrypting a presale key JSON
-func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
-	key, err := decryptPreSaleKey(keyJSON, password)
+// creates a Key and stores that in the given KeyStore by decrypting the key JSON
+func importWalletKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
+	key, err := decryptWalletKey(keyJSON, password)
 	if err != nil {
 		return accounts.Account{}, nil, err
 	}
@@ -52,18 +52,18 @@ func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accou
 	return a, key, err
 }
 
-func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error) {
-	preSaleKeyStruct := struct {
+func decryptWalletKey(fileContent []byte, password string) (key *Key, err error) {
+	keyStructure := struct {
 		EncSeed string
 		EthAddr string
 		Email   string
 		BtcAddr string
 	}{}
-	err = json.Unmarshal(fileContent, &preSaleKeyStruct)
+	err = json.Unmarshal(fileContent, &keyStructure)
 	if err != nil {
 		return nil, err
 	}
-	encSeedBytes, err := hex.DecodeString(preSaleKeyStruct.EncSeed)
+	encSeedBytes, err := hex.DecodeString(keyStructure.EncSeed)
 	if err != nil {
 		return nil, errors.New("invalid hex in encSeed")
 	}
@@ -80,7 +80,7 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 		16 byte key length within PBKDF2 and resulting key is used as AES key
 	*/
 	passBytes := []byte(password)
-	derivedKey := pbkdf2.Key(passBytes, passBytes, 2000, 16, sha256.New)
+	derivedKey := pbkdf2.Key(passBytes, passBytes, 2000, 32, sha256.New)
 	plainText, err := aesCBCDecrypt(derivedKey, cipherText, iv)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 		PrivateKey: ecKey,
 	}
 	derivedAddr := hex.EncodeToString(key.Address.Bytes()) // needed because .Hex() gives leading "0x"
-	expectedAddr := preSaleKeyStruct.EthAddr
+	expectedAddr := keyStructure.EthAddr
 	if derivedAddr != expectedAddr {
 		err = fmt.Errorf("decrypted addr '%s' not equal to expected addr '%s'", derivedAddr, expectedAddr)
 	}
@@ -110,7 +110,7 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 }
 
 func aesCTRXOR(key, inText, iv []byte) ([]byte, error) {
-	// AES-128 is selected due to size of encryptKey.
+	// AES-256 is selected due to size of encryptKey.
 	aesBlock, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

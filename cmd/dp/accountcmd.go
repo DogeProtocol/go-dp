@@ -325,7 +325,7 @@ func importWallet(ctx *cli.Context) error {
 	passphrase := utils.GetPassPhraseWithList("", false, 0, utils.MakePasswordList(ctx))
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	acct, err := ks.ImportPreSaleKey(keyJSON, passphrase)
+	acct, err := ks.ImportWalletKey(keyJSON, passphrase)
 	if err != nil {
 		utils.Fatalf("%v", err)
 	}

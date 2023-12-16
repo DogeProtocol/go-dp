@@ -494,10 +494,10 @@ func (ks *KeyStore) Update(a accounts.Account, passphrase, newPassphrase string)
 	return ks.storage.StoreKey(a.URL.Path, key, newPassphrase)
 }
 
-// ImportPreSaleKey decrypts the given Ethereum presale wallet and stores
+// ImportWalletKey decrypts the given Ethereum wallet and stores
 // a key file in the key directory. The key file is encrypted with the same passphrase.
-func (ks *KeyStore) ImportPreSaleKey(keyJSON []byte, passphrase string) (accounts.Account, error) {
-	a, _, err := importPreSaleKey(ks.storage, keyJSON, passphrase)
+func (ks *KeyStore) ImportWalletKey(keyJSON []byte, passphrase string) (accounts.Account, error) {
+	a, _, err := importWalletKey(ks.storage, keyJSON, passphrase)
 	if err != nil {
 		return a, err
 	}
