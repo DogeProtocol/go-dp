@@ -81,6 +81,22 @@ func CrossSignVerification(signJsonData string) error {
 	return nil
 }
 
+func VerifyEthereumAddressAndMessage(ethAddress string, messageDigest []byte, signature []byte) error {
+	recovered, err := sigToPub(messageDigest, signature)
+	if err != nil {
+		return fmt.Errorf("error : " + err.Error())
+	}
+
+	recoveredAddressBytes := pubkeyToAddress(*recovered)
+	addressBytes := hexToAddress(ethAddress)
+
+	if bytes.Compare(recoveredAddressBytes, addressBytes) != 0 {
+		return fmt.Errorf("error : mismatch address bytes (recoveredAddressBytes, addressBytes) ")
+	}
+
+	return nil
+}
+
 func sigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 	s, err := ecrecover(hash, sig)
 	if err != nil {

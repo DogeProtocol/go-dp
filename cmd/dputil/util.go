@@ -81,7 +81,7 @@ func findAllAddresses() ([]string, error) {
 	return addresses, nil
 }
 
-func findKeyFile(from string) (string, error) {
+func findKeyFile(keyAddress string) (string, error) {
 	keyfile := os.Getenv("DP_KEY_FILE")
 	if len(keyfile) > 0 {
 		return keyfile, nil
@@ -98,7 +98,7 @@ func findKeyFile(from string) (string, error) {
 		return "", err
 	}
 
-	fromAddress := strings.ToLower(strings.Replace(from, "0x", "", 0))
+	fromAddress := strings.ToLower(strings.Replace(keyAddress, "0x", "", 0))
 	for _, file := range files {
 		if file.IsDir() {
 			continue
