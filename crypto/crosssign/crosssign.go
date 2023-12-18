@@ -82,7 +82,17 @@ func CrossSignVerification(signJsonData string) error {
 }
 
 func VerifyEthereumAddressAndMessage(ethAddress string, messageDigest []byte, signature []byte) error {
-	recovered, err := sigToPub(messageDigest, signature)
+	if len(signature) != 65 {
+		return fmt.Errorf("error 2 : mismatch sign length")
+	}
+	if signature[64] != 27 && signature[64] != 28 {
+		return fmt.Errorf("error 3 : Sign last byte mismatch")
+	}
+	signature[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
+	sign := make([]byte, 65)
+	copy(sign, signature)
+
+	recovered, err := sigToPub(messageDigest, sign)
 	if err != nil {
 		return fmt.Errorf("error : " + err.Error())
 	}
