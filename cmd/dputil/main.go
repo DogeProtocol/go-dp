@@ -3,18 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"io/ioutil"
+
 	"fmt"
-	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto/crosssign"
-	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
-	"github.com/status-im/keycard-go/hexutils"
 	"log"
 	"os"
 	"strconv"
@@ -22,14 +17,13 @@ import (
 	"sync"
 )
 
-var MessageTemplate = "I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS [ETH_ADDRESS]. MY CORRESPONDING DEPOSITOR QUANTUM ADDRESS IS [DEPOSITOR_ADDRESS] AND VALIDATOR QUANTUM ADDRESS IS [VALIDATOR_ADDRESS]. VALIDATOR AMOUNT IS [AMOUNT] DOGEP."
-
 func printHelp() {
+	fmt.Println("===========")
 	fmt.Println("dputil genesis-sign ETH_ADDRESS DEPOSITOR_QUANTUM_ADDRESS VALIDATOR_QUANTUM_ADDRESS AMOUNT")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE_DIR, DP_DEPOSITOR_ACC_PWD, DP_VALIDATOR_ACC_PWD")
 	fmt.Println("===========")
-	fmt.Println("dputil genesis-verify ETH_ADDRESS DEPOSITOR_QUANTUM_ADDRESS VALIDATOR_QUANTUM_ADDRESS AMOUNT ETH_SIGNATURE QUANTUM_SIGNATURE")
+	fmt.Println("dputil genesis-verify JSON_FILE_NAME")
 	fmt.Println("===========")
 	fmt.Println("Set the environment variable DP_RAW_URL")
 	fmt.Println("dputil balance ACCOUNT_ADDRESS")
@@ -96,7 +90,7 @@ func GenesisSign() {
 	validatorAddr := os.Args[4]
 	amount := os.Args[5]
 
-	if common.IsHexAddress(ethAddr) == false {
+	if common.IsLegacyEthereumHexAddress(ethAddr) == false {
 		fmt.Println("Invalid eth address", ethAddr)
 		return
 	}
@@ -127,8 +121,8 @@ func GenesisSign() {
 		fmt.Println("Error loading depositor key file", err)
 		return
 	}
-	password := os.Getenv("DP_DEPOSITOR_ACC_PWD")
-	depKey, err := keystore.DecryptKey(depositorKey, password)
+	depPassword := os.Getenv("DP_DEPOSITOR_ACC_PWD")
+	depKey, err := keystore.DecryptKey(depositorKey, depPassword)
 	if err != nil {
 		fmt.Println("Error decrypting depositor key using DP_DEPOSITOR_ACC_PWD", err)
 		return
@@ -144,149 +138,68 @@ func GenesisSign() {
 		fmt.Println("Error loading validator key file", err)
 		return
 	}
-	valKey, err := keystore.DecryptKey(validatorKey, password)
+	valPassword := os.Getenv("DP_DEPOSITOR_ACC_PWD")
+	valKey, err := keystore.DecryptKey(validatorKey, valPassword)
 	if err != nil {
 		fmt.Println("Error decrypting depositor key using DP_VALIDATOR_ACC_PWD", err)
 		return
 	}
 
-	_, err = signGenesis(depKey.PrivateKey, valKey.PrivateKey, ethAddr, amount)
+	details, err := crosssign.SignGenesis(depKey.PrivateKey, valKey.PrivateKey, ethAddr, amount)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println("Signed the genesis validator message!")
 
+	marshalled, err := json.Marshal(details)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fileName := "cross-sign-" + depositorAddr + ".json"
+	err = ioutil.WriteFile(fileName, marshalled, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Successfully created cross-sign file", fileName)
+
 	return
 }
 
-func signGenesis(depKey *signaturealgorithm.PrivateKey, valKey *signaturealgorithm.PrivateKey,
-	ethAddr string, amount string) (string, error) {
-	depositorAddr := cryptobase.SigAlg.PublicKeyToAddressNoError(&depKey.PublicKey).Hex()
-	validatorAddr := cryptobase.SigAlg.PublicKeyToAddressNoError(&valKey.PublicKey).Hex()
-
-	message := strings.Replace(MessageTemplate, "[ETH_ADDRESS]", ethAddr, 1)
-	message = strings.Replace(message, "[DEPOSITOR_ADDRESS]", depositorAddr, 1)
-	message = strings.Replace(message, "[VALIDATOR_ADDRESS]", validatorAddr, 1)
-	message = strings.Replace(message, "[AMOUNT]", amount, 1)
-
-	messageDigest, _ := accounts.TextAndHash([]byte(message))
-
-	depositorSignature, err := cryptobase.SigAlg.Sign(messageDigest, depKey)
-	if err != nil {
-		fmt.Println(err)
-		return "", errors.New("Error signing using depositor key")
-	}
-
-	validatorSignature, err := cryptobase.SigAlg.Sign(messageDigest, valKey)
-	if err != nil {
-		fmt.Println(err)
-		return "", errors.New("Error signing using validator key")
-	}
-
-	combined := common.CombineTwoParts(depositorSignature, validatorSignature)
-	hexSigCombined := hexutils.BytesToHex(combined)
-
-	fmt.Println("Message", message)
-	fmt.Println("Message Digest", messageDigest, base64.StdEncoding.EncodeToString(messageDigest))
-	fmt.Println("Signature", hexSigCombined)
-
-	return hexSigCombined, nil
-}
-
 func GenesisVerify() {
-	if len(os.Args) < 8 {
+	if len(os.Args) < 3 {
 		printHelp()
 		return
 	}
 
-	ethAddr := os.Args[2]
-	depositorAddr := os.Args[3]
-	validatorAddr := os.Args[4]
-	amount := os.Args[5]
-	ethereumSignature := os.Args[6]
-	quantumSignature := os.Args[7]
+	jsonFile := os.Args[2]
 
-	if common.IsHexAddress(ethAddr) == false {
-		fmt.Println("Invalid eth address", ethAddr)
-		return
-	}
-
-	if common.IsHexAddress(depositorAddr) == false {
-		fmt.Println("Invalid depositor address", depositorAddr)
-		return
-	}
-
-	if common.IsHexAddress(validatorAddr) == false {
-		fmt.Println("Invalid validator address", validatorAddr)
-		return
-	}
-
-	_, err := ParseBigFloat(amount)
+	jsonString, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("error opening json file", jsonFile, err)
 		return
 	}
 
-	_, err = GenesisVerifyInternal(ethAddr, depositorAddr, validatorAddr, amount, ethereumSignature, quantumSignature)
+	jsonBytes := []byte(jsonString)
+
+	details := crosssign.GenesisCrossSignDetails{}
+	err = json.Unmarshal(jsonBytes, &details)
+	if err != nil {
+		fmt.Println("error reading json", jsonFile, err)
+		return
+	}
+
+	_, err = crosssign.VerifyGenesis(&details)
 	if err != nil {
 		fmt.Println("verify failed", err)
 		return
 	}
+
 	fmt.Println("Verify succeeded!")
-}
-
-func GenesisVerifyInternal(ethAddr string, depositorAddr string, validatorAddr string, amount string, ethereumSignature string, quantumSignature string) ([]byte, error) {
-	message := strings.Replace(MessageTemplate, "[ETH_ADDRESS]", ethAddr, 1)
-	message = strings.Replace(message, "[DEPOSITOR_ADDRESS]", depositorAddr, 1)
-	message = strings.Replace(message, "[VALIDATOR_ADDRESS]", validatorAddr, 1)
-	message = strings.Replace(message, "[AMOUNT]", amount, 1)
-	fmt.Println("message", message)
-
-	messageDigest, _ := accounts.TextAndHash([]byte(message))
-	sigBytes := hexutils.HexToBytes(quantumSignature)
-
-	depSig, valSig, err := common.ExtractTwoParts(sigBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	depPubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(messageDigest, depSig)
-	if err != nil {
-		return nil, err
-	}
-
-	if cryptobase.SigAlg.Verify(depPubKey.PubData, messageDigest, depSig) == false {
-		return nil, errors.New("depositor signature verify failed")
-	}
-
-	valPubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(messageDigest, valSig)
-	if err != nil {
-		return nil, err
-	}
-
-	if cryptobase.SigAlg.Verify(valPubKey.PubData, messageDigest, valSig) == false {
-		return nil, errors.New("validator signature verify failed")
-	}
-
-	depositorAddr2 := cryptobase.SigAlg.PublicKeyToAddressNoError(depPubKey).Hex()
-	if strings.Compare(depositorAddr, depositorAddr2) != 0 {
-		return nil, errors.New("depositor address verify failed")
-	}
-
-	validatorAddr2 := cryptobase.SigAlg.PublicKeyToAddressNoError(valPubKey).Hex()
-	if strings.Compare(validatorAddr, validatorAddr2) != 0 {
-		return nil, errors.New("validator address verify failed")
-	}
-
-	ethSig := hexutil.MustDecode(ethereumSignature)
-	err = crosssign.VerifyEthereumAddressAndMessage(ethAddr, messageDigest, ethSig)
-	if err != nil {
-		fmt.Println("VerifyEthereumAddressAndMessage failed", err)
-		return nil, err
-	}
-
-	return messageDigest, nil
 }
 
 func balance() {

@@ -242,7 +242,7 @@ func IsHexAddress(s string) bool {
 	if has0xPrefix(s) {
 		s = s[2:]
 	}
-	return len(s) == 2*AddressLength && isHex(s)
+	return len(s) == 2*AddressLength && IsHex(s)
 }
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
@@ -251,7 +251,7 @@ func IsLegacyEthereumHexAddress(s string) bool {
 	if has0xPrefix(s) {
 		s = s[2:]
 	}
-	return len(s) == 2*20 && isHex(s)
+	return len(s) == 2*20 && IsHex(s)
 }
 
 // Bytes gets the string representation of the underlying address.
