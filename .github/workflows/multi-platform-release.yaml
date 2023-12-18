@@ -53,8 +53,8 @@ jobs:
          copy ${{ github.workspace }}\build\dputil.exe ${{ github.workspace }}\build\dp\dputil.exe
          copy ${{ github.workspace }}\templibs\liboqs\oqs.dll ${{ github.workspace }}\build\dp\oqs.dll
          copy ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll ${{ github.workspace }}\build\dp\hybridpqc.dll
-         powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows-${{ github.ref }}.zip
-         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows-${{ github.ref }}.zip > ${{ github.workspace }}\build\releasehash-windows-${{ github.ref }}.txt
+         powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows.zip
+         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
@@ -67,4 +67,4 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         allowUpdates: true
-        artifacts: "build/*.zip,build/releasehash-windows-${{ github.ref }}.txt"
+        artifacts: "build/*.zip,build/*.txt"
