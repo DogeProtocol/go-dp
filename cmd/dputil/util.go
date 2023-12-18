@@ -98,12 +98,12 @@ func findKeyFile(keyAddress string) (string, error) {
 		return "", err
 	}
 
-	fromAddress := strings.ToLower(strings.Replace(keyAddress, "0x", "", 0))
+	addr := strings.ToLower(strings.Replace(keyAddress, "0x", "", 1))
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
-		if strings.Contains(strings.ToLower(file.Name()), fromAddress) {
+		if strings.Contains(strings.ToLower(file.Name()), addr) {
 			return filepath.Join(keyfileDir, file.Name()), nil
 		}
 	}
