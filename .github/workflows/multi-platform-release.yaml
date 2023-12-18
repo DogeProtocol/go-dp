@@ -48,7 +48,7 @@ jobs:
         PKG_CONFIG_PATH: ${{ github.workspace }}\templibs\pkg-config
       
       run: |
-         mkdir ${{ github.workspace }}\build\release
+         mkdir ${{ github.workspace }}\build\dp
          copy ${{ github.workspace }}\build\dp.exe ${{ github.workspace }}\build\dp\dp.exe
          copy ${{ github.workspace }}\build\dputil.exe ${{ github.workspace }}\build\dp\dputil.exe
          copy ${{ github.workspace }}\templibs\liboqs\oqs.dll ${{ github.workspace }}\build\dp\oqs.dll
