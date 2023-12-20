@@ -118,6 +118,7 @@ func SignatureAlgorithmTest(t *testing.T, sig SignatureAlgorithm) {
 	digestHash1 := []byte(testmsg1)
 	signature1, err := sig.Sign(digestHash1, key1)
 	if err != nil {
+		fmt.Println(err)
 		t.Fatal("Sign failed")
 	}
 
