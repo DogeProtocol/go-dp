@@ -30,7 +30,9 @@ import (
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
+	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -936,6 +938,7 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	}
 }
 
+/*
 var (
 	FrontierBlockReward       = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
 	ByzantiumBlockReward      = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
@@ -944,25 +947,83 @@ var (
 	big8  = big.NewInt(8)
 	big32 = big.NewInt(32)
 )
+*/
+
+var (
+	totalCoin            = big.NewInt(100000000000000)
+	percentageChangeYear = big.NewInt(4)
+	percentageDefault    = big.NewInt(20)
+	percentageDivided    = big.NewInt(2)
+
+	blockSecond = 6
+	blockYearly = big.NewInt(int64((((60 * 60) * 24) / blockSecond) * 365))
+
+	rewardStartBlock = big.NewInt(int64((((60 * 60) * 24) / blockSecond) * 104))
+)
 
 // AccumulateRewards credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func (c *ProofOfStake) accumulateRewards(state *state.StateDB, header *types.Header, validator common.Address) error {
+func (c *ProofOfStake) accumulateRewards(state *state.StateDB, header *types.Header,
+	validator common.Address) error {
 
-	// Select the correct block reward based on chain progression
-	blockReward := FrontierBlockReward
-	// Accumulate the rewards for the miner and any included uncles
-	reward := new(big.Int).Set(blockReward)
-	r := new(big.Int)
-	r.Sub(r, header.Number)
-	r.Mul(r, blockReward)
-	r.Div(r, big8)
-	r.Div(blockReward, big32)
-	reward.Add(reward, r)
+	reward := new(big.Int).Set(getReward(header.Number))
 	state.AddBalance(validator, reward)
-
 	return nil
+}
+
+func getReward(blockNumber *big.Int) *big.Int {
+
+	blockReward := big.NewInt(0)
+
+	if rewardStartBlock.Int64() <= blockNumber.Int64() {
+		//Step 0
+		block := common.SafeSubBigInt(blockNumber, rewardStartBlock)
+		s := common.SafeDivBigInt(block, blockYearly)
+		s0 := common.SafeDivBigInt(s, percentageChangeYear)
+
+		//Step 1
+		s1 := common.SafeAddBigInt(s0, big.NewInt(1))
+
+		//Step 2
+		s2 := MathPow(int(percentageDivided.Int64()), int(s1.Int64()))
+
+		//Step 3
+		s3 := (float64(percentageDefault.Int64()) / s2) / float64(percentageDivided.Int64())
+
+		//Step 4 (1 Year Reward)
+		totalReward := (float64(totalCoin.Int64()) * s3) / 100
+
+		//Step 5 (Block reward)
+		perBlock := big.NewFloat(totalReward / float64(blockYearly.Int64()))
+		blockReward = etherToWeiFloat(perBlock)
+
+		//fmt.Println("s0 : ", s0)
+		//fmt.Println("s1 : ", s1)
+		//fmt.Println("s2 : ", s2)
+		//fmt.Println("s3 : ", s3)
+		//fmt.Println("totalReward : ", totalReward)
+		//fmt.Println("perBlock", perBlock)
+		//fmt.Println("blockReward", blockReward)
+
+	}
+
+	return blockReward
+}
+
+// MathPow calculates n to the mth power with the math.Pow() function
+func MathPow(n, m int) float64 {
+	return math.Pow(float64(n), float64(m))
+}
+
+func etherToWeiFloat(eth *big.Float) *big.Int {
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+	fracStr += strings.Repeat("0", 18-len(fracStr))
+	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+	wei := new(big.Int).Add(truncInt, fracInt)
+	return wei
 }
 
 // chain context
