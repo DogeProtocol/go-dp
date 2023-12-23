@@ -277,3 +277,32 @@ func TestPack(t *testing.T) {
 		t.Fatalf("failed")
 	}
 }
+
+func TestRewardYearly(t *testing.T) {
+	for i := 1; i <= 350; i++ {
+		blockNumber := rewardStartBlock.Int64() + (blockYearly.Int64() * int64(i))
+		startBlockNumber := big.NewInt(blockNumber - blockYearly.Int64())
+		startReward := new(big.Int).Set(getReward(startBlockNumber))
+
+		endBlockNumber := big.NewInt(blockNumber - 1)
+		endReward := new(big.Int).Set(getReward(endBlockNumber))
+
+		fmt.Println("Year : ", i,
+			" Block Range : ", startBlockNumber, " - ", endBlockNumber,
+			" Block reward range : ", startReward, " - ", endReward)
+	}
+}
+
+func TestRewardBlocks(t *testing.T) {
+
+	startBlockNumber := big.NewInt(22338000 - 1000)
+	endBlockNumber := big.NewInt(22338000)
+	incrementBlock := big.NewInt(1)
+
+	for startBlockNumber.Int64() <= endBlockNumber.Int64() {
+		reward := new(big.Int).Set(getReward(startBlockNumber))
+		fmt.Println("Block Number : ", startBlockNumber, " reward : ", reward)
+		startBlockNumber = common.SafeAddBigInt(startBlockNumber, incrementBlock)
+	}
+
+}
