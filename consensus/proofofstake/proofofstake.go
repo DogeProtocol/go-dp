@@ -686,7 +686,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	if blockConsensusData.VoteType == VOTE_TYPE_OK {
-		blockProposerRewardAmount := getReward(header.Number)
+		blockProposerRewardAmount := GetReward(header.Number)
 		blockProposerRewardAmountTotal, err := c.AddDepositorReward(header.ParentHash, blockConsensusData.BlockProposer, blockProposerRewardAmount, state, header)
 		if err != nil {
 			fmt.Println("AddDepositorReward err", err)

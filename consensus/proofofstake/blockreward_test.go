@@ -38,10 +38,10 @@ func TestRewardGenerateYearly(t *testing.T) {
 	for i := 1; i <= 350; i++ {
 		blockNumber := rewardStartBlock.Int64() + (blockYearly.Int64() * int64(i))
 		startBlockNumber := big.NewInt(blockNumber - blockYearly.Int64())
-		startReward := new(big.Int).Set(getReward(startBlockNumber))
+		startReward := new(big.Int).Set(GetReward(startBlockNumber))
 
 		endBlockNumber := big.NewInt(blockNumber - 1)
-		endReward := new(big.Int).Set(getReward(endBlockNumber))
+		endReward := new(big.Int).Set(GetReward(endBlockNumber))
 
 		fmt.Println("Year : ", i,
 			" Block Range : ", startBlockNumber, " - ", endBlockNumber,
@@ -55,7 +55,7 @@ func TestRewardGenerateBlocks(t *testing.T) {
 	incrementBlock := big.NewInt(1)
 
 	for startBlockNumber.Int64() <= endBlockNumber.Int64() {
-		reward := new(big.Int).Set(getReward(startBlockNumber))
+		reward := new(big.Int).Set(GetReward(startBlockNumber))
 		fmt.Println("Block Number : ", startBlockNumber, " reward : ", reward)
 		startBlockNumber = common.SafeAddBigInt(startBlockNumber, incrementBlock)
 	}
@@ -65,14 +65,14 @@ func TestRewardVerifyYearly(t *testing.T) {
 	for i := 1; i <= 12; i++ {
 		blockNumber := rewardStartBlock.Int64() - 1 + (blockYearly.Int64() * int64(i))
 		startBlockNumber := big.NewInt(blockNumber - blockYearly.Int64())
-		startReward := new(big.Int).Set(getReward(startBlockNumber))
+		startReward := new(big.Int).Set(GetReward(startBlockNumber))
 
 		r1 := params.WeiToEther(getTestReward(startBlockNumber))
 		r2 := params.WeiToEther(startReward)
 		assert.Equal(t, r1, r2)
 
 		endBlockNumber := big.NewInt(blockNumber - 1)
-		endReward := new(big.Int).Set(getReward(endBlockNumber))
+		endReward := new(big.Int).Set(GetReward(endBlockNumber))
 
 		r1 = params.WeiToEther(getTestReward(endBlockNumber))
 		r2 = params.WeiToEther(endReward)
@@ -86,7 +86,7 @@ func TestRewardVerifyBlocks(t *testing.T) {
 	incrementBlock := big.NewInt(1)
 
 	for startBlockNumber.Int64() <= endBlockNumber.Int64() {
-		reward := new(big.Int).Set(getReward(startBlockNumber))
+		reward := new(big.Int).Set(GetReward(startBlockNumber))
 		r1 := params.WeiToEther(getTestReward(startBlockNumber))
 		r2 := params.WeiToEther(reward)
 		assert.Equal(t, r1, r2)

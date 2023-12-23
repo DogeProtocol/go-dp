@@ -21,7 +21,7 @@ var (
 	rewardStartBlock = big.NewInt(int64((((60 * 60) * 24) / blockSecond) * 104))
 )
 
-func getReward(blockNumber *big.Int) *big.Int {
+func GetReward(blockNumber *big.Int) *big.Int {
 
 	blockReward := big.NewInt(0)
 
