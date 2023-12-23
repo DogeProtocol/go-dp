@@ -73,7 +73,7 @@ I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS 0xbC22f1834
 
 14) At this point, once the above page is loaded, it is recommended that you disconnect your device from the internet. In case the 3rd party website is compromised, disconnecting from the internet will help in protecting the wallet. Doge Protocol Community or community developers are not responsible for any problems that you may face.
 
-15) Connect ypur Ethereum wallet using one of the options provided.
+15) Connect your Ethereum wallet using one of the options provided.
 
 16) Paste the message copied from Step 11, in the Message field.
 
@@ -109,3 +109,7 @@ It is recommended that you use a dedicated computer for running a node. Though t
 5) Unlimited internet data usage from your internet plan.
 6) Stable internet connectivity with no downtime. It is recommended to have two internet providers, just in case one of them goes down.
 7) Stable power supply; it is recommended to have a backup power mechanism, in case you have a power-cut. This backup power should be both for the computer running the blockchain node as well as the internet modem or devices used for internet.
+
+## Important, please read
+
+As part of mainnet launch, only conversion transactions will be enabled, to allow getting coins from DogeP tokens. Regular send/receive transactions will be enabled on a block that will be created roughly on April 14th 2024, World Quantum Day. This logic is part of the blockchain itself. This is to make it fair and give enough time for those who have DogeP tokens as of the mainnet snapshot, to get their coins. Additionally, block rewards will also be enabled only on April 14th, 2024. This is to tive a fair chance and enough time for new block validators to join, than just genesis block validators.
