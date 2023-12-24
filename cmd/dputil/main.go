@@ -138,7 +138,7 @@ func GenesisSign() {
 		fmt.Println("Error loading validator key file", err)
 		return
 	}
-	valPassword := os.Getenv("DP_DEPOSITOR_ACC_PWD")
+	valPassword := os.Getenv("DP_VALIDATOR_ACC_PWD")
 	valKey, err := keystore.DecryptKey(validatorKey, valPassword)
 	if err != nil {
 		fmt.Println("Error decrypting depositor key using DP_VALIDATOR_ACC_PWD", err)
