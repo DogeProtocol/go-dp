@@ -87,7 +87,7 @@ I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS 0xbC22f1834
 
 21) You may simply submit a Git Pull Request in this project by adding the json file, under the consensus/proofofstake folder. You can simply re-submit if you made a mistake, before the 27th Dec cut-off date.
 
-22) The other option is to submit the json file via the Genesis Staking Contract that has been created in the Base chain. The base chain is used since the Ethereum chain has a high gas fee. The genesis contract code and details are available at https://basescan.org/address/0xbdab85fb80e1350e282ffe5c271ae1f68eb4b1c4#code
+22) The other option is to submit the json file via the Genesis Staking Contract that has been created in the Base chain. The base chain is used since the Ethereum chain has a high gas fee. The genesis contract code and details are available at https://basescan.org/address/0x07370dc2139b1ffc486dfd798dc00b69d7ad2bf7#code
 
 Simply call the addGenesisValidator function from the Ethereum address, passing the individual json fields.
 
