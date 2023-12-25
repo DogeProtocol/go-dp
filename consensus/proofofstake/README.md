@@ -5,7 +5,7 @@ Genesis Validators are validators who run blockchain nodes a part of the mainnet
 1) Ensure that your address is part of mainnet snapshot at https://snapshot.dpscan.app
 2) You should have had atleast 5000000 (5 million) DogeP coins (check the coins for your address in the snapshot portal).
 3) You should run the DP Blockchain Node on the mainnet date.
-4) You should complete the steps below to indicate that you want to become a Genesis validator, before 27th Dec 2023, 12:59:59 PM UTC.
+4) You should complete the steps below to indicate that you want to become a Genesis validator, before 28th Dec 2023, 12:59:59 PM UTC.
 
    > [WARNING] 
    > If register to become a Genesis Validator, but do not run the validator node, you will loose coins due to slashings from the proof-of-stake consensus mechanism!
@@ -85,7 +85,7 @@ I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS 0xbC22f1834
 
 20) Now that the cross-signing is completed, the json file should be submitted for indicating that you want to become a genesis validator. To do this, follow either Step 21 or Step 22.
 
-21) You may simply submit a Git Pull Request in this project by adding the json file, under the consensus/proofofstake folder. You can simply re-submit if you made a mistake, before the 27th Dec cut-off date.
+21) You may simply submit a Git Pull Request in this project by adding the json file, under the consensus/proofofstake folder. You can simply re-submit if you made a mistake, before the 28th Dec cut-off date.
 
 22) The other option is to submit the json file via the Genesis Staking Contract that has been created in the Base chain. The base chain is used since the Ethereum chain has a high gas fee. The genesis contract code and details are available at https://basescan.org/address/0x07370dc2139b1ffc486dfd798dc00b69d7ad2bf7#code
 
@@ -96,7 +96,7 @@ Simply call the addGenesisValidator function from the Ethereum address, passing 
         string memory ethSign, string memory quantumSign, uint256 depositAmount)
 ```
 
-23) Next, once this is done, watchout for instructions on running mainnet node (Post Dec 27th, 2023). You should be prepared to run this node on the mainnet date, else you might loose coins due to slashings by being an inactive validator.
+23) Next, once this is done, watchout for instructions on running mainnet node (Post Dec 28th, 2023). You should be prepared to run this node on the mainnet date, else you might loose coins due to slashings by being an inactive validator.
 
 ## What are the node requirements?
 
