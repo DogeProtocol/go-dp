@@ -18,7 +18,7 @@ You may follow these steps on any device or computer, but it is highly recommend
 
 1) Run the following command from Terminal command prompt (Windows):
 ```
-     curl https://github.com/DogeProtocol/go-dp/releases/download/v2.0.12/dp-release-windows.zip
+     curl https://github.com/DogeProtocol/go-dp/releases/download/v2.0.13/dp-release-windows.zip
 ```
 2) Extract the content of the above zip file to c:\dp.
 3) Change to c:\dp folder in the command prompt or Terminal.
