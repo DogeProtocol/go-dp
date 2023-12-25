@@ -42,9 +42,9 @@ contract DpGenesisValidator {
     using SafeMath for uint256;
 
     event OnAddGenesisValidator(
-        string  erc20Address,
-        string  depositorAddress,
-        string  validatorAddress,
+        address erc20,
+        string  depositor,
+        string  validator,
         string  ethSign,
         string  quantumSign,
         uint256 amount,
@@ -53,39 +53,39 @@ contract DpGenesisValidator {
     );
 
     event OnCancelGenesisValidator(
-        string  erc20Address,
-        string  depositorAddress,
-        string  validatorAddress,
+        address  erc20,
+        string  depositor,
+        string  validator,
         uint256 blockNumber,
         uint256 blockTime
     );
 
-    //Wednesday, December 27, 2023 11:59:59 PM
-    uint256 _genesisValidatorAllowedCutOffDate = 1703721599;  
+    //Date and time (GMT): Thursday, December 28, 2023 11:59:59 PM
+    uint256 _genesisValidatorAllowedCutOffDate = 1703807999;
 
-    string[] private _erc20AddressList;
+    address[] private _erc20AddressList;
 
     //Balance
     mapping (string => uint256) private _depositorBalances;
 
     //erc20Address, depositor and validator exists
-    mapping (string => bool) private _erc20AddressExists;
+    mapping (address => bool) private _erc20AddressExists;
     mapping (string => bool) private _validatorExists;
     mapping (string => bool) private _depositorExists;
 
     //erc20Address, depositor and validator reverse mapping
-    mapping (string => string) private _erc20AddressToDepositorMapping;
-    mapping (string => string) private _erc20AddressToValidatorMapping;
+    mapping (address => string) private _erc20AddressToDepositorMapping;
+    mapping (address => string) private _erc20AddressToValidatorMapping;
    
     //sign
-    mapping (string => string) private _erc20AddressToEthSignMapping;
+    mapping (address => string) private _erc20AddressToEthSignMapping;
     mapping (string => string) private _depositorAddressToQuantumSignMapping;
 
     constructor(){       
 
     }
 
-    function addGenesisValidator(string memory depositorAddress, string memory validatorAddress, 
+    function addGenesisValidator(string memory depositor, string memory validator, 
         string memory ethSign, string memory quantumSign, uint256 depositAmount) 
         external 
         returns (bool)
@@ -94,31 +94,27 @@ contract DpGenesisValidator {
         if(block.timestamp > _genesisValidatorAllowedCutOffDate) {
             return false;
         }
-
-        string memory erc20Address = toLower(addressToString(msg.sender));
-        depositorAddress = toLower(depositorAddress);
-        validatorAddress = toLower(validatorAddress);
-
-        require(_erc20AddressExists[erc20Address] == false, "Caller already exists");
-        require(keccak256(abi.encodePacked(depositorAddress)) != keccak256(abi.encodePacked(validatorAddress)), "Depositor address cannot be same as Validator address");
-        require(_depositorExists[depositorAddress] == false, "Depositor already exists");
-        require(_validatorExists[validatorAddress] == false, "Validator already exists");
-
-        _erc20AddressList.push(erc20Address);
-        _depositorBalances[depositorAddress] = depositAmount;
        
-        _erc20AddressExists[erc20Address] = true;
-        _validatorExists[validatorAddress] = true;
-        _depositorExists[depositorAddress] = true;
+        require(_erc20AddressExists[msg.sender] == false, "Caller already exists");
+        require(keccak256(abi.encodePacked(depositor)) != keccak256(abi.encodePacked(validator)), "Depositor address cannot be same as Validator address");
+        require(_depositorExists[depositor] == false, "Depositor already exists");
+        require(_validatorExists[validator] == false, "Validator already exists");
 
-        _erc20AddressToDepositorMapping[erc20Address] = depositorAddress;
-        _erc20AddressToValidatorMapping[erc20Address] = validatorAddress;
+        _erc20AddressList.push(msg.sender);
+        _depositorBalances[depositor] = depositAmount;
+       
+        _erc20AddressExists[msg.sender] = true;
+        _validatorExists[validator] = true;
+        _depositorExists[depositor] = true;
 
-        _erc20AddressToEthSignMapping[erc20Address] = ethSign;
-        _depositorAddressToQuantumSignMapping[depositorAddress] = quantumSign;
+        _erc20AddressToDepositorMapping[msg.sender] = depositor;
+        _erc20AddressToValidatorMapping[msg.sender] = validator;
+
+        _erc20AddressToEthSignMapping[msg.sender] = ethSign;
+        _depositorAddressToQuantumSignMapping[depositor] = quantumSign;
 
         emit OnAddGenesisValidator(
-            erc20Address,  depositorAddress,  validatorAddress, 
+            msg.sender,  depositor,  validator, 
             ethSign, quantumSign, depositAmount,
             block.number, 
             block.timestamp
@@ -135,24 +131,22 @@ contract DpGenesisValidator {
         if(block.timestamp > _genesisValidatorAllowedCutOffDate) {
             return false;
         }
-        
-        string memory erc20Address = toLower(addressToString(msg.sender));
+     
+        require(_erc20AddressExists[msg.sender] == true, "Caller is not a genesis validator");
 
-        require(_erc20AddressExists[erc20Address] == true, "Caller is not a genesis validator");
+        string memory depositor = _erc20AddressToDepositorMapping[msg.sender];
+        string memory validator = _erc20AddressToValidatorMapping[msg.sender];
 
-        string memory depositorAddress = _erc20AddressToDepositorMapping[erc20Address];
-        string memory validatorAddress = _erc20AddressToValidatorMapping[erc20Address];
+        _depositorBalances[depositor] = 0;
 
-        _depositorBalances[depositorAddress] = 0;
-
-        _erc20AddressExists[erc20Address] = false;
-        _validatorExists[validatorAddress] = false;
-        _depositorExists[depositorAddress] = false;
+        _erc20AddressExists[msg.sender] = false;
+        _validatorExists[validator] = false;
+        _depositorExists[depositor] = false;
 
         emit OnCancelGenesisValidator(
-            erc20Address, 
-            depositorAddress, 
-            validatorAddress,
+            msg.sender, 
+            depositor, 
+            validator,
             block.number, 
             block.timestamp
         );
@@ -160,54 +154,24 @@ contract DpGenesisValidator {
         return true;
     }
 
-   function getGenesisValidator(string memory erc20Address)
-         external view returns  (string memory, string memory, string memory,
+   function getGenesisValidator(address erc20)
+         external view returns  (address, string memory, string memory,
          string memory, string memory, bool, uint256)
     {
-       erc20Address = toLower(erc20Address);
-       string memory depositorAddress = _erc20AddressToDepositorMapping[erc20Address];
-       string memory validatorAddress =  _erc20AddressToValidatorMapping[erc20Address];
+   
+       string memory depositor = _erc20AddressToDepositorMapping[erc20];
+       string memory validator = _erc20AddressToValidatorMapping[erc20];
 
-       string memory ethSign =  _erc20AddressToEthSignMapping[erc20Address];
-       string memory quantumSign =  _depositorAddressToQuantumSignMapping[depositorAddress];
+       string memory ethSign =  _erc20AddressToEthSignMapping[erc20];
+       string memory quantumSign =  _depositorAddressToQuantumSignMapping[depositor];
 
-       bool status = _erc20AddressExists[erc20Address];
-       uint256 depositorBalances = _depositorBalances[depositorAddress];
-       return(erc20Address, depositorAddress, validatorAddress, ethSign, quantumSign, 
+       bool status = _erc20AddressExists[erc20];
+       uint256 depositorBalances = _depositorBalances[depositor];
+       return(erc20, depositor, validator, ethSign, quantumSign, 
             status, depositorBalances);
     }
 
-    function listGenesisValidators()  external view returns (string[] memory) {
+    function listGenesisValidators()  external view returns (address[] memory) {
         return _erc20AddressList;
     }
-
-    function addressToString(address account) private pure returns(string memory) {
-        bytes32 value = bytes32(uint256(uint160(account)));
-        bytes memory alphabet = "0123456789abcdef";
-
-        bytes memory str = new bytes(2 + value.length * 2);
-        str[0] = "0";
-        str[1] = "x";
-        for (uint i = 0; i < value.length; i++) {
-            str[2+i*2] = alphabet[uint(uint8(value[i] >> 4))];
-            str[3+i*2] = alphabet[uint(uint8(value[i] & 0x0f))];
-        }
-        return string(str);
-    }
-
-    function toLower(string memory str) internal pure returns (string memory) {
-        bytes memory bStr = bytes(str);
-        bytes memory bLower = new bytes(bStr.length);
-        for (uint i = 0; i < bStr.length; i++) {
-            // Uppercase character...
-            if ((uint8(bStr[i]) >= 65) && (uint8(bStr[i]) <= 90)) {
-                // So we add 32 to make it lowercase
-                bLower[i] = bytes1(uint8(bStr[i]) + 32);
-            } else {
-                bLower[i] = bStr[i];
-            }
-        }
-        return string(bLower);
-    }
-    
 }
