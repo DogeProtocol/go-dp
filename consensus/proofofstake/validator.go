@@ -3,7 +3,6 @@ package proofofstake
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
@@ -23,14 +22,14 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	if err != nil {
 		return nil, err
 	} else {
-		fmt.Println("depositorCount", depositorCount)
+		log.Debug("depositorCount", "depositorCount", depositorCount)
 	}
 	totalDepositedBalance, err := p.GetTotalDepositedBalance(blockHash)
 	if err != nil {
-		fmt.Println("totalDepositedBalance error", err)
+		log.Debug("totalDepositedBalance error", "err", err)
 		return nil, err
 	} else {
-		fmt.Println("totalDepositedBalance", totalDepositedBalance)
+		log.Debug("totalDepositedBalance", "totalDepositedBalance", totalDepositedBalance)
 	}
 
 	err = staking.IsStakingContract()
@@ -44,7 +43,7 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	method := staking.GetContract_Method_ListValidators()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetValidators error getting abidata", err)
+		log.Error("GetValidators error getting abidata", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -60,7 +59,6 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	msgData := (hexutil.Bytes)(data)
 
 	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
-		//Gas:  &gas,
 		To:   &contractAddress,
 		Data: &msgData,
 	}, blockNr, nil)
@@ -68,12 +66,12 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		return nil, err
 	}
 	if len(result) == 0 {
-		//fmt.Println("result 0 length")
+		log.Debug("result 0 length")
 		return nil, nil
 	}
 	_, err = abiData.Unpack(method, result)
 	if err != nil {
-		log.Error("Unpack", err)
+		log.Error("Unpack", "err", err)
 		return nil, err
 	}
 
@@ -94,13 +92,13 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		if val.IsEqualTo(ZERO_ADDRESS) {
 			return nil, errors.New("invalid validator")
 		}
-		fmt.Println("......................val", val)
+		log.Debug("GetValidators Validator", "val", val)
 	}
 	for _, val := range *out {
 		//valz[i] = val
 		depositor, err := p.GetDepositorOfValidator(val, blockHash)
 		if err != nil {
-			fmt.Println("GetDepositorOfValidator failed", err)
+			log.Debug("GetDepositorOfValidator failed", "err", err)
 			continue
 		}
 
@@ -110,19 +108,19 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 
 		balance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
 		if err != nil {
-			fmt.Println("GetBalanceOfDepositor failed", err)
+			log.Debug("GetBalanceOfDepositor failed", "err", err)
 			continue
 		}
 
 		proposalsTxnsMap[val] = balance
-		fmt.Println("validator", val, "depositor", depositor, "depositAmount", balance)
+		log.Debug("GetValidators", "validator", val, "depositor", depositor, "depositAmount", balance)
 	}
 
 	return proposalsTxnsMap, nil
 }
 
 func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHash common.Hash) (common.Address, error) {
-	//fmt.Println("GetDepositorOfValidator validator", validator)
+	log.Trace("GetDepositorOfValidator validator", "validator", validator)
 	err := staking.IsStakingContract()
 	if err != nil {
 		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
@@ -134,7 +132,7 @@ func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHa
 	method := staking.GetContract_Method_GetDepositorOfValidator()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetDepositorOfValidator abi error", err)
+		log.Error("GetDepositorOfValidator abi error", "err", err)
 		return common.Address{}, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -185,7 +183,7 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 	method := staking.GetContract_Method_GetBalanceOfDepositor()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("GetNetBalanceOfDepositor abi error", err)
+		log.Error("GetNetBalanceOfDepositor abi error", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -201,12 +199,11 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 
 	msgData := (hexutil.Bytes)(data)
 	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
-		//Gas:  &gas,
 		To:   &contractAddress,
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
-		log.Error("Call", err)
+		log.Error("Call", "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
@@ -216,7 +213,7 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 	var out *big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		log.Debug("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
 	}
 
@@ -235,7 +232,7 @@ func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error
 	method := staking.GetContract_Method_GetDepositorCount()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		//fmt.Println("GetDepositorCount abi error", err)
+		log.Trace("GetDepositorCount abi error", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -252,12 +249,11 @@ func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error
 	msgData := (hexutil.Bytes)(data)
 
 	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
-		//Gas:  &gas,
 		To:   &contractAddress,
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
-		//fmt.Println("Call", err)
+		log.Trace("Call", "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
@@ -267,7 +263,7 @@ func (p *ProofOfStake) GetDepositorCount(blockHash common.Hash) (*big.Int, error
 	var out *big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		//fmt.Println("UnpackIntoInterface", err)
+		log.Trace("UnpackIntoInterface", "err", err)
 		return nil, err
 	}
 
@@ -286,7 +282,7 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	method := staking.GetContract_Method_GetTotalDepositedBalance()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		//fmt.Println("GetTotalDepositedBalance abi error", err)
+		log.Trace("GetTotalDepositedBalance abi error", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
@@ -303,12 +299,11 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	msgData := (hexutil.Bytes)(data)
 
 	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
-		//Gas:  &gas,
 		To:   &contractAddress,
 		Data: &msgData,
 	}, blockNr, nil)
 	if err != nil {
-		//fmt.Println("Call", err)
+		log.Trace("Call", "err", err)
 		return nil, err
 	}
 	if len(result) == 0 {
@@ -318,7 +313,7 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	var out *big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		//fmt.Println("UnpackIntoInterface", err)
+		log.Trace("UnpackIntoInterface", "err", err)
 		return nil, err
 	}
 
@@ -338,32 +333,25 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
 		return nil, err
 	}
 
-	//ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel() // cancel when we are finished consuming integers
-
 	method := staking.GetContract_Method_AddDepositorSlashing()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("AddDepositorSlashing abi error", err)
+		log.Error("AddDepositorSlashing abi error", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 
 	// call
 	data, err := encodeCall(&abiData, method, depositor, slashedAmount)
-	//data, err := abiData.Pack(method, depositor, slashedAmount)
 	if err != nil {
 		log.Error("Unable to pack AddDepositorSlashing", "error", err)
 		return nil, err
 	}
-	// block
-	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
 
 	msgData := (hexutil.Bytes)(data)
 	var from common.Address
 	from.CopyFrom(ZERO_ADDRESS)
 	args := ethapi.TransactionArgs{
-		//Gas:  &gas,
 		From: &from,
 		To:   &contractAddress,
 		Data: &msgData,
@@ -379,12 +367,6 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
 		return nil, err
 	}
 
-	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
-	if err != nil {
-		log.Error("Call", err)
-		return nil, err
-	}*/
-
 	if len(result) == 0 {
 		return nil, errors.New("AddDepositorSlashing result is 0")
 	}
@@ -392,7 +374,7 @@ func (p *ProofOfStake) AddDepositorSlashing(blockHash common.Hash,
 	var out *big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
 	}
 
@@ -408,32 +390,25 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 		return nil, err
 	}
 
-	//ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel() // cancel when we are finished consuming integers
-
 	method := staking.GetContract_Method_AddDepositorReward()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		log.Error("AddDepositorReward abi error", err)
+		log.Error("AddDepositorReward abi error", "err", err)
 		return nil, err
 	}
 	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
 
 	// call
 	data, err := encodeCall(&abiData, method, depositor, rewardAmount)
-	//data, err := abiData.Pack(method, depositor, slashedAmount)
 	if err != nil {
 		log.Error("Unable to pack AddDepositorReward", "error", err)
 		return nil, err
 	}
-	// block
-	//blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
 
 	msgData := (hexutil.Bytes)(data)
 	var from common.Address
 	from.CopyFrom(ZERO_ADDRESS)
 	args := ethapi.TransactionArgs{
-		//Gas:  &gas,
 		From: &from,
 		To:   &contractAddress,
 		Data: &msgData,
@@ -449,12 +424,6 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 		return nil, err
 	}
 
-	/*result, err := p.ethAPI.Call(ctx, args, blockNr, nil)
-	if err != nil {
-		log.Error("Call", err)
-		return nil, err
-	}*/
-
 	if len(result) == 0 {
 		return nil, errors.New("AddDepositorReward result is 0")
 	}
@@ -462,7 +431,7 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 	var out *big.Int
 
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		//fmt.Println("UnpackIntoInterface", err, "depositor", depositor)
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
 	}
 

@@ -151,35 +151,6 @@ var (
 type SignerFn func(signer accounts.Account, mimeType string, message []byte) ([]byte, error)
 type SignerTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
 
-// ecrecover extracts the Ethereum account address from a signed header.
-func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
-	// If the signature's already cached, return that
-	hash := header.Hash()
-	if address, known := sigcache.Get(hash); known {
-		return address.(common.Address), nil
-	}
-	// Retrieve the signature from the header extra-data
-	if len(header.Extra) < extraSeal {
-		return common.Address{}, errMissingSignature
-	}
-
-	signature := header.Extra[len(header.Extra)-extraSeal:]
-
-	// Recover the public key and the Ethereum address
-	if len(signature) == 0 {
-		panic("signature is empty")
-	}
-	pubkey, err := cryptobase.SigAlg.PublicKeyBytesFromSignature(SealHash(header).Bytes(), signature)
-	if err != nil {
-		return common.Address{}, err
-	}
-	var validator common.Address
-	validator.CopyFrom(crypto.PublicKeyBytesToAddress(pubkey[:]))
-	//fmt.Println("validator", validator, "block", header.Number)
-	sigcache.Add(hash, validator)
-	return validator, nil
-}
-
 // ProofOfStake is the proof-of-authority consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
 type ProofOfStake struct {
@@ -287,7 +258,7 @@ func flattenTxnMap(txnMap map[common.Address]types.Transactions) ([]common.Hash,
 	i := 0
 	for k, v := range txnMap {
 		for _, txn := range v {
-			//fmt.Println("flattenTxnMap", txn.Hash())
+			log.Trace("flattenTxnMap", "Hash", txn.Hash())
 			txnList[i].CopyFrom(txn.Hash())
 			txnAddressMap[txnList[i]] = k
 			i = i + 1
@@ -306,14 +277,11 @@ func recreateTxnMap(selectedTxns []common.Hash, txnAddressMap map[common.Hash]co
 	for _, txnHash := range selectedTxns {
 		addr, ok := txnAddressMap[txnHash]
 		if ok == false {
-			log.Trace("recreateTxnMap not fouud", "tx", txnHash)
-			fmt.Println("recreateTxnMap not found", txnHash)
-			return nil, errors.New("unknown transaction")
-			/*for k, v := range txnAddressMap {
-				fmt.Println("recreateTxnMap txnAddressMap", "k", k, "v", v)
+			log.Debug("recreateTxnMap not fouud", "tx", txnHash)
+			for k, v := range txnAddressMap {
+				log.Trace("recreateTxnMap txnAddressMap", "k", k, "v", v)
 			}
-			*/
-			continue
+			return nil, errors.New("unknown transaction")
 		}
 		txnList, ok := txnMap[addr]
 		if ok == false {
@@ -337,7 +305,7 @@ func recreateTxnMap(selectedTxns []common.Hash, txnAddressMap map[common.Hash]co
 func (c *ProofOfStake) IsBlockReadyToSeal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) bool {
 	blockState, _, err := c.consensusHandler.getBlockState(header.ParentHash)
 	if err != nil {
-		fmt.Println("blockState", blockState, "err", err)
+		log.Trace("IsBlockReadyToSeal", "blockState", blockState, "err", err)
 		return false
 	}
 	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
@@ -356,13 +324,12 @@ func (c *ProofOfStake) HandleTransactions(chain consensus.ChainHeaderReader, hea
 
 	err := c.consensusHandler.HandleTransactions(header.ParentHash, txns)
 	if err != nil {
-		fmt.Println("HandleTransactions", err)
 		return nil, err
 	}
 
 	blockState, round, err := c.consensusHandler.getBlockState(header.ParentHash)
 	if err != nil {
-		fmt.Println("getBlockState", err)
+		log.Debug("getBlockState", "err", err)
 		return nil, err
 	}
 	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
@@ -370,31 +337,31 @@ func (c *ProofOfStake) HandleTransactions(chain consensus.ChainHeaderReader, hea
 	}
 	vote, err := c.consensusHandler.getBlockVote(header.ParentHash)
 	if err != nil {
-		fmt.Println("getBlockVote", err)
+		log.Debug("getBlockVote", "err", err)
 		return nil, err
 	}
 
 	selectedTxns, err := c.consensusHandler.getBlockSelectedTransactions(header.ParentHash)
 	if err != nil {
-		fmt.Println("getBlockSelectedTransactions", err)
+		log.Debug("getBlockSelectedTransactions", "err", err)
 		return nil, err
 	}
 	if selectedTxns == nil {
-		fmt.Println("getBlockSelectedTransactions nil")
+		log.Debug("getBlockSelectedTransactions nil")
 		return nil, nil
 	}
 
-	fmt.Println("HandleTransactions", "in", len(txns), "out", len(selectedTxns), "round", round, "vote", vote)
-	/*for _, t := range txns {
-		fmt.Println("HandleTransactions intxns", "txn", t)
+	log.Debug("HandleTransactions", "in txn count", len(txns), "out txn count", len(selectedTxns), "round", round, "vote", vote)
+	for _, t := range txns {
+		log.Trace("HandleTransactions intxns", "txn", t)
 	}
 	for _, t := range selectedTxns {
-		fmt.Println("HandleTransactions outtxns", "txn", t)
-	}*/
+		log.Trace("HandleTransactions outtxns", "txn", t)
+	}
 
 	resultMap, err := recreateTxnMap(selectedTxns, txnAddressMap, txnMap)
 	if err != nil {
-		fmt.Println("recreateTxnMap", err)
+		log.Debug("recreateTxnMap", "err", err)
 		return nil, err
 	}
 
@@ -418,7 +385,7 @@ func (c *ProofOfStake) VerifyHeaders(chain consensus.ChainHeaderReader, headers 
 			return
 		}
 
-		fmt.Println("VerifyHeaders", "header", headers[0].Number.Uint64(), "currentHeader", currentNumber, "currentHeaderNumber", currentHeader.Number,
+		log.Debug("VerifyHeaders", "header", headers[0].Number.Uint64(), "currentHeader", currentNumber, "currentHeaderNumber", currentHeader.Number,
 			"hash", headers[0].Hash(), "parent", headers[0].ParentHash, "expected", currentHeader.Hash())
 		if headers[0].Number.Uint64() != uint64(currentNumber+1) || headers[0].ParentHash.IsEqualTo(currentHeader.Hash()) == false {
 			results <- err
@@ -465,9 +432,7 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 	if len(header.Extra) < extraVanity {
 		return errMissingVanity
 	}
-	//if len(header.Extra) < extraVanity+extraSeal {
-	//	return errMissingSignature
-	//}
+
 	// Ensure that the extra-data contains a signer list on checkpoint, but none otherwise
 
 	// Ensure that the mix digest is zero as we don't have fork protection currently
@@ -480,9 +445,6 @@ func (c *ProofOfStake) verifyHeader(chain consensus.ChainHeaderReader, header *t
 		if header.Difficulty == nil || header.Difficulty.Uint64() != number {
 			return errInvalidDifficulty
 		}
-		//if header.Difficulty == nil || (header.Difficulty.Cmp(diffInTurn) != 0 && header.Difficulty.Cmp(diffNoTurn) != 0) {
-		//return errInvalidDifficulty
-		//}
 	}
 	// Verify that the gas limit is <= 2^63-1
 	cap := uint64(0x7fffffffffffffff)
@@ -534,7 +496,7 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 	}
 
 	if header.ConsensusData == nil || header.UnhashedConsensusData == nil {
-		fmt.Println("ValidateBlockConsensusData nil")
+		log.Trace("ValidateBlockConsensusData nil")
 		return errors.New("nil consensusdata")
 	}
 
@@ -605,7 +567,6 @@ func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.
 }
 
 func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *types.Block) error {
-	//fmt.Println("===================>VerifyBlock")
 	header := block.Header()
 	number := header.Number.Uint64()
 
@@ -615,24 +576,24 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 	currentNumber := uint64(c.ethAPI.BlockNumber())
 	currentHeader, err := c.ethAPI.GetHeaderByNumberInner(ctx, rpc.BlockNumber(currentNumber))
 	if err != nil {
-		fmt.Println("VerifyBlock 1", err)
+		log.Trace("VerifyBlock 1", "err", err)
 		return err
 	}
 
 	if number != currentNumber+1 || header.ParentHash.IsEqualTo(currentHeader.Hash()) == false {
-		fmt.Println("VerifyBlock 2", err)
+		log.Trace("VerifyBlock 2", "err", err)
 		return err
 	}
 
 	validatorDepositMap, err := c.GetValidators(header.ParentHash)
 	if err != nil {
-		fmt.Println("VerifyBlock 3", err)
+		log.Trace("VerifyBlock 3", "err", err)
 		return err
 	}
 
 	err = ValidateBlockConsensusData(block, &validatorDepositMap)
 	if err != nil {
-		fmt.Println("ValidateBlockConsensusData", err)
+		log.Trace("ValidateBlockConsensusData", "err", err)
 	}
 
 	return err
@@ -650,10 +611,10 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 			if !tx.Verify(signerHash.Bytes()) {
-				fmt.Println("Txn Verify failed", tx.Hash())
+				log.Trace("Txn Verify failed", "Hash", tx.Hash())
 				return errors.New("Transaction verify failed")
 			} else {
-				//fmt.Println("Txn Verify ok", tx.Hash())
+				log.Trace("Txn Verify ok", "Hash", tx.Hash())
 			}
 		}
 	}
@@ -675,13 +636,13 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			if err != nil {
 				return err
 			}
-			//fmt.Println("########################## depositor slashing", depositor)
+			log.Trace("depositor slashing", "depositor", depositor)
 			slashTotal, err := c.AddDepositorSlashing(header.ParentHash, depositor, slashAmount, state, header)
 			if err != nil {
-				fmt.Println("AddDepositorSlashing err", err)
+				log.Trace("AddDepositorSlashing err", "err", err)
 				return err
 			}
-			fmt.Println("========================================>slashed amount", slashTotal, slashAmount, depositor)
+			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
 		}
 	}
 
@@ -689,15 +650,15 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		blockProposerRewardAmount := GetReward(header.Number)
 		blockProposerRewardAmountTotal, err := c.AddDepositorReward(header.ParentHash, blockConsensusData.BlockProposer, blockProposerRewardAmount, state, header)
 		if err != nil {
-			fmt.Println("AddDepositorReward err", err)
+			log.Trace("AddDepositorReward err", "err", err)
 			return err
 		}
-		fmt.Println("========================================>reward amount", blockProposerRewardAmountTotal, blockProposerRewardAmount, blockConsensusData.BlockProposer)
+		log.Trace(">reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
 	}
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
-	fmt.Println("finalize", "root", header.Root, "number", header.Number, "txns", len(txs), "iseip", chain.Config().IsEIP158(header.Number))
+	log.Trace("finalize", "root", header.Root, "number", header.Number, "txns", len(txs), "iseip", chain.Config().IsEIP158(header.Number))
 
 	return nil
 }
@@ -721,23 +682,23 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 
 	blockState, round, err := c.consensusHandler.getBlockState(header.ParentHash)
 	if err != nil {
-		fmt.Println("getBlockState", err)
+		log.Trace("getBlockState", "err", err)
 		return nil, err
 	}
 
 	if blockState != BLOCK_STATE_RECEIVED_COMMITS {
-		fmt.Println("FinalizeAndAssembleWithConsensus BLOCK_STATE_WAITING_FOR_COMMITS", round)
+		log.Trace("FinalizeAndAssembleWithConsensus BLOCK_STATE_WAITING_FOR_COMMITS", round)
 		return nil, errors.New("Block state not yet BLOCK_STATE_WAITING_FOR_COMMITS")
 	}
 
 	blockConsensusData, blockAdditionalConsensusData, err := c.consensusHandler.getBlockConsensusData(header.ParentHash)
 	if err != nil {
-		fmt.Println("getBlockConsensusData", err)
+		log.Trace("getBlockConsensusData", "err", err)
 		return nil, err
 	}
 	data, err := rlp.EncodeToBytes(blockConsensusData)
 	if err != nil {
-		fmt.Println("EncodeToBytes blockConsensusData", err)
+		log.Trace("EncodeToBytes blockConsensusData", "err", err)
 		return nil, err
 	}
 	header.ConsensusData = make([]byte, len(data))
@@ -745,7 +706,7 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 
 	data, err = rlp.EncodeToBytes(blockAdditionalConsensusData)
 	if err != nil {
-		fmt.Println("EncodeToBytes blockAdditionalConsensusData", err)
+		log.Trace("EncodeToBytes blockAdditionalConsensusData", "err", err)
 		return nil, err
 	}
 	header.UnhashedConsensusData = make([]byte, len(data))
@@ -755,29 +716,7 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 	if err != nil {
 		return nil, err
 	}
-	/*
-		blockConsensusData, _, err := c.consensusHandler.getBlockConsensusData(header.ParentHash)
-		if err != nil {
-			fmt.Println("getBlockConsensusData", err)
-			return nil, err
-		}
 
-		if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 {
-			for _, val := range blockConsensusData.SlashedBlockProposers {
-				depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
-				if err != nil {
-					return nil, err
-				}
-				//fmt.Println("########################## depositor slashing", depositor)
-				slashTotal, err := c.AddDepositorSlashing(header.ParentHash, depositor, slashAmount, state, header)
-				if err != nil {
-					fmt.Println("AddDepositorSlashing err", err)
-					return nil, err
-				}
-				fmt.Println("========================================>slashed amount", slashTotal, slashAmount, depositor)
-			}
-		}
-	*/
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, receipts, trie.NewStackTrie(nil)), nil
 }
@@ -800,47 +739,7 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 // the local signing credentials.
 func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	header := block.Header()
-	//fmt.Println("=============Seal1", block.ParentHash().String(), "number", header.Number.Uint64())
-	/*
-		// Sealing the genesis block is not supported
-		number := header.Number.Uint64()
-		if number == 0 {
-			return errUnknownBlock
-		}
-
-		blockState, round, err := c.consensusHandler.getBlockState(block.ParentHash())
-		if err != nil {
-			fmt.Println("getBlockState", err)
-			return err
-		}
-
-		if blockState != BLOCK_STATE_RECEIVED_COMMITS {
-			//fmt.Println("=============Seal2", block.ParentHash().String(), "round", round)
-			return errors.New("Block state not yet BLOCK_STATE_WAITING_FOR_COMMITS")
-		}
-
-		blockConsensusData, blockAdditionalConsensusData, err := c.consensusHandler.getBlockConsensusData(block.ParentHash())
-		if err != nil {
-			fmt.Println("getBlockConsensusData", err)
-			return err
-		}
-		data, err := rlp.EncodeToBytes(blockConsensusData)
-		if err != nil {
-			fmt.Println("EncodeToBytes blockConsensusData", err)
-			return err
-		}
-		header.ConsensusData = make([]byte, len(data))
-		copy(header.ConsensusData, data)
-
-		data, err = rlp.EncodeToBytes(blockAdditionalConsensusData)
-		if err != nil {
-			fmt.Println("EncodeToBytes blockAdditionalConsensusData", err)
-			return err
-		}
-		header.UnhashedConsensusData = make([]byte, len(data))
-		copy(header.UnhashedConsensusData, data)
-	*/
-	fmt.Println("=============>Seal", block.ParentHash().String())
+	log.Trace("Seal", "block", block.ParentHash().String())
 
 	delay := time.Second * 1
 	go func() {
@@ -900,19 +799,6 @@ func SealHash(header *types.Header) (hash common.Hash) {
 	return hash
 }
 
-// ProofOfStakeRLP returns the rlp bytes which needs to be signed for the proof-of-authority
-// sealing. The RLP to sign consists of the entire header apart from the 65 byte signature
-// contained at the end of the extra data.
-//
-// Note, the method requires the extra data to be at least 65 bytes, otherwise it
-// panics. This is done to avoid accidentally using both forms (signature present
-// or not), which could be abused to produce different hashes for the same header.
-func ProofOfStakeRLP(header *types.Header) []byte {
-	b := new(bytes.Buffer)
-	encodeSigHeader(b, header)
-	return b.Bytes()
-}
-
 func encodeSigHeader(w io.Writer, header *types.Header) {
 	enc := []interface{}{
 		header.ParentHash,
@@ -934,18 +820,4 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	if err := rlp.Encode(w, enc); err != nil {
 		panic("can't encode: " + err.Error())
 	}
-}
-
-// chain context
-type chainContext struct {
-	Chain        consensus.ChainHeaderReader
-	proofofstake consensus.Engine
-}
-
-func (c chainContext) Engine() consensus.Engine {
-	return c.proofofstake
-}
-
-func (c chainContext) GetHeader(hash common.Hash, number uint64) *types.Header {
-	return c.Chain.GetHeader(hash, number)
 }
