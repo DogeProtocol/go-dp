@@ -395,7 +395,7 @@ func ValidateBlockConsensusDataTest(parentHash common.Hash, p2p *MockP2PManager,
 
 		blockConsensusData, blockAdditionalConsensusData, err := handler.consensusHandler.getBlockConsensusData(parentHash)
 		if err != nil {
-			fmt.Println("ValidateBlockConsensusData getBlockConsensusData", err, handler.validator)
+			fmt.Println("ValidateBlockConsensusData getBlockConsensusData", "err", err, "val", handler.validator)
 			t.Fatalf("failed")
 		} else {
 			fmt.Println("ValidateBlockConsensusData getBlockConsensusData ok", handler.validator)
@@ -1135,7 +1135,7 @@ func testPacketHandler_split_txns(t *testing.T) {
 
 	}
 
-	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys, 10, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, numKeys, 15, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1286,7 +1286,7 @@ func testPacketHandler_split_increasing_txns_some_unresponsive(t *testing.T, num
 		c = c + 1
 	}
 
-	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 90, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
+	if ValidateTest(valMap, startTime, parentHash, p2p, minPass, 145, map[VoteType]bool{VOTE_TYPE_OK: true}, BLOCK_STATE_RECEIVED_COMMITS, t) == false {
 		t.Fatalf("failed")
 	}
 
@@ -1546,6 +1546,15 @@ func PrintState(parentHash common.Hash, mockP2pHandlers map[common.Address]*Mock
 
 		for v, k := range roundVoteMap[r] {
 			fmt.Println("     VoteType", v, "count", k)
+		}
+
+		if r > 1 {
+			for _, handler := range mockP2pHandlers {
+				roundDetails, _ := handler.consensusHandler.getBlockRound(parentHash, r)
+				if roundDetails != nil {
+					fmt.Println("     round reason", "val", handler.consensusHandler.account.Address, "reason", roundDetails.newRoundReason)
+				}
+			}
 		}
 	}
 

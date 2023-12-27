@@ -560,7 +560,7 @@ func (p *Peer) RequestTxs(hashes []common.Hash) error {
 
 // SendRequestConsensusDataPacket requests consensus data from a remote node.
 func (p *Peer) SendRequestConsensusDataPacket(packet *RequestConsensusDataPacket) error {
-	p.Log().Debug("SendRequestConsensusDataPacket", "parentHash", packet.ParentHash)
+	p.Log().Trace("SendRequestConsensusDataPacket", "parentHash", packet.ParentHash)
 	return p2p.Send(p.rw, RequestConsensusDataMsg, packet)
 }
 
@@ -588,7 +588,7 @@ func (p *Peer) AsyncSendConsensusPacket(packet *ConsensusPacket) {
 }
 
 func (p *Peer) SendRequestPeerListPacket(packet *RequestPeerListPacket) error {
-	p.Log().Debug("SendRequestPeerListPacket", "maxPeers", packet)
+	p.Log().Trace("SendRequestPeerListPacket", "maxPeers", packet)
 	return p2p.Send(p.rw, RequestPeerListMsg, packet)
 }
 
@@ -601,7 +601,7 @@ func (p *Peer) AsyncSendRequestPeerListPacket(packet *RequestPeerListPacket) {
 }
 
 func (p *Peer) SendPeerListPacket(packet *PeerListPacket) error {
-	p.Log().Debug("SendPeerListPacket", "numPeers", len(packet.PeerList))
+	p.Log().Trace("SendPeerListPacket", "numPeers", len(packet.PeerList))
 	return p2p.Send(p.rw, PeerListMsg, packet)
 }
 

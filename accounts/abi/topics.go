@@ -151,9 +151,9 @@ func parseTopicWithSetter(fields Arguments, topics []common.Hash, setter func(Ar
 			// whose bytes can be decoded to the actual value- so the best we can do is retrieve that hash
 			reconstr = topics[i]
 		case FunctionTy:
-			var tmp [32]byte
-			copy(tmp[:], topics[i][0:32])
-			reconstr = tmp
+			//var tmp [32]byte
+			//copy(tmp[:], topics[i][0:32])
+			return errors.New("FunctionTy is not supported")
 		default:
 			var err error
 			reconstr, err = toGoType(0, arg.Type, topics[i].Bytes())

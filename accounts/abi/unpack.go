@@ -18,6 +18,7 @@ package abi
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -248,8 +249,8 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case FixedBytesTy:
 		return ReadFixedBytes(t, returnOutput)
 	case FunctionTy:
-		panic("FunctionTy")
-		return readFunctionType(t, returnOutput)
+		return nil, errors.New("FunctionTy is not supported")
+		//return readFunctionType(t, returnOutput)
 	default:
 		return nil, fmt.Errorf("abi: unknown type %v", t.T)
 	}

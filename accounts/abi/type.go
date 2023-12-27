@@ -205,8 +205,9 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 		}
 
 	case "function":
-		typ.T = FunctionTy
-		typ.Size = FunctionTypeLength
+		//typ.T = FunctionTy
+		//typ.Size = FunctionTypeLength
+		return Type{}, errors.New("FunctionTy is not supported")
 	default:
 		return Type{}, fmt.Errorf("unsupported arg type: %s", t)
 	}

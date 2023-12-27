@@ -18,7 +18,6 @@ package miner
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -226,11 +225,10 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
-	//fmt.Println("newWorker chain", worker.chain.CurrentBlock().ParentHash())
-
 	// Sanitize blockTimerPhaseInterval interval if the user-specified one is too short.
 	blockTimerPhaseInterval := worker.config.Recommit
-	//fmt.Println("blockTimerPhaseInterval period", blockTimerPhaseInterval)
+	log.Trace("newWorker chain", "ParentHash", worker.chain.CurrentBlock().ParentHash(), "blockTimerPhaseInterval", blockTimerPhaseInterval)
+
 	if blockTimerPhaseInterval < minRecommitInterval {
 		log.Warn("Sanitizing miner blockTimerPhaseInterval interval", "provided", blockTimerPhaseInterval, "updated", minRecommitInterval, "worker.config.Recommit", worker.config.Recommit)
 		blockTimerPhaseInterval = minRecommitInterval
@@ -371,23 +369,16 @@ func (w *worker) newWorkLoop(blockerTimerPhaseInterval time.Duration) {
 	<-timer.C // discard the initial tick
 
 	propose := func(s int32) {
-		//fmt.Println("propose1")
 		if interrupt != nil {
-			//fmt.Println("propose2")
 			atomic.StoreInt32(interrupt, s)
 		}
-		//fmt.Println("propose2.2")
 		interrupt = new(int32)
 		select {
 		case w.proposeCh <- &proposeReq{interrupt: interrupt, timestamp: timestamp}:
-			//fmt.Println("propose2.5")
 		case <-w.exitCh:
-			//fmt.Println("propose3")
 			return
 		}
-		//fmt.Println("propose4", blockerTimerPhaseInterval)
 		timer.Reset(blockerTimerPhaseInterval)
-		//fmt.Println("propose5", blockerTimerPhaseInterval)
 		atomic.StoreInt32(&w.newTxs, 0)
 	}
 
@@ -405,25 +396,22 @@ func (w *worker) newWorkLoop(blockerTimerPhaseInterval time.Duration) {
 	for {
 		select {
 		case <-w.startCh:
-			fmt.Println("startCh")
+			log.Trace("startCh")
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
 			propose(commitInterruptBlockPhase)
-			//commit(false, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
-			fmt.Println("chainHeadCh")
+			log.Trace("chainHeadCh")
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
 			propose(commitInterruptBlockPhase)
-			//commit(false, commitInterruptNewHead)
 
 		case <-timer.C:
-			//fmt.Println("timer.c 1")
+			log.Trace("timer.c 1")
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
 			if w.isRunning() {
-				//fmt.Println("timer.c 2")
 				propose(commitInterruptBlockPhase)
 			}
 
@@ -442,28 +430,28 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.proposeCh:
-			//fmt.Println("proposeCh")
+			log.Trace("proposeCh")
 			w.proposePhase(req.interrupt, req.timestamp)
 
 		case ev := <-w.chainSideCh:
-			fmt.Println("chainSideCh", ev.Block.Hash(), "number", ev.Block.Number())
+			log.Trace("chainSideCh", "Hash", ev.Block.Hash(), "number", ev.Block.Number())
 
 		case ev := <-w.txsCh:
-			fmt.Println("txsCh", len(ev.Txs))
+			log.Trace("txsCh", len(ev.Txs))
 			continue
 
 		// System stopped
 		case <-w.exitCh:
-			fmt.Println("exitCh")
+			log.Trace("exitCh")
 			return
 		case err := <-w.txsSub.Err():
-			fmt.Println("txsSub.Err()", err)
+			log.Trace("txsSub.Err()", "err", err)
 			return
 		case err := <-w.chainHeadSub.Err():
-			fmt.Println("chainHeadSub.Err()", err)
+			log.Trace("chainHeadSub.Err()", "err", err)
 			return
 		case err := <-w.chainSideSub.Err():
-			fmt.Println("chainSideSub.Err()", err)
+			log.Trace("chainSideSub.Err()", "err", err)
 			return
 		}
 	}
@@ -487,14 +475,14 @@ func (w *worker) taskLoop() {
 	for {
 		select {
 		case task := <-w.taskCh:
-			//fmt.Println("taskCh1")
+			log.Trace("taskCh1")
 			if w.newTaskHook != nil {
 				w.newTaskHook(task)
 			}
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
-				fmt.Println("taskCh1.1")
+				log.Trace("taskCh1.1")
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -502,18 +490,17 @@ func (w *worker) taskLoop() {
 			stopCh, prev = make(chan struct{}), sealHash
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
-				fmt.Println("taskCh1.2")
+				log.Trace("taskCh1.2")
 				continue
 			}
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
 			w.pendingMu.Unlock()
-			//fmt.Println("taskCh1.3")
+			log.Trace("taskCh1.3")
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
-				fmt.Println("Block sealing failed", "err", err)
 				log.Warn("Block sealing failed", "err", err)
 			}
-			fmt.Println("taskCh2")
+			log.Trace("taskCh2")
 		case <-w.exitCh:
 			interrupt()
 			return
@@ -527,7 +514,7 @@ func (w *worker) resultLoop() {
 	for {
 		select {
 		case block := <-w.resultCh:
-			fmt.Println("resultCh")
+			log.Trace("resultCh")
 			// Short circuit when receiving empty result.
 			if block == nil {
 				continue
@@ -544,7 +531,6 @@ func (w *worker) resultLoop() {
 			task, exist := w.pendingTasks[sealhash]
 			w.pendingMu.RUnlock()
 			if !exist {
-				fmt.Println("Block found but no relative pending task")
 				log.Error("Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
 				continue
 			}
@@ -571,14 +557,11 @@ func (w *worker) resultLoop() {
 			// Commit block and state to database.
 			status, err := w.chain.WriteBlockWithState(block, receipts, logs, task.state, true)
 			if err != nil {
-				fmt.Println("Failed writing block to chain", err)
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
-			fmt.Println("Successfully sealed new block", "status", status, "number", block.Number(), "sealhash", sealhash, "hash", hash,
-				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 			log.Info("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
-				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
+				"elapsed", common.PrettyDuration(time.Since(task.createdAt)), "status", status)
 
 			// Broadcast the block and announce chain insertion event
 			w.mux.Post(core.NewMinedBlockEvent{Block: block})
@@ -641,13 +624,13 @@ func (w *worker) updateSnapshot() {
 func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
 	snap := w.current.state.Snapshot()
 
-	//fmt.Println("state 4", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "coinbase", coinbase.Hash())
+	log.Trace("state 4", "IntermediateRoot", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "coinbase", coinbase.Hash())
 
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig())
-	//fmt.Println("state 5", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "receipt", receipt)
+	log.Trace("state 5", "IntermediateRoot", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "receipt", receipt)
 
 	if err != nil {
-		fmt.Println("state commit", err)
+		log.Trace("state commit", "err", err)
 		w.current.state.RevertToSnapshot(snap)
 		return nil, err
 	}
@@ -658,10 +641,10 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 }
 
 func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase common.Address, interrupt *int32) bool {
-	//fmt.Println("commitTransactions1")
+	log.Trace("commitTransactions1")
 	// Short circuit if current is nil
 	if w.current == nil {
-		//fmt.Println("commitTransactions2")
+		log.Trace("commitTransactions2")
 		return true
 	}
 
@@ -675,40 +658,17 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 	var coalescedLogs []*types.Log
 	hasRecords := txs.NextCursor()
 	for {
-		//fmt.Println("commitTransactions3")
-		// In the following three cases, we will interrupt the execution of the transaction.
-		// (1) new head block event arrival, the interrupt signal is 1
-		// (2) worker start or restart, the interrupt signal is 1
-		// (3) worker recreate the mining block with any newly arrived transactions, the interrupt signal is 2.
-		// For the first two cases, the semi-finished work will be discarded.
-		// For the third case, the semi-finished work will be submitted to the consensus engine.
-		/*if interrupt != nil && atomic.LoadInt32(interrupt) != commitInterruptNone {
-			// Notify resubmit loop to increase resubmitting interval due to too frequent commits.
-			if atomic.LoadInt32(interrupt) == commitInterruptResubmit {
-				ratio := float64(gasLimit-w.current.gasPool.Gas()) / float64(gasLimit)
-				if ratio < 0.1 {
-					ratio = 0.1
-				}
-				w.resubmitAdjustCh <- &intervalAdjust{
-					ratio: ratio,
-					inc:   true,
-				}
-			}
-			fmt.Println("commitTransactions4")
-			return atomic.LoadInt32(interrupt) == commitInterruptNewHead
-		}*/
-		//fmt.Println("commitTransactions5")
+		log.Trace("commitTransactions5")
 		// If we don't have enough gas for any further transactions then we're done
 		if w.current.gasPool.Gas() < params.TxGas {
-			fmt.Println("==========================Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
-			log.Trace("Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
+			log.Info("Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
 			break
 		}
 		// Retrieve the next transaction and abort if all done
 		//tx := txs.Peek()
 
 		if hasRecords == false {
-			//fmt.Println("commitTransactions6")
+			log.Trace("commitTransactions6")
 			break
 		}
 		tx := txs.PeekCursor()
@@ -723,7 +683,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
-			fmt.Println("Ignoring reply protected transaction", tx.Hash())
 			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
 			//txs.Pop()
@@ -740,20 +699,16 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		logs, err := w.commitTransaction(tx, coinbase)
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
-			fmt.Println("tx error", err)
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			log.Trace("Gas limit exceeded for current block", "sender", from)
-			//txs.Pop()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
 			}
 
 		case errors.Is(err, core.ErrNonceTooLow):
-			//fmt.Println("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			// New head notification data race between the transaction pool and miner, shift
 			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
-			//txs.Shift()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
@@ -761,9 +716,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			//fmt.Println("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			log.Trace("Skipping account with high nonce", "sender", from, "nonce", tx.Nonce())
-			//txs.Pop()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
@@ -773,28 +726,23 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 			// Everything ok, collect the logs and shift in the next transaction from the same account
 			coalescedLogs = append(coalescedLogs, logs...)
 			w.current.tcount++
-			//txs.Shift()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
 			}
 
 		case errors.Is(err, core.ErrTxTypeNotSupported):
-			fmt.Println("tx error", err)
 			// Pop the unsupported transaction without shifting in the next from the account
 			log.Trace("Skipping unsupported transaction type", "sender", from, "type", tx.Type())
-			//txs.Pop()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
 			}
 
 		default:
-			fmt.Println("tx error", err)
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
-			//txs.Shift()
+			log.Trace("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
@@ -802,7 +750,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		}
 	}
 
-	//fmt.Println("commitTransactions7")
+	log.Trace("commitTransactions7")
 	if !w.isRunning() && len(coalescedLogs) > 0 {
 		// We don't push the pendingLogsEvent while we are mining. The reason is that
 		// when we are mining, the worker will regenerate a mining block every 3 seconds.
@@ -818,7 +766,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		}
 		w.pendingLogsFeed.Send(cpy)
 	}
-	//fmt.Println("commitTransactions8")
+	log.Trace("commitTransactions8")
 
 	return false
 }
@@ -829,13 +777,13 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
-	//fmt.Println("proposePhase", parent.ParentHash(), "number", parent.NumberU64())
+	log.Trace("proposePhase", "ParentHash", parent.ParentHash(), "number", parent.NumberU64())
 
 	if parent.Time() >= uint64(timestamp) {
 		timestamp = int64(parent.Time() + 1)
 	}
 	num := parent.Number()
-	//fmt.Println("w.config.GasFloor", w.config.GasFloor)
+	log.Trace("w.config.GasFloor", "GasFloor", w.config.GasFloor)
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
@@ -843,7 +791,7 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 		Extra:      w.extra,
 		//Time:       uint64(timestamp),
 	}
-	//fmt.Println("proposePhase", header.Number, "parent", parent.ParentHash())
+	log.Trace("proposePhase", "Number", header.Number, "parent", parent.ParentHash())
 
 	// Set baseFee and GasLimit if we are on an EIP-1559 chain
 	if w.chainConfig.IsLondon(header.Number) {
@@ -852,7 +800,7 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 			// Bump by 2x
 			parentGasLimit = parent.GasLimit() * params.ElasticityMultiplier
 		}
-		//fmt.Println("CalcGasLimit1559")
+		log.Trace("CalcGasLimit1559")
 		header.GasLimit = core.CalcGasLimit1559(parentGasLimit, w.config.GasCeil)
 	}
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
@@ -865,7 +813,6 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	}
 
 	if err := w.engine.Prepare(w.chain, header); err != nil {
-		//fmt.Println("proposePhase3")
 		log.Error("Failed to prepare header for mining", "err", err)
 		return err
 	}
@@ -873,7 +820,6 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makeCurrent(parent, header)
 	if err != nil {
-		//fmt.Println("proposePhase4")
 		log.Error("Failed to create mining context", "err", err)
 		return err
 	}
@@ -881,7 +827,6 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	// Fill the block with all available pendingTxns transactions.
 	pendingTxns, err := w.eth.TxPool().Pending(false)
 	if err != nil {
-		//fmt.Println("proposePhase5")
 		log.Error("Failed to fetch pendingTxns transactions", "err", err)
 		return err
 	}
@@ -904,33 +849,31 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	s := w.current.state.Copy()
 	selectedTxns, err := w.engine.HandleTransactions(w.chain, w.current.header, s, txnFilteredMap)
 	if err != nil {
-		//fmt.Println("HandleTransactions", err)
+		log.Debug("HandleTransactions", "err", err)
 		return err
 	}
 
 	if w.engine.IsBlockReadyToSeal(w.chain, w.current.header, s) == false {
-		fmt.Println("block not ready to be sealed", w.current.header.Hash(), "block", w.current.header.Number)
+		log.Trace("block not ready to be sealed", "Hash", w.current.header.Hash(), "block", w.current.header.Number)
 		return errors.New("block not ready to be sealed")
 	}
 
-	//fmt.Println("HandleTransactions ok 1", w.current.header.Number)
+	log.Trace("HandleTransactions ok 1", "Number", w.current.header.Number)
 	if selectedTxns == nil {
 		selectedTxns = make(map[common.Address]types.Transactions)
 	}
 
-	//fmt.Println("pendingTxns txn address count", len(pendingTxns), "block", header.Number.Uint64())
+	//log.Trace("pendingTxns txn address count", len(pendingTxns), "block", header.Number.Uint64())
 	txsByNonce := types.NewTransactionsByNonce(w.current.signer, selectedTxns, w.current.header.ParentHash)
 
 	w.selectedTransactions = txsByNonce
 
-	//atomic.StoreInt32(&w.currentBlockPhase, 2)
-
-	//fmt.Println("HandleTransactions ok 3")
+	log.Trace("HandleTransactions ok 3")
 	if w.commitTransactions(w.selectedTransactions, w.coinbase, interrupt) {
-		//fmt.Println("commitTransactions nil", w.current.header.ParentHash)
+		log.Trace("commitTransactions nil", "ParentHash", w.current.header.ParentHash)
 	}
 
-	//fmt.Println("HandleTransactions ok 4")
+	log.Trace("HandleTransactions ok 4")
 	return w.commit(w.fullTaskHook, true, tstart)
 }
 
@@ -938,13 +881,13 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 // and commits new work if consensus engine is running.
 func (w *worker) commit(interval func(), update bool, start time.Time) error {
 
-	//fmt.Println("commit1")
+	log.Trace("commit1")
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	s := w.current.state.Copy()
 	block, err := w.engine.FinalizeAndAssembleWithConsensus(w.chain, w.current.header, s, w.current.txs, receipts)
 	if err != nil {
-		//fmt.Println("commit2", err)
+		log.Trace("commit2", "err", err)
 		return err
 	}
 	if w.isRunning() {
@@ -954,10 +897,6 @@ func (w *worker) commit(interval func(), update bool, start time.Time) error {
 		select {
 		case w.taskCh <- &task{receipts: receipts, state: s, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
-			fmt.Println("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
-				"txs", w.current.tcount,
-				"gas", block.GasUsed(), "fees", totalFees(block, receipts),
-				"elapsed", common.PrettyDuration(time.Since(start)))
 			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"txs", w.current.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, receipts),
