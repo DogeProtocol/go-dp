@@ -8,7 +8,7 @@ Genesis Validators are validators who run blockchain nodes a part of the mainnet
 4) You should complete the steps below to indicate that you want to become a Genesis validator, before 28th Dec 2023, 12:59:59 PM UTC.
 
    > [WARNING] 
-   > If register to become a Genesis Validator, but do not run the validator node, you will loose coins due to slashings from the proof-of-stake consensus mechanism!
+   > If you register to become a Genesis Validator, but do not run the validator node, you will loose coins due to slashings from the proof-of-stake consensus mechanism!
 
 ## How to become a Genesis Validator for Doge Protocol mainnet?
 
@@ -89,14 +89,34 @@ I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS 0xbC22f1834
 
 22) The other option is to submit the json file via the Genesis Staking Contract that has been created in the Base chain. The base chain is used since the Ethereum chain has a high gas fee. The genesis contract code and details are available at https://basescan.org/address/0x07370dc2139b1ffc486dfd798dc00b69d7ad2bf7#code
 
-Simply call the addGenesisValidator function from the Ethereum address, passing the individual json fields.
+Simply call the addGenesisValidator function from the Ethereum address, passing the individual json fields. You may simply open the above link, click on the button "Write Contract" and expand the "addGenesisValidator" section to fill the details and execute. This requires connecting to your wallet via web3.
 
 ```
   addGenesisValidator(string memory depositorAddress, string memory validatorAddress, 
         string memory ethSign, string memory quantumSign, uint256 depositAmount)
 ```
 
+If you made a mistake, you can cancel by calling the following cancel function and then re-executing addGenesisValidator with the correct details.
+
+```
+  cancelGenesisValidator()
+```
+
 23) Next, once this is done, watchout for instructions on running mainnet node (Post Dec 28th, 2023). You should be prepared to run this node on the mainnet date, else you might loose coins due to slashings by being an inactive validator.
+
+## Verification
+
+It is recommended that you verify the submitted details in reverse order. If verification doesn't match, the genesis validator registration cannot be processed by the system. To do this:
+
+1) Once you have submitted the addGenesisValidator transaction and it is confirmed, navigate to the transaction link in BaseScan.
+2) Then click on "logs" tab, where you can see the list of submitted fields.
+3) Make a copy of the json file from Step 19
+4) Edit the json file to copy back fields one by one from the transaction logs onto the corresponding json field (including the Ethereum signature). Then save it.
+5) Then run
+   ```
+   dputil genesis-verify JSON_FILE_NAME
+   ```
+   If this verification suceeds, it means that the genesis registration succeeded.
 
 ## What are the node requirements?
 
