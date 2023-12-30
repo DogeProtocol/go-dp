@@ -183,7 +183,7 @@ func (args *TransactionArgs) toTransaction() *types.Transaction {
 			MaxGasTier: types.GAS_TIER_DEFAULT,
 			Value:      (*big.Int)(args.Value),
 			Data:       args.data(),
-			Context:    args.context(),
+			Remarks:    args.context(),
 			AccessList: *args.AccessList,
 		}
 	default:

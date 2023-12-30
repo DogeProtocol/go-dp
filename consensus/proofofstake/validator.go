@@ -17,7 +17,6 @@ import (
 )
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
-
 	depositorCount, err := p.GetDepositorCount(blockHash)
 	if err != nil {
 		return nil, err

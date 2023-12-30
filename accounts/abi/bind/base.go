@@ -26,6 +26,7 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/event"
+	"github.com/DogeProtocol/dp/log"
 	"math/big"
 	"strings"
 	"sync"
@@ -254,7 +255,7 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("head", head.Number)
+	log.Trace("head", head.Number)
 	if opts.GasPrice == nil {
 		return nil, errors.New("gas price cannot be nil")
 	}

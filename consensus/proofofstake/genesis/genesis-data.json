@@ -1,0 +1,22 @@
+{
+    "depositors": [
+      {"address":"0x6bbb06cdccb6b33e8d49984ab5357eaf4952b2f5e4182d2de24981f446a0456e", "balance" :  "0x4EE2D6D415B85ACEF8100000000", "validatorAddress" : "0xf6f8790b1eaafd147015ed79807d334d7eafc955d17f2c138831520ccd686e9d"},
+      {"address":"0x100eb83f304c75828778c24c5d27901f90dfe4d9a8e4f878a1d7630502a58dda", "balance" :  "0x4EE2D6D415B85ACEF8100000000", "validatorAddress" : "0x51f1ac6913bdad40f7ed6913830a044ee30c322b0690a5143fb4fbae4dcb6517"},
+      {"address":"0xf0d9d7fb1b2170095f23740fb9f6c210c64ba1db72fd3d2058968d7d24d8bdd6", "balance" :  "0x4EE2D6D415B85ACEF8100000000", "validatorAddress" : "0x54338ea5b9ba8b53ad6914acaeda73a0acf490c16fcbfc5ed77d743dab47dfd8"},
+      {"address":"0x829a605958c7d7d077ecf9994a294183ab4dee4fc616ce210b7d415cc0123d5d", "balance" :  "0x4EE2D6D415B85ACEF8100000000", "validatorAddress" : "0xd00925fd2e6c76699e3627f25d040043ce66d1d700e25b0c0f1017ac7cffa9d1"}
+    ],
+    "alloc": [
+      {"address":"0x6bbb06cdccb6b33e8d49984ab5357eaf4952b2f5e4182d2de24981f446a0456e", "balance" :  "0x4EE2D6D415B85ACEF8100000001"},
+      {"address":"0x100eb83f304c75828778c24c5d27901f90dfe4d9a8e4f878a1d7630502a58dda", "balance" :  "0x4EE2D6D415B85ACEF8100000002"},
+      {"address":"0xf0d9d7fb1b2170095f23740fb9f6c210c64ba1db72fd3d2058968d7d24d8bdd6", "balance" :  "0x4EE2D6D415B85ACEF8100000003"},
+      {"address":"0x829a605958c7d7d077ecf9994a294183ab4dee4fc616ce210b7d415cc0123d5d", "balance" :  "0x4EE2D6D415B85ACEF8100000004"}
+    ],
+    "totalDepositBalance" : "0x4EE2D6D415B85ACEF8100000000",
+    "snapshot": [
+      {"ethAddress":"0x000000000000000000000000da02553C0D68A251F58024c23E76c99e48315FcC", "balance" :  "0x100"},
+      {"ethAddress":"0x0000000000000000000000004609545aA34Ad61d5b19dEB1f019Ba8674c6d8De", "balance" :  "0x200"},
+      {"ethAddress":"0x00000000000000000000000062De16972E1C779e9EEA3C53A6c0115C9686032f", "balance" :  "0x300"},
+      {"ethAddress":"0x000000000000000000000000d65A4B7526Df5756356009DDf0E89F325506c6d4", "balance" :  "0x400"}
+    ],
+    "conversionContractBalance" : "0x3EE2D6D415B85ACEF8100000000"
+}

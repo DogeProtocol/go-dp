@@ -237,7 +237,7 @@ func (s londonSigner) Hash(tx *Transaction) (common.Hash, error) {
 			tx.Value(),
 			tx.Data(),
 			tx.AccessList(),
-			tx.Context(),
+			tx.Remarks(),
 		}), nil
 }
 

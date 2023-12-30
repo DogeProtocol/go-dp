@@ -65,6 +65,6 @@ func BenchmarkTxListAdd(t *testing.B) {
 	t.ResetTimer()
 	for _, v := range rand.Perm(len(txs)) {
 		list.Add(txs[v])
-		list.Filter(priceLimit, DefaultTxPoolConfig.PriceBump)
+		list.Filter(priceLimit, DefaultTxPoolConfig.PriceBump, types.NewLondonSigner(big.NewInt(123123)))
 	}
 }

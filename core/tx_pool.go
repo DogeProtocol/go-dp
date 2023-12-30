@@ -18,7 +18,7 @@ package core
 
 import (
 	"errors"
-	"fmt"
+	"github.com/DogeProtocol/dp/conversionutil"
 	"math"
 	"math/big"
 	"sort"
@@ -430,17 +430,7 @@ func (pool *TxPool) SetGasPrice(price *big.Int) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	//old := pool.gasPrice
 	pool.gasPrice = price
-	// if the min miner fee increased, remove transactions below the new threshold
-	/*if price.Cmp(old) > 0 {
-		// pool.priced is sorted by GasFeeCap, so we have to iterate through pool.all instead
-		drop := pool.all.RemotesBelowTip(price)
-		for _, tx := range drop {
-			pool.removeTx(tx.Hash(), false)
-		}
-		pool.priced.Removed(len(drop))
-	}*/
 
 	log.Info("Transaction pool price threshold updated", "price", price)
 }
@@ -523,6 +513,7 @@ func (pool *TxPool) Pending(enforceTips bool) (map[common.Address]types.Transact
 	defer pool.mu.Unlock()
 
 	pending := make(map[common.Address]types.Transactions)
+	log.Trace("Pending", "count", len(pool.pending))
 	for addr, list := range pool.pending {
 		txs := list.Flatten()
 
@@ -594,10 +585,16 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	fmt.Println("gas error", pool.currentState.GetBalance(from), tx.Cost(), from)
+	log.Trace("validateTx gas error", "from", from, "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-		return ErrInsufficientFunds
+		isGasExempt, err := conversionutil.IsGasExemptTxn(tx, pool.signer)
+		if err == nil && isGasExempt == true {
+			log.Trace("Is a GasExempt Txn", "from", from, "tx", tx.Hash())
+		} else {
+			return ErrInsufficientFunds
+		}
 	}
+
 	// Ensure the transaction has more gas than the basic tx fee.
 	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, pool.istanbul)
 	if err != nil {
@@ -1261,11 +1258,12 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 			pool.all.Remove(hash)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
-		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		// Drop all transactions that are low balance or out of gas
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			pool.all.Remove(hash)
+
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(drops))
 		queuedNofundsMeter.Mark(int64(len(drops)))
@@ -1459,7 +1457,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Removed old pending transaction", "hash", hash)
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/state"
-	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math"
@@ -50,31 +49,9 @@ func GetReward(blockNumber *big.Int) *big.Int {
 		perBlock := big.NewFloat(totalReward / float64(blockYearly.Int64()))
 		blockReward = etherToWeiFloat(perBlock)
 
-		//fmt.Println("s0 : ", s0)
-		//fmt.Println("s1 : ", s1)
-		//fmt.Println("s2 : ", s2)
-		//fmt.Println("s3 : ", s3)
-		//fmt.Println("totalReward : ", totalReward)
-		//fmt.Println("perBlock", perBlock)
-		//fmt.Println("blockReward", blockReward)
-
 	}
 
 	return blockReward
-}
-
-func (c *ProofOfStake) accumulateReward(state *state.StateDB, blockNumber *big.Int, reward *big.Int) error {
-	err := staking.IsStakingContract()
-	if err != nil {
-		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
-		return err
-	}
-
-	if rewardStartBlock.Int64() <= blockNumber.Int64() {
-		contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
-		state.AddBalance(contractAddress, reward)
-	}
-	return nil
 }
 
 // MathPow calculates n to the mth power with the math.Pow() function
@@ -90,4 +67,12 @@ func etherToWeiFloat(eth *big.Float) *big.Int {
 	fracInt, _ := new(big.Int).SetString(fracStr, 10)
 	wei := new(big.Int).Add(truncInt, fracInt)
 	return wei
+}
+
+func (c *ProofOfStake) accumulateReward(state *state.StateDB, blockNumber *big.Int, reward *big.Int) error {
+	if rewardStartBlock.Int64() <= blockNumber.Int64() {
+		contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+		state.AddBalance(contractAddress, reward)
+	}
+	return nil
 }

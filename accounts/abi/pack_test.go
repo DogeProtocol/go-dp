@@ -42,6 +42,9 @@ func TestPack(t *testing.T) {
 			inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, test.def)
 			inAbi, err := JSON(strings.NewReader(inDef))
 			if err != nil {
+				if test.expectFailure {
+					return
+				}
 				t.Fatalf("invalid ABI definition %s, %v", inDef, err)
 			}
 			var packed []byte

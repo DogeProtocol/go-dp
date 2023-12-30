@@ -22,12 +22,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -322,7 +324,7 @@ func (c *ProofOfStake) HandleTransactions(chain consensus.ChainHeaderReader, hea
 	}
 	txns, txnAddressMap := flattenTxnMap(txnMap)
 
-	err := c.consensusHandler.HandleTransactions(header.ParentHash, txns)
+	err := c.consensusHandler.HandleConsensus(header.ParentHash, txns, header.Number.Uint64())
 	if err != nil {
 		return nil, err
 	}
@@ -599,8 +601,56 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 	return err
 }
 
-// Finalize implements consensus.Engine, ensuring no uncles are set, nor block
-// rewards given.
+func (c *ProofOfStake) Convert(header *types.Header, state *state.StateDB, txn *types.Transaction) error {
+	msg, err := txn.AsMessage(c.signer)
+	if err != nil {
+		return err
+	}
+
+	log.Info("Conversion txn", "txn", txn.Hash(), "from", msg.From())
+
+	eAddress, err := conversionutil.VerifyDataAndGetEthereumAddress(msg.From(), txn.Data())
+	if err != nil {
+		return err
+	}
+
+	//skip txn and proceed
+	ethAddress := common.HexToAddress(eAddress) //representative address
+	coins, err := c.GetCoinsForEthereumAddress(ethAddress, state, header)
+	if err != nil {
+		return err
+	}
+
+	if coins.Cmp(big.NewInt(0)) <= 0 {
+		return nil
+	}
+
+	converted, err := c.GetConversionStatus(ethAddress, state, header)
+	if err != nil {
+		return err
+	}
+
+	if converted == true {
+		log.Info("Conversion txn already converted, skipping", "txn", txn.Hash(), "from", msg.From())
+		return nil
+	}
+
+	retCoins, err := c.SetConverted(ethAddress, msg.From(), state, header)
+	if err != nil {
+		return err
+	}
+
+	retQuantAddress, err := c.GetQuantumAddress(ethAddress, state, header)
+	if err != nil {
+		return err
+	}
+
+	log.Info("=================Conversion successful", "ethAddress", eAddress, "quantumAddress", msg.From(), "coins", coins, "retQuantAddress", retQuantAddress, "retCoins", retCoins)
+
+	return nil
+}
+
+// Finalize implements consensus.Engine
 func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error {
 	if txs == nil {
 		txs = make([]*types.Transaction, 0)
@@ -630,6 +680,20 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		return err
 	}
 
+	//Conversions
+	if blockConsensusData.VoteType == VOTE_TYPE_OK && txs != nil {
+		for _, txn := range txs {
+			if txn.To().IsEqualTo(conversion.CONVERSION_CONTRACT_ADDRESS) {
+				err = c.Convert(header, state, txn)
+				if err != nil {
+					log.Info("Convert error", "err", err)
+					return err
+				}
+			}
+		}
+	}
+
+	//Block Slashing
 	if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 {
 		for _, val := range blockConsensusData.SlashedBlockProposers {
 			depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
@@ -646,16 +710,18 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		}
 	}
 
+	//Block Rewards
 	if blockConsensusData.VoteType == VOTE_TYPE_OK {
-
 		blockProposerRewardAmount := GetReward(header.Number)
 
+		//Add same amount of reward to Staking Contract, so that it is available for withdrawal later on
 		err := c.accumulateReward(state, header.Number, blockProposerRewardAmount)
 		if err != nil {
 			log.Trace("accumulateReward err", "err", err)
 			return err
 		}
 
+		//Update staking contract with reward details
 		blockProposerRewardAmountTotal, err := c.AddDepositorReward(header.ParentHash, blockConsensusData.BlockProposer, blockProposerRewardAmount, state, header)
 		if err != nil {
 			log.Trace("AddDepositorReward err", "err", err)
@@ -666,7 +732,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
-	log.Trace("finalize", "root", header.Root, "number", header.Number, "txns", len(txs), "iseip", chain.Config().IsEIP158(header.Number))
+	log.Info("Finalize Block", "root", header.Root, "number", header.Number, "txns", len(txs))
 
 	return nil
 }
@@ -747,7 +813,7 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 // the local signing credentials.
 func (c *ProofOfStake) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	header := block.Header()
-	log.Trace("Seal", "block", block.ParentHash().String())
+	log.Info("Seal Block", "Hash", block.ParentHash().String(), "Number", header.Number)
 
 	delay := time.Second * 1
 	go func() {

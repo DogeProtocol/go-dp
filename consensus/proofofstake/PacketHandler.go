@@ -77,7 +77,7 @@ const MAX_ROUND = 2
 const BROADCAST_RESEND_DELAY = 10000
 const BROADCAST_CLEANUP_DELAY = 1800000
 
-var STARTUP_DELAY_MS = int64(120000)
+var STARTUP_DELAY_MS = int64(12000)
 
 type BlockRoundState byte
 type VoteType byte
@@ -1791,12 +1791,12 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
 		blockRoundDetails.precommitHash.CopyFrom(getOkVotePreCommitHash(parentHash, blockRoundDetails.proposalHash, blockStateDetails.currentRound))
 		blockRoundDetails.blockVoteType = VOTE_TYPE_OK
-		log.Trace("blockVoteType a1", parentHash)
+		log.Trace("blockVoteType a1", "parentHash", parentHash)
 		blockStateDetails.ackProposalTime = Elapsed(blockStateDetails.initTime)
 	} else if nilVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 { //handle timeout differently? for nil votes, it is ok to accept NIL vote even if self vote is OK
 		blockRoundDetails.state = BLOCK_STATE_WAITING_FOR_PRECOMMITS
 		blockRoundDetails.precommitHash.CopyFrom(getNilVotePreCommitHash(parentHash, blockStateDetails.currentRound))
-		log.Trace("blockVoteType a2", parentHash)
+		log.Trace("blockVoteType a2", "parentHash", parentHash)
 		blockRoundDetails.blockVoteType = VOTE_TYPE_NIL
 	} else {
 		if totalVotesDepositCount.Cmp(blockStateDetails.totalBlockDepositValue) >= 0 ||
@@ -1930,7 +1930,7 @@ func (cph *ConsensusHandler) commitBlock(parentHash common.Hash) error {
 	return cph.broadCast(packet)
 }
 
-func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []common.Hash) error {
+func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []common.Hash, blockNumber uint64) error {
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
@@ -1943,7 +1943,7 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	}
 
 	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		log.Trace("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), "txn count", len(txns))
+		log.Trace("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), "txn count", len(txns), "STARTUP_DELAY_MS", STARTUP_DELAY_MS)
 		return errors.New("starting up")
 	}
 
@@ -1970,7 +1970,7 @@ func (cph *ConsensusHandler) HandleTransactions(parentHash common.Hash, txns []c
 	cph.processOutOfOrderPackets(parentHash)
 
 	err = errors.New("not ready yet")
-	log.Info("HandleTransactions", "parentHash", parentHash, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
+	log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
 		"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
 		"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
 		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime, "txns", len(txns))

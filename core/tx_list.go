@@ -18,6 +18,8 @@ package core
 
 import (
 	"container/heap"
+	"github.com/DogeProtocol/dp/conversionutil"
+	"github.com/DogeProtocol/dp/log"
 	"math"
 	"math/big"
 	"sort"
@@ -309,7 +311,7 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // a point in calculating all the costs or if the balance covers all. If the threshold
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
-func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions, types.Transactions) {
+func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer) (types.Transactions, types.Transactions) {
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
@@ -319,6 +321,11 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions
 
 	// Filter out all the transactions above the account's funds
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
+		isGasExempt, err := conversionutil.IsGasExemptTxn(tx, signer)
+		if err == nil && isGasExempt == true {
+			log.Info("txlist Filter skipping gas-exempt txn", "txn", tx.Hash())
+			return false
+		}
 		return tx.Gas() > gasLimit || tx.Cost().Cmp(costLimit) > 0
 	})
 

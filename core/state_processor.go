@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/consensus/misc"
+	"github.com/DogeProtocol/dp/conversionutil"
+	"github.com/DogeProtocol/dp/log"
 	"math/big"
 
 	"github.com/DogeProtocol/dp/common"
@@ -72,13 +74,27 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
-	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+	//vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number))
+		signer := types.MakeSigner(p.config, header.Number)
+		msg, err := tx.AsMessage(signer)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
+
+		vmConfig := cfg
+		isGasExemptTxn, err := conversionutil.IsGasExemptTxn(tx, signer)
+		if err == nil && isGasExemptTxn {
+			vmConfig = *cfg.DeepCopy()
+			vmConfig.OverrideGasFailure = true
+			msg.OverrideGasPrice(big.NewInt(0))
+			log.Trace("Process OverrideGasPrice", "txn", tx.Hash(), "price", msg.GasPrice())
+		}
+
+		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, vmConfig)
+
 		statedb.Prepare(tx.Hash(), i)
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
@@ -93,7 +109,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return receipts, allLogs, *usedGas, nil
 }
 
-func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
+func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int,
+	blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
@@ -142,16 +159,27 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction,
+	usedGas *uint64, cfg vm.Config, isGasExemptTxn bool) (*types.Receipt, error) {
 	if bc == nil {
 		return nil, errors.New("ChainContext is nil")
 	}
+
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, err
 	}
+
+	vmConfig := cfg
+	if isGasExemptTxn {
+		vmConfig = *cfg.DeepCopy()
+		vmConfig.OverrideGasFailure = true
+		msg.OverrideGasPrice(big.NewInt(0))
+		log.Trace("ApplyTransaction OverrideGasPrice", "txn", tx.Hash(), "price", msg.GasPrice())
+	}
+
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, nil)
-	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
+	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, vmConfig)
 	return applyTransaction(msg, config, bc, nil, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
