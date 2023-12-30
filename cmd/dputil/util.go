@@ -8,6 +8,7 @@ import (
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/ethclient"
 	"github.com/DogeProtocol/dp/params"
 	"io/ioutil"
@@ -115,6 +116,21 @@ type ConnectionContext struct {
 	From   string
 	Client *ethclient.Client
 	Key    *keystore.Key
+}
+
+func GetKeyFromFile(keyFile string) (*signaturealgorithm.PrivateKey, error) {
+	secretKey, err := ReadDataFile(keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	password := os.Getenv("DP_ACC_PWD")
+	key, err := keystore.DecryptKey(secretKey, password)
+	if err != nil {
+		return nil, err
+	}
+	
+	return key.PrivateKey, nil
 }
 
 func GetConnectionContext(from string) (*ConnectionContext, error) {

@@ -1,20 +1,26 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
-	"io/ioutil"
-
+	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/accounts/abi/bind"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto/crosssign"
-	"log"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/ethclient"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
+	"io/ioutil"
+	"math/big"
 	"os"
-	"strconv"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 func printHelp() {
@@ -25,16 +31,20 @@ func printHelp() {
 	fmt.Println("===========")
 	fmt.Println("dputil genesis-verify JSON_FILE_NAME")
 	fmt.Println("===========")
-	fmt.Println("Set the environment variable DP_RAW_URL")
+	fmt.Println("dputil getconversionmessage ETH_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
+	fmt.Println("===========")
+	fmt.Println("dputil getcoinsfortokens ETH_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
+	fmt.Println("===========")
 	fmt.Println("dputil balance ACCOUNT_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
 	fmt.Println("===========")
 	fmt.Println("dputil send FROM_ADDRESS TO_ADDRESS QUANTITY")
 	fmt.Println("===========")
-	fmt.Println("dputil bulksend CSV_FILE")
-	fmt.Println("===========")
-	fmt.Println("dputil bulksendsingle FROM_ADDRESS QUANTITY")
-	fmt.Println("===========")
-	fmt.Println("dputil bulksendreverse TO_ADDRESS QUANTITY COUNT TXN_PER_BATCH")
 }
 
 var rawURL string
@@ -46,22 +56,36 @@ func main() {
 		return
 	}
 	rawURL = os.Getenv("DP_RAW_URL")
+
+	if len(rawURL) == 0 {
+		os := runtime.GOOS
+		if os == "windows" {
+			rawURL = "//./pipe/geth.ipc"
+		} else {
+			rawURL = "~/.ethereum/geth.ipc"
+		}
+	}
+
 	if os.Args[1] == "balance" {
 		balance()
 	} else if os.Args[1] == "send" {
 		sendTxn()
 	} else if os.Args[1] == "txn" {
 		getTxn()
-	} else if os.Args[1] == "bulksend" {
-		sendTxnBulk()
-	} else if os.Args[1] == "bulksendsingle" {
-		sendTxnBulkFromSingleAddress()
-	} else if os.Args[1] == "bulksendreverse" {
-		sendTxnBulkToSingleAddress()
 	} else if os.Args[1] == "genesis-sign" {
 		GenesisSign()
 	} else if os.Args[1] == "genesis-verify" {
 		GenesisVerify()
+	} else if os.Args[1] == "getconversionmessage" {
+		err := GetConversionMessage()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "getcoinsfortokens" {
+		err := ConvertToCoins()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
 	} else {
 		printHelp()
 	}
@@ -230,176 +254,6 @@ type Txn struct {
 	Count       int
 }
 
-func sendTxnBulkFromSingleAddress() {
-	if len(os.Args) < 4 {
-		printHelp()
-		return
-	}
-
-	from := os.Args[2]
-	quantity := os.Args[3]
-
-	addresses, err := findAllAddresses()
-	if err != nil {
-		fmt.Println("findAllAddresses error", err)
-		return
-	}
-
-	fmt.Println("addresses", len(addresses), "from", from)
-
-	connectionContext, err := GetConnectionContext(from)
-	if err != nil {
-		fmt.Println("GetConnectionContext error occurred", "error", err)
-		return
-	}
-
-	for i := 0; i < len(addresses); i++ {
-		sendVia(connectionContext, addresses[i], quantity, 0)
-	}
-}
-
-func sendTxnBulkToSingleAddress() {
-	if len(os.Args) < 6 {
-		printHelp()
-		return
-	}
-
-	to := os.Args[2]
-	quantity := os.Args[3]
-	count, err := strconv.Atoi(os.Args[4])
-	if err != nil {
-		panic("conversion error")
-	}
-
-	txnPerBatch, err := strconv.Atoi(os.Args[5])
-	if err != nil {
-		panic("conversion error")
-	}
-
-	addresses, err := findAllAddresses()
-	if err != nil {
-		fmt.Println("findAllAddresses error", err)
-		return
-	}
-
-	ctr := 0
-	for i := 0; i < len(addresses); i++ {
-		txn := Txn{
-			FromAddress: addresses[i],
-			ToAddress:   to,
-			Quantity:    quantity,
-			Count:       count,
-		}
-
-		wg.Add(1)
-		go sendTxnSingleSender(txn)
-
-		ctr = ctr + 1
-		if ctr >= txnPerBatch {
-			wg.Wait()
-			ctr = 0
-		}
-	}
-
-	fmt.Println("Waiting for all transactions")
-	wg.Wait()
-	fmt.Println("Done waiting for all transactions")
-}
-
-func sendTxnBulk() {
-	if len(os.Args) < 3 {
-		printHelp()
-		return
-	}
-
-	csv := os.Args[2]
-
-	txnMap := make(map[string][]Txn)
-
-	//read to addresses
-	file, err := os.Open(csv)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	// optionally, resize scanner's capacity for lines over 64K, see next example
-	for scanner.Scan() {
-		columns := strings.Split(scanner.Text(), ",")
-		count, err := strconv.Atoi(columns[3])
-		if err != nil {
-			panic("conversion error")
-		}
-		txn := Txn{
-			FromAddress: columns[0],
-			ToAddress:   columns[1],
-			Quantity:    columns[2],
-			Count:       count,
-		}
-		_, ok := txnMap[txn.FromAddress]
-		if ok == false {
-			txnMap[txn.FromAddress] = make([]Txn, 0)
-		}
-		txnMap[txn.FromAddress] = append(txnMap[txn.FromAddress], txn)
-	}
-
-	for from, txns := range txnMap {
-		if common.IsHexAddress(from) == false {
-			fmt.Println("Invalid from address", from)
-			return
-		}
-
-		for i := 0; i < len(txns); i++ {
-			txn := txns[i]
-			wg.Add(1)
-			go sendTxnSingleSender(txn)
-		}
-	}
-
-	fmt.Println("Waiting for all transactions")
-	wg.Wait()
-	fmt.Println("Done waiting for all transactions")
-}
-
-func sendTxnSingleSender(txn Txn) {
-	defer wg.Done()
-	connectionContext, err := GetConnectionContext(txn.FromAddress)
-	if err != nil {
-		fmt.Println("GetConnectionContext error occurred", "error", err)
-		return
-	}
-
-	var nonce uint64
-	nonce = 0
-	for j := 0; j < txn.Count; j++ {
-		if common.IsHexAddress(txn.ToAddress) == false {
-			fmt.Println("Invalid to address", txn.ToAddress)
-			return
-		}
-
-		flt, err := ParseBigFloat(txn.Quantity)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		wei := etherToWeiFloat(flt)
-		ether := weiToEther(wei)
-
-		fmt.Println("Send", "from", txn.FromAddress, "to", txn.ToAddress, "quantity", txn.Quantity, "ether", ether)
-
-		txHash, nonceTmp, err := sendVia(connectionContext, txn.ToAddress, txn.Quantity, nonce)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		nonce = nonceTmp + 1
-
-		fmt.Println("TxnHash", txHash)
-	}
-}
-
 func sendTxn() {
 	if len(os.Args) < 5 {
 		printHelp()
@@ -466,4 +320,125 @@ func Prettify(str string) (string, error) {
 		return "", err
 	}
 	return prettyJSON.String(), nil
+}
+
+func GetConversionMessage() error {
+	if len(os.Args) < 3 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	ethAddress := os.Args[2]
+	if common.IsLegacyEthereumHexAddress(ethAddress) == false {
+		return errors.New("invalid EthAddress")
+	}
+
+	keyFile := os.Getenv("DP_KEY_FILE")
+	if len(keyFile) == 0 {
+		return errors.New("DP_KEY_FILE environment variable is not set")
+	}
+
+	accPwd := os.Getenv("DP_ACC_PWD")
+	if len(accPwd) == 0 {
+		return errors.New("DP_ACC_PWD environment variable is not set")
+	}
+
+	key, err := GetKeyFromFile(keyFile)
+	if err != nil {
+		return err
+	}
+
+	qAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	quantumAddress := qAddr.Hex()
+
+	message := strings.Replace(crosssign.ConversionMessageTemplate, "[ETH_ADDRESS]", strings.ToLower(ethAddress), 1)
+	message = strings.Replace(message, "[QUANTUM_ADDRESS]", strings.ToLower(quantumAddress), 1)
+
+	fmt.Println("Message is: ")
+	fmt.Println(message)
+
+	return nil
+}
+
+func ConvertToCoins() error {
+	if len(os.Args) < 4 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	ethAddress := os.Args[2]
+	if common.IsLegacyEthereumHexAddress(ethAddress) == false {
+		return errors.New("invalid EthAddress")
+	}
+
+	ethSignature := os.Args[3]
+	fmt.Println("ethSignature len", len(ethSignature))
+
+	keyFile := os.Getenv("DP_KEY_FILE")
+	if len(keyFile) == 0 {
+		return errors.New("DP_KEY_FILE environment variable is not set")
+	}
+
+	accPwd := os.Getenv("DP_ACC_PWD")
+	if len(accPwd) == 0 {
+		return errors.New("DP_ACC_PWD environment variable is not set")
+	}
+
+	key, err := GetKeyFromFile(keyFile)
+	if err != nil {
+		return err
+	}
+
+	return ConvertCoins(ethAddress, ethSignature, key)
+}
+
+func ConvertCoins(ethAddress string, ethSignature string, key *signaturealgorithm.PrivateKey) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		return err
+	}
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	if err != nil {
+		return err
+	}
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	contract, err := conversion.NewConversion(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.RequestConversion(txnOpts, ethAddress, ethSignature)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Txn Hash", tx.Hash())
+
+	//fmt.Println("data", common.Bytes2Hex(tx.Data()), tx.Data(), len(tx.Data()))
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
 }

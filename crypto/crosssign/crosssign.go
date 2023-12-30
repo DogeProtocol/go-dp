@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	ERC20AddressLength = 20
-	MessageTemplate    = "I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS [ETH_ADDRESS]. MY CORRESPONDING DEPOSITOR QUANTUM ADDRESS IS [DEPOSITOR_ADDRESS] AND VALIDATOR QUANTUM ADDRESS IS [VALIDATOR_ADDRESS]. VALIDATOR AMOUNT IS [AMOUNT] DOGEP."
+	ERC20AddressLength        = 20
+	GenesisMessageTemplate    = "I AGREE TO BECOME A GENESIS VALIDATOR FOR MAINNET. MY ETH ADDRESS IS [ETH_ADDRESS]. MY CORRESPONDING DEPOSITOR QUANTUM ADDRESS IS [DEPOSITOR_ADDRESS] AND VALIDATOR QUANTUM ADDRESS IS [VALIDATOR_ADDRESS]. VALIDATOR AMOUNT IS [AMOUNT] DOGEP."
+	ConversionMessageTemplate = "MY ETH ADDRESS IS [ETH_ADDRESS]. I AGREE THAT MY CORRESPONDING QUANTUM ADDRESS FOR GETTING COINS FOR MY DOGEP TOKENS IS [QUANTUM_ADDRESS]."
 )
 
 type SignDetails struct {
@@ -40,6 +41,12 @@ type GenesisCrossSignDetails struct {
 	EthereumSignature string `json:"ethereumSignature"`
 }
 
+type ConversionSignDetails struct {
+	EthAddress        string `json:"ethAddress"`
+	QuantumAddress    string `json:"quantumAddress"`
+	EthereumSignature string `json:"ethereumSignature"`
+}
+
 //signJsonData := "{\r\n  \"address\": \"0xF422Ec881E87B934A165DB64132a87fbd1753daD\",\r\n  \"msg\": \"Test message waller\",\r\n  \"sig\": \"0x5c73e35d19d6656f826c82513a4523a8c789762bacfd1ce5127f24c1e61cd59f7779132c3a390294db158735e398c4e87b726b87bef44ad840a47ac6ca06ef8d1b\",\r\n  \"version\": \"2\"\r\n}"
 
 func SignGenesis(depKey *signaturealgorithm.PrivateKey, valKey *signaturealgorithm.PrivateKey,
@@ -47,7 +54,7 @@ func SignGenesis(depKey *signaturealgorithm.PrivateKey, valKey *signaturealgorit
 	depositorAddr := cryptobase.SigAlg.PublicKeyToAddressNoError(&depKey.PublicKey).Hex()
 	validatorAddr := cryptobase.SigAlg.PublicKeyToAddressNoError(&valKey.PublicKey).Hex()
 
-	message := strings.Replace(MessageTemplate, "[ETH_ADDRESS]", ethAddr, 1)
+	message := strings.Replace(GenesisMessageTemplate, "[ETH_ADDRESS]", ethAddr, 1)
 	message = strings.Replace(message, "[DEPOSITOR_ADDRESS]", depositorAddr, 1)
 	message = strings.Replace(message, "[VALIDATOR_ADDRESS]", validatorAddr, 1)
 	message = strings.Replace(message, "[AMOUNT]", amount, 1)
@@ -106,7 +113,7 @@ func VerifyGenesis(details *GenesisCrossSignDetails) ([]byte, error) {
 
 	//todo: verify other fields to avoid panic and deeper input validations
 
-	message := strings.Replace(MessageTemplate, "[ETH_ADDRESS]", details.EthAddress, 1)
+	message := strings.Replace(GenesisMessageTemplate, "[ETH_ADDRESS]", details.EthAddress, 1)
 	message = strings.Replace(message, "[DEPOSITOR_ADDRESS]", details.DepositorAddress, 1)
 	message = strings.Replace(message, "[VALIDATOR_ADDRESS]", details.ValidatorAddress, 1)
 	message = strings.Replace(message, "[AMOUNT]", details.Amount, 1)
@@ -120,11 +127,13 @@ func VerifyGenesis(details *GenesisCrossSignDetails) ([]byte, error) {
 
 	depSig, valSig, err := common.ExtractTwoParts(sigBytes)
 	if err != nil {
+		fmt.Println("fail 1")
 		return nil, err
 	}
 
 	depPubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(messageDigest, depSig)
 	if err != nil {
+		fmt.Println("fail 2")
 		return nil, err
 	}
 
@@ -150,6 +159,40 @@ func VerifyGenesis(details *GenesisCrossSignDetails) ([]byte, error) {
 	if strings.Compare(details.ValidatorAddress, validatorAddr2) != 0 {
 		return nil, errors.New("validator address verify failed")
 	}
+
+	err = VerifyEthereumAddressAndMessage(details.EthAddress, messageDigest, ethSig)
+	if err != nil {
+		fmt.Println("VerifyEthereumAddressAndMessage failed", err)
+		return nil, err
+	}
+
+	return messageDigest, nil
+}
+
+func VerifyConversion(details *ConversionSignDetails) ([]byte, error) {
+	if len(details.EthAddress) == 0 || len(details.QuantumAddress) == 0 || len(details.EthereumSignature) == 0 {
+		return nil, errors.New("malformed json")
+	}
+
+	if common.IsLegacyEthereumHexAddress(details.EthAddress) == false {
+		return nil, errors.New("invalid EthAddress")
+	}
+
+	if common.IsHexAddress(details.QuantumAddress) == false {
+		return nil, errors.New("invalid DepositorAddress")
+	}
+
+	ethSig, err := hexutil.MustDecodeWithError(details.EthereumSignature)
+	if err != nil {
+		return nil, err
+	}
+
+	//todo: verify other fields to avoid panic and deeper input validations
+
+	message := strings.Replace(ConversionMessageTemplate, "[ETH_ADDRESS]", details.EthAddress, 1)
+	message = strings.Replace(message, "[QUANTUM_ADDRESS]", details.QuantumAddress, 1)
+
+	messageDigest, _ := accounts.TextAndHash([]byte(message))
 
 	err = VerifyEthereumAddressAndMessage(details.EthAddress, messageDigest, ethSig)
 	if err != nil {

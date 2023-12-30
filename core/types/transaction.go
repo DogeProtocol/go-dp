@@ -81,7 +81,7 @@ type TxData interface {
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
-	context() []byte
+	remarks() []byte
 	verifyFields() bool
 
 	rawSignatureValues() (v, r, s *big.Int)
@@ -252,7 +252,7 @@ func (tx *Transaction) Value() *big.Int { return new(big.Int).Set(tx.inner.value
 // Nonce returns the sender account nonce of the transaction.
 func (tx *Transaction) Nonce() uint64 { return tx.inner.nonce() }
 
-func (tx *Transaction) Context() []byte { return tx.inner.context() }
+func (tx *Transaction) Remarks() []byte { return tx.inner.remarks() }
 
 func (tx *Transaction) VerifyFields() bool { return tx.inner.verifyFields() }
 
@@ -493,6 +493,16 @@ func (t *TransactionsByNonce) GetList() []common.Hash {
 	return txnList
 }
 
+func (t *TransactionsByNonce) GetTotalCount() int {
+	count := 0
+
+	for _, accTxs := range t.txns {
+		count = count + len(accTxs)
+	}
+
+	return count
+}
+
 func (t *TransactionsByNonce) GetMap() map[common.Address]Transactions {
 	return t.txns
 }
@@ -599,7 +609,7 @@ type Message struct {
 	data       []byte
 	accessList AccessList
 	checkNonce bool
-	context    []byte
+	remarks    []byte
 }
 
 func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, accessList AccessList, checkNonce bool) Message {
@@ -627,20 +637,21 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		data:       tx.Data(),
 		accessList: tx.AccessList(),
 		checkNonce: true,
-		context:    tx.Context(),
+		remarks:    tx.Remarks(),
 	}
 	var err error
 	msg.from, err = Sender(s, tx)
 	return msg, err
 }
 
-func (m Message) From() common.Address   { return m.from }
-func (m Message) To() *common.Address    { return m.to }
-func (m Message) GasPrice() *big.Int     { return m.gasPrice }
-func (m Message) Value() *big.Int        { return m.amount }
-func (m Message) Gas() uint64            { return m.gasLimit }
-func (m Message) Nonce() uint64          { return m.nonce }
-func (m Message) Data() []byte           { return m.data }
-func (m Message) AccessList() AccessList { return m.accessList }
-func (m Message) CheckNonce() bool       { return m.checkNonce }
-func (m Message) Context() []byte        { return m.context }
+func (m Message) From() common.Address            { return m.from }
+func (m Message) To() *common.Address             { return m.to }
+func (m Message) GasPrice() *big.Int              { return m.gasPrice }
+func (m Message) Value() *big.Int                 { return m.amount }
+func (m Message) Gas() uint64                     { return m.gasLimit }
+func (m Message) Nonce() uint64                   { return m.nonce }
+func (m Message) Data() []byte                    { return m.data }
+func (m Message) AccessList() AccessList          { return m.accessList }
+func (m Message) CheckNonce() bool                { return m.checkNonce }
+func (m Message) Remarks() []byte                 { return m.remarks }
+func (m Message) OverrideGasPrice(price *big.Int) { m.gasPrice.Set(price) }

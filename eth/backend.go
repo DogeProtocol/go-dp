@@ -211,10 +211,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 
-	//if eng, ok := eth.engine.(*proofofstake.ProofOfStake); ok {
-	//	eng.SetP2PHandler(eth.handler)
-	//}
-
 	if eth.handler, err = handler.NewHandler(&handler.HandlerConfig{
 		Database:   chainDb,
 		Chain:      eth.blockchain,

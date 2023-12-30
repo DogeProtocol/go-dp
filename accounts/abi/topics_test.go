@@ -49,8 +49,8 @@ func TestMakeTopics(t *testing.T) {
 		},
 		{
 			"support address types in topics",
-			args{[][]interface{}{{common.Address{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}}}},
-			[][]common.Hash{{common.Hash{0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}}},
+			args{[][]interface{}{{common.Address{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}}},
+			[][]common.Hash{{common.Hash{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}}},
 			false,
 		},
 		{
@@ -268,7 +268,7 @@ func setupTopicsTests() []topicTest {
 					{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
 				},
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "error on topic/field count mismatch",

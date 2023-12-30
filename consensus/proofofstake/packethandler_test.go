@@ -370,7 +370,7 @@ func WaitBlockCommit(parentHash common.Hash, mockp2pHandler *MockP2PHandler, t *
 
 	for {
 		txns := mockp2pHandler.GetValidatorTransactions()
-		err := mockp2pHandler.consensusHandler.HandleTransactions(parentHash, txns)
+		err := mockp2pHandler.consensusHandler.HandleConsensus(parentHash, txns, 1)
 		if err != nil {
 			//fmt.Println("HandleTransactions err", err)
 		}

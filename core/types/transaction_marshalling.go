@@ -40,7 +40,7 @@ type txJSON struct {
 	R          *hexutil.Big    `json:"r"`
 	S          *hexutil.Big    `json:"s"`
 	To         *common.Address `json:"to"`
-	Context    *hexutil.Bytes  `json:"context"`
+	Remarks    *hexutil.Bytes  `json:"remarks"`
 
 	// Access list transaction fields:
 	ChainID    *hexutil.Big `json:"chainId,omitempty"`
@@ -70,7 +70,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		enc.MaxGasTier = (*hexutil.Uint64)(&tx.MaxGasTier)
 		enc.Value = (*hexutil.Big)(tx.Value)
 		enc.Data = (*hexutil.Bytes)(&tx.Data)
-		enc.Context = (*hexutil.Bytes)(&tx.Context)
+		enc.Remarks = (*hexutil.Bytes)(&tx.Remarks)
 		enc.To = t.To()
 		enc.V = (*hexutil.Big)(tx.V)
 		enc.R = (*hexutil.Big)(tx.R)
@@ -118,10 +118,10 @@ func (t *Transaction) UnmarshalJSON(input []byte) error {
 			return errors.New("missing required field 'input' in transaction")
 		}
 		itx.Data = *dec.Data
-		if dec.Context != nil {
-			itx.Context = *dec.Data
-			if len(itx.Context) > MAX_CONTEXT_LENGTH {
-				return errors.New("verify context failed")
+		if dec.Remarks != nil {
+			itx.Remarks = *dec.Data
+			if len(itx.Remarks) > MAX_REMARKS_LENGTH {
+				return errors.New("verify remarks failed")
 			}
 		}
 		if dec.V == nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math/big"
 	"testing"
@@ -159,7 +160,7 @@ func TestPack(t *testing.T) {
 	method := staking.GetContract_Method_AddDepositorSlashing()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
-		fmt.Println("AddDepositorSlashing abi error", err)
+		fmt.Println("TestPack abi error", err)
 		t.Fatalf("failed")
 	}
 
@@ -167,7 +168,25 @@ func TestPack(t *testing.T) {
 	slashedAmount := big.NewInt(10)
 	_, err = encCallOuter(&abiData, method, ZERO_ADDRESS, slashedAmount)
 	if err != nil {
-		fmt.Println("Unable to pack AddDepositorSlashing", "error", err)
+		fmt.Println("Unable to pack TestPack", "error", err)
 		t.Fatalf("failed")
 	}
+}
+
+func TestPackAddress(t *testing.T) {
+	method := conversion.GetContract_Method_setConverted()
+	abiData, err := conversion.GetConversionContract_ABI()
+	if err != nil {
+		fmt.Println("TestPackAddress abi error", err)
+		t.Fatalf("failed")
+	}
+
+	// call
+	encoded, err := encCallOuter(&abiData, method, common.Address{1}, common.Address{2})
+	if err != nil {
+		fmt.Println("Unable to pack TestPackAddress", "error", err)
+		t.Fatalf("failed")
+	}
+
+	fmt.Println("encoded", encoded)
 }

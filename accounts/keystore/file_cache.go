@@ -84,7 +84,7 @@ func (fc *fileCache) scan(keyDir string) (mapset.Set, mapset.Set, mapset.Set, er
 	t3 := time.Now()
 
 	// Report on the scanning stats and return
-	log.Debug("FS scan times", "list", t1.Sub(t0), "set", t2.Sub(t1), "diff", t3.Sub(t2))
+	log.Trace("FS scan times", "list", t1.Sub(t0), "set", t2.Sub(t1), "diff", t3.Sub(t2))
 	return creates, deletes, updates, nil
 }
 

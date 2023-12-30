@@ -38,6 +38,9 @@ func TestUnpack(t *testing.T) {
 			def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
 			abi, err := JSON(strings.NewReader(def))
 			if err != nil {
+				if test.expectFailure {
+					return
+				}
 				t.Fatalf("invalid ABI definition %s: %v", def, err)
 			}
 			encb, err := hex.DecodeString(test.packed)
@@ -686,7 +689,7 @@ func TestUnmarshal(t *testing.T) {
 	buff.Reset()
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020")) // offset
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(common.Hex2Bytes("0000000001000000000000000000000000000000000000000000000000000000"))
+	buff.Write(common.Hex2Bytes("0100000000000000000000000000000000000000000000000000000000000000"))
 
 	var outAddr []common.Address
 	err = abi.UnpackIntoInterface(&outAddr, "addressSliceSingle", buff.Bytes())
@@ -707,10 +710,10 @@ func TestUnmarshal(t *testing.T) {
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040")) // offset
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000080")) // offset
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(common.Hex2Bytes("0000000001000000000000000000000000000000000000000000000000000000"))
+	buff.Write(common.Hex2Bytes("0100000000000000000000000000000000000000000000000000000000000000"))
 	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // size
-	buff.Write(common.Hex2Bytes("0000000002000000000000000000000000000000000000000000000000000000"))
-	buff.Write(common.Hex2Bytes("0000000003000000000000000000000000000000000000000000000000000000"))
+	buff.Write(common.Hex2Bytes("0200000000000000000000000000000000000000000000000000000000000000"))
+	buff.Write(common.Hex2Bytes("0300000000000000000000000000000000000000000000000000000000000000"))
 
 	var outAddrStruct struct {
 		A []common.Address

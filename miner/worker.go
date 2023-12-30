@@ -18,21 +18,22 @@ package miner
 
 import (
 	"errors"
-	"math/big"
-	"sync"
-	"sync/atomic"
-	"time"
-
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/trie"
 	mapset "github.com/deckarep/golang-set"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -437,7 +438,7 @@ func (w *worker) mainLoop() {
 			log.Trace("chainSideCh", "Hash", ev.Block.Hash(), "number", ev.Block.Number())
 
 		case ev := <-w.txsCh:
-			log.Trace("txsCh", len(ev.Txs))
+			log.Trace("txsCh", "count", len(ev.Txs))
 			continue
 
 		// System stopped
@@ -626,8 +627,18 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 
 	log.Trace("state 4", "IntermediateRoot", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "coinbase", coinbase.Hash())
 
-	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig())
-	log.Trace("state 5", "IntermediateRoot", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "receipt", receipt)
+	isGasExemptTxn := false
+
+	if tx.To().IsEqualTo(conversion.CONVERSION_CONTRACT_ADDRESS) == true {
+		isGasExempt, err := conversionutil.IsGasExemptTxn(tx, w.current.signer)
+		if err == nil && isGasExempt {
+			log.Info("commitTransaction GasExemptTxn", "txn", tx.Hash())
+			isGasExemptTxn = true
+		}
+	}
+
+	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, *w.chain.GetVMConfig(), isGasExemptTxn)
+	log.Trace("state 5", "IntermediateRoot", w.current.state.IntermediateRoot(w.chain.Config().IsEIP158(w.current.header.Number)), "receipt", receipt, "err", err)
 
 	if err != nil {
 		log.Trace("state commit", "err", err)
@@ -665,7 +676,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 			break
 		}
 		// Retrieve the next transaction and abort if all done
-		//tx := txs.Peek()
 
 		if hasRecords == false {
 			log.Trace("commitTransactions6")
@@ -685,7 +695,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByNonce, coinbase com
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
 			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
-			//txs.Pop()
 			hasRecords = txs.NextCursor()
 			if hasRecords == false {
 				break
@@ -845,6 +854,8 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	//Filter further (remove invalid nonces)
 	txsByNoncePreCheck := types.NewTransactionsByNonce(w.current.signer, pendingTxns, w.current.header.ParentHash)
 	txnFilteredMap := txsByNoncePreCheck.GetMap()
+
+	log.Info("worker transactions", "pendingCount", len(pendingTxns), "postFilterCount", txsByNoncePreCheck.GetTotalCount())
 
 	s := w.current.state.Copy()
 	selectedTxns, err := w.engine.HandleTransactions(w.chain, w.current.header, s, txnFilteredMap)

@@ -6,7 +6,7 @@ import (
 )
 
 const DEFAULT_CHAIN_ID int64 = 123123
-const MAX_CONTEXT_LENGTH = 64
+const MAX_REMARKS_LENGTH = 64
 
 type GasTier uint64
 
@@ -47,7 +47,7 @@ type DefaultFeeTx struct {
 	To         *common.Address `rlp:"nil"` // nil means contract creation
 	Value      *big.Int
 	Data       []byte
-	Context    []byte
+	Remarks    []byte
 	AccessList AccessList
 
 	// Signature values
@@ -71,7 +71,7 @@ func (tx *DefaultFeeTx) copy() TxData {
 		V:          new(big.Int),
 		R:          new(big.Int),
 		S:          new(big.Int),
-		Context:    common.CopyBytes(tx.Context),
+		Remarks:    common.CopyBytes(tx.Remarks),
 	}
 	copy(cpy.AccessList, tx.AccessList)
 	if tx.Value != nil {
@@ -117,14 +117,14 @@ func (tx *DefaultFeeTx) maxGasTier() GasTier { return tx.MaxGasTier }
 func (tx *DefaultFeeTx) value() *big.Int     { return tx.Value }
 func (tx *DefaultFeeTx) nonce() uint64       { return tx.Nonce }
 func (tx *DefaultFeeTx) to() *common.Address { return tx.To }
-func (tx *DefaultFeeTx) verifyFields() bool  { return len(tx.Context) <= MAX_CONTEXT_LENGTH }
+func (tx *DefaultFeeTx) verifyFields() bool  { return len(tx.Remarks) <= MAX_REMARKS_LENGTH }
 
 func (tx *DefaultFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
 }
 
-func (tx *DefaultFeeTx) context() []byte {
-	return tx.Context
+func (tx *DefaultFeeTx) remarks() []byte {
+	return tx.Remarks
 }
 func (tx *DefaultFeeTx) setSignatureValues(chainID, v, r, s *big.Int) {
 	tx.ChainID, tx.V, tx.R, tx.S = chainID, v, r, s

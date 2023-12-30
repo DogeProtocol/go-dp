@@ -64,7 +64,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -97,7 +97,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -119,7 +119,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -147,7 +147,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -174,7 +174,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -201,7 +201,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3, 4, 5},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -228,7 +228,7 @@ func TestHash(t *testing.T) {
 		Data:       nil,
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -255,7 +255,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        20,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -282,7 +282,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_2X,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -300,7 +300,7 @@ func TestHash(t *testing.T) {
 		t.Fatalf("failed")
 	}
 
-	//Context change
+	//Remarks change
 	innerTx1 = DefaultFeeTx{
 		ChainID:    big.NewInt(DEFAULT_CHAIN_ID),
 		Nonce:      1,
@@ -309,7 +309,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2, 3},
+		Remarks:    []byte{2, 3},
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -327,7 +327,7 @@ func TestHash(t *testing.T) {
 		t.Fatalf("failed")
 	}
 
-	//Context nil
+	//Remarks nil
 	innerTx1 = DefaultFeeTx{
 		ChainID:    big.NewInt(DEFAULT_CHAIN_ID),
 		Nonce:      1,
@@ -336,7 +336,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    nil,
+		Remarks:    nil,
 		AccessList: accesses,
 		V:          v,
 		R:          r,
@@ -363,7 +363,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses2,
 		V:          v,
 		R:          r,
@@ -390,7 +390,7 @@ func TestHash(t *testing.T) {
 		Data:       []byte{1, 2, 3},
 		Gas:        10,
 		MaxGasTier: GAS_TIER_DEFAULT,
-		Context:    []byte{2},
+		Remarks:    []byte{2},
 		AccessList: accesses,
 	}
 

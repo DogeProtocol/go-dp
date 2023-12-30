@@ -105,6 +105,10 @@ func TestGenesisValidator(t *testing.T) {
 	if details.Amount != amount {
 		t.Fatalf("failed")
 	}
+
+	if details.EthAddress != ethAddr {
+		t.Fatalf("failed")
+	}
 }
 
 func TestGenesisValidatorStatic(t *testing.T) {
@@ -211,5 +215,75 @@ func TestGenesisValidatorStatic_Negative(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 		t.Fatalf("positive check failed")
+	}
+}
+
+func TestConversionStatic(t *testing.T) {
+	details := &ConversionSignDetails{
+		EthAddress:        "0xAa044ccF6BAD46F0de9fb4dF6b7d9fF02D2e195f",
+		QuantumAddress:    "0x8A328B329b2a514863475E17FbB7dA2E207CcF70289313F7e0766cBe8ad25a12",
+		EthereumSignature: "0xa25c5e509bd30f8f03e1a56d652b17255ce2e0c00c4b292e3545bc39f62d96550b26c3f4a731e83934d3345cce91904f852164bb1b1dba756e06cf83d1a9083f1b",
+	}
+
+	_, err := VerifyConversion(details)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+}
+
+func TestConversionStatic_Negative(t *testing.T) {
+	details := &ConversionSignDetails{
+		EthAddress:        "0xAa044ccF6BAD46F0de9fb4dF6b7d9fF02D2e195f",
+		QuantumAddress:    "0x8A328B329b2a514863475E17FbB7dA2E207CcF70289313F7e0766cBe8ad25a12",
+		EthereumSignature: "0xa25c5e509bd30f8f03e1a56d652b17255ce2e0c00c4b292e3545bc39f62d96550b26c3f4a731e83934d3345cce91904f852164bb1b1dba756e06cf83d1a9083f1b",
+	}
+
+	_, err := VerifyConversion(details)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+
+	tempSwap := details.EthAddress
+	details.EthAddress = "0xAa044ccF6BAD46F0de9fb4dF6b7d9fF02D2e195e" //last byte change
+	_, err = VerifyConversion(details)
+	if err == nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+	details.EthAddress = tempSwap
+
+	tempSwap = details.QuantumAddress
+	details.QuantumAddress = "0x8A328B329b2a514863475E17FbB7dA2E207CcF70289313F7e0766cBe8ad25a11" //last byte change
+	_, err = VerifyConversion(details)
+	if err == nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+	details.QuantumAddress = tempSwap
+
+	tempSwap = details.EthereumSignature
+	details.EthereumSignature = "0xa25c5e509bd30f8f03e1a56d652b17255ce2e0c00c4b292e3545bc39f62d96550b26c3f4a731e83934d3345cce91904f852164bb1b1dba756e06cf83d1a9083f1c" //last byte change
+	_, err = VerifyConversion(details)
+	if err == nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+	details.EthereumSignature = tempSwap
+
+	tempSwap = details.EthereumSignature
+	details.EthereumSignature = "a25c5e509bd30f8f03e1a56d652b17255ce2e0c00c4b292e3545bc39f62d96550b26c3f4a731e83934d3345cce91904f852164bb1b1dba756e06cf83d1a9083f1c" //non hex
+	_, err = VerifyConversion(details)
+	if err == nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
+	}
+	details.EthereumSignature = tempSwap
+
+	_, err = VerifyConversion(details)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatalf("failed")
 	}
 }

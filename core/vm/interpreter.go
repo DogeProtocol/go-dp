@@ -39,6 +39,21 @@ type Config struct {
 	OverrideGasFailure bool
 }
 
+func (c *Config) DeepCopy() *Config {
+	conf := &Config{
+		Debug:                   c.Debug,
+		Tracer:                  c.Tracer,
+		NoRecursion:             c.NoRecursion,
+		NoBaseFee:               c.NoBaseFee,
+		EnablePreimageRecording: c.EnablePreimageRecording,
+		JumpTable:               c.JumpTable,
+		ExtraEips:               make([]int, 0),
+		OverrideGasFailure:      c.OverrideGasFailure,
+	}
+	copy(conf.ExtraEips, c.ExtraEips)
+	return conf
+}
+
 // ScopeContext contains the things that are per-call, such as stack and memory,
 // but not transients like pc and gas
 type ScopeContext struct {
