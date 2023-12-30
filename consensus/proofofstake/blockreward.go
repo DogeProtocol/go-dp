@@ -3,7 +3,10 @@ package proofofstake
 import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/core/state"
+	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math"
 	"math/big"
 	"strings"
@@ -58,6 +61,20 @@ func GetReward(blockNumber *big.Int) *big.Int {
 	}
 
 	return blockReward
+}
+
+func (c *ProofOfStake) accumulateReward(state *state.StateDB, blockNumber *big.Int, reward *big.Int) error {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("DP_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return err
+	}
+
+	if rewardStartBlock.Int64() <= blockNumber.Int64() {
+		contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+		state.AddBalance(contractAddress, reward)
+	}
+	return nil
 }
 
 // MathPow calculates n to the mth power with the math.Pow() function
