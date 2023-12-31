@@ -127,6 +127,58 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 	return proposalsTxnsMap, nil
 }
 
+func (p *ProofOfStake) GetValidatorOfDepositor(depositor common.Address, blockHash common.Hash) (common.Address, error) {
+	log.Trace("GetValidatorOfDepositor depositor", "depositor", depositor)
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return common.Address{}, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_GetValidatorOfDepositor()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("GetValidatorOfDepositor abi error", "err", err)
+		return common.Address{}, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, depositor)
+	if err != nil {
+		log.Error("Unable to pack tx for get depositor", "error", err)
+		return common.Address{}, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if len(result) == 0 {
+		return common.Address{}, errors.New("no depositor found")
+	}
+
+	var (
+		ret0 = new(common.Address)
+	)
+	out := ret0
+
+	if err := abiData.UnpackIntoInterface(out, method, result); err != nil {
+		return common.Address{}, err
+	}
+
+	return *out, nil
+}
+
 func (p *ProofOfStake) GetDepositorOfValidator(validator common.Address, blockHash common.Hash) (common.Address, error) {
 	log.Trace("GetDepositorOfValidator validator", "validator", validator)
 	err := staking.IsStakingContract()
@@ -324,6 +376,199 @@ func (p *ProofOfStake) GetTotalDepositedBalance(blockHash common.Hash) (*big.Int
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
 		log.Trace("UnpackIntoInterface", "err", err)
 		return nil, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) DoesDepositorExist(address common.Address, blockHash common.Hash) (bool, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return false, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_DoesDepositorExist()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("DoesDepositorExist abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, address)
+	if err != nil {
+		log.Error("Unable to pack tx for get depositor exist", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("no depositor exist found")
+	}
+
+	var ret0 bool
+	out := ret0
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		return false, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) DidDepositorEverExists(address common.Address, blockHash common.Hash) (bool, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return false, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_DidDepositorEverExist()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("DidDepositorEverExists abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, address)
+	if err != nil {
+		log.Error("Unable to pack tx for get depositor ever exists", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("no depositor ever exists found")
+	}
+
+	var ret0 bool
+	out := ret0
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		return false, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) DoesValidatorExist(address common.Address, blockHash common.Hash) (bool, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return false, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_DoesValidatorExist()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("DoesValidatorExist abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, address)
+	if err != nil {
+		log.Error("Unable to pack tx for get validator exist", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("no validator exist found")
+	}
+
+	var ret0 bool
+	out := ret0
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		return false, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) DidValidatorEverExists(address common.Address, blockHash common.Hash) (bool, error) {
+	err := staking.IsStakingContract()
+	if err != nil {
+		log.Warn("GETH_STAKING_CONTRACT_ADDRESS: Contract1 address is empty")
+		return false, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_DidValidatorEverExist()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("DidValidatorEverExists abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, address)
+	if err != nil {
+		log.Error("Unable to pack tx for get validator ever exists", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		//Gas:  &gas,
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("no validator ever exists found")
+	}
+
+	var ret0 bool
+	out := ret0
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		return false, err
 	}
 
 	return out, nil

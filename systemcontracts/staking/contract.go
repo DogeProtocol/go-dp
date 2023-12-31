@@ -45,6 +45,9 @@ type Method struct {
 type Deposit struct {
 	GetDepositorCount        string `json:"getDepositorCount"`
 	GetTotalDepositedBalance string `json:"getTotalDepositedBalance"`
+	GetValidatorOfDepositor  string `json:"getValidatorOfDepositor"`
+	DoesDepositorExist       string `json:"doesDepositorExist"`
+	DidDepositorEverExist    string `json:"didDepositorEverExist"`
 }
 
 type Validator struct {
@@ -55,6 +58,8 @@ type Validator struct {
 	AddDepositorSlashing     string `json:"addDepositorSlashing"`
 	AddDepositorReward       string `json:"addDepositorReward"`
 	IsValidationPaused       string `json:"isValidationPaused"`
+	DoesValidatorExist       string `json:"doesValidatorExist"`
+	DidValidatorEverExist    string `json:"didValidatorEverExist"`
 }
 
 var (
@@ -62,6 +67,8 @@ var (
 		Deposits: &Deposit{
 			GetDepositorCount:        "getDepositorCount",
 			GetTotalDepositedBalance: "getTotalDepositedBalance",
+			DoesDepositorExist:       "doesDepositorExist",
+			DidDepositorEverExist:    "didDepositorEverExist",
 		},
 		Validators: &Validator{
 			GetBalanceOfDepositor:    "getBalanceOfDepositor",
@@ -71,6 +78,8 @@ var (
 			AddDepositorSlashing:     "addDepositorSlashing",
 			AddDepositorReward:       "addDepositorReward",
 			IsValidationPaused:       "isValidationPaused",
+			DoesValidatorExist:       "doesValidatorExist",
+			DidValidatorEverExist:    "didValidatorEverExist",
 		},
 	}
 )
@@ -134,6 +143,10 @@ func GetContract_Method_ListValidators() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.ListValidators
 }
 
+func GetContract_Method_GetValidatorOfDepositor() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetValidatorOfDepositor
+}
+
 func GetContract_Method_GetDepositorOfValidator() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetDepositorOfValidator
 }
@@ -148,6 +161,22 @@ func GetContract_Method_IsValidationPaused() string {
 
 func GetContract_Method_GetNetBalanceOfDepositor() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetNetBalanceOfDepositor
+}
+
+func GetContract_Method_DoesValidatorExist() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.DoesValidatorExist
+}
+
+func GetContract_Method_DidValidatorEverExist() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Validators.DidValidatorEverExist
+}
+
+func GetContract_Method_DoesDepositorExist() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.DoesDepositorExist
+}
+
+func GetContract_Method_DidDepositorEverExist() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.DidDepositorEverExist
 }
 
 func GetContract_Method_GetDepositorCount() string {
