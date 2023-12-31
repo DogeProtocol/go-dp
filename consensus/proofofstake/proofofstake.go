@@ -709,12 +709,13 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 
-			//Increase balance of ZERO_ADDRESS, since amount is slashed
-			err = c.accumulateBalance(state, slashAmount, ZERO_ADDRESS)
-			if err != nil {
-				log.Trace("accumulateBalance ZERO_ADDRESS error", "err", err)
-				return err
-			}
+			/*
+				//Increase balance of ZERO_ADDRESS, since amount is slashed
+				err = c.accumulateBalance(state, slashAmount, ZERO_ADDRESS)
+				if err != nil {
+					log.Trace("accumulateBalance ZERO_ADDRESS error", "err", err)
+					return err
+				}*/
 
 			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
 		}

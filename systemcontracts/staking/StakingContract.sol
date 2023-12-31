@@ -284,6 +284,12 @@ contract StakingContract is IStakingContract {
     function addDepositorSlashing(address depositorAddress, uint256 slashAmount) override external returns (uint256) {
         require(msg.sender == address(0), "Only VM calls are allowed");
         _depositorSlashings[depositorAddress] = _depositorSlashings[depositorAddress].add(slashAmount);
+
+        address zeroAddress = address(0);
+        (bool success, ) = zeroAddress.call{value:slashAmount}("");
+        // success should be true
+        require(success,"transfer to zeroAddress failed");
+
         emit OnSlashing(depositorAddress, slashAmount);
         return _depositorSlashings[depositorAddress];
     }

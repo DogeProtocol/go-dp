@@ -174,6 +174,7 @@ func TestPack(t *testing.T) {
 }
 
 func TestPackAddress(t *testing.T) {
+	fmt.Println(ZERO_ADDRESS)
 	method := conversion.GetContract_Method_setConverted()
 	abiData, err := conversion.GetConversionContract_ABI()
 	if err != nil {
