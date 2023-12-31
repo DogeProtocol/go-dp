@@ -68,9 +68,7 @@ func etherToWeiFloat(eth *big.Float) *big.Int {
 	return wei
 }
 
-func (c *ProofOfStake) accumulateBalance(state *state.StateDB, blockNumber *big.Int, reward *big.Int, addr common.Address) error {
-	if rewardStartBlock.Int64() <= blockNumber.Int64() {
-		state.AddBalance(addr, reward)
-	}
+func (c *ProofOfStake) accumulateBalance(state *state.StateDB, amount *big.Int, addr common.Address) error {
+	state.AddBalance(addr, amount)
 	return nil
 }

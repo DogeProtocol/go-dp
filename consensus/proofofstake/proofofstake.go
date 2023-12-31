@@ -72,6 +72,7 @@ var (
 
 	slashAmount = params.EtherToWei(big.NewInt(100))
 
+	rewardStartBlockNumber = uint64(slashStartBlockNumber)
 	//slashStartBlockNumber = uint64(1497600)
 	slashStartBlockNumber = uint64(1)
 )
@@ -709,9 +710,9 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			}
 
 			//Increase balance of ZERO_ADDRESS, since amount is slashed
-			err = c.accumulateBalance(state, header.Number, slashAmount, ZERO_ADDRESS)
+			err = c.accumulateBalance(state, slashAmount, ZERO_ADDRESS)
 			if err != nil {
-				log.Trace("accumulateBalance ZERO_ADDRESS err", "err", err)
+				log.Trace("accumulateBalance ZERO_ADDRESS error", "err", err)
 				return err
 			}
 
@@ -720,11 +721,11 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	//Block Rewards
-	if blockConsensusData.VoteType == VOTE_TYPE_OK {
+	if blockConsensusData.VoteType == VOTE_TYPE_OK && header.Number.Uint64() >= rewardStartBlockNumber {
 		blockProposerRewardAmount := GetReward(header.Number)
 
 		//Add same amount of reward to Staking Contract, so that it is available for withdrawal later on
-		err := c.accumulateBalance(state, header.Number, blockProposerRewardAmount, common.HexToAddress(staking.GetStakingContract_Address_String()))
+		err := c.accumulateBalance(state, blockProposerRewardAmount, common.HexToAddress(staking.GetStakingContract_Address_String()))
 		if err != nil {
 			log.Trace("accumulateBalance staking contract err", "err", err)
 			return err
