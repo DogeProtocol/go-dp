@@ -30,6 +30,7 @@ import (
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
@@ -50,11 +51,8 @@ import (
 )
 
 const (
-	inmemorySnapshots  = 128                    // Number of recent vote snapshots to keep in memory
-	inmemorySignatures = 4096                   // Number of recent block signatures to keep in memory
-	wiggleTime         = 500 * time.Millisecond // Random delay (per validator) to allow concurrent signers
-
-	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
+	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
+	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 )
 
 // ProofOfStake proof-of-authority protocol constants.
@@ -72,7 +70,10 @@ var (
 	diffInTurn = big.NewInt(2) // Block difficulty for in-turn signatures
 	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
 
-	slashAmount = params.EtherToWei(big.NewInt(1000))
+	slashAmount = params.EtherToWei(big.NewInt(100))
+
+	//slashStartBlockNumber = uint64(1497600)
+	slashStartBlockNumber = uint64(1)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -694,7 +695,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	//Block Slashing
-	if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 {
+	if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= slashStartBlockNumber {
 		for _, val := range blockConsensusData.SlashedBlockProposers {
 			depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
 			if err != nil {
@@ -706,6 +707,14 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				log.Trace("AddDepositorSlashing err", "err", err)
 				return err
 			}
+
+			//Increase balance of ZERO_ADDRESS, since amount is slashed
+			err = c.accumulateBalance(state, header.Number, slashAmount, ZERO_ADDRESS)
+			if err != nil {
+				log.Trace("accumulateBalance ZERO_ADDRESS err", "err", err)
+				return err
+			}
+
 			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
 		}
 	}
@@ -715,9 +724,9 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		blockProposerRewardAmount := GetReward(header.Number)
 
 		//Add same amount of reward to Staking Contract, so that it is available for withdrawal later on
-		err := c.accumulateReward(state, header.Number, blockProposerRewardAmount)
+		err := c.accumulateBalance(state, header.Number, blockProposerRewardAmount, common.HexToAddress(staking.GetStakingContract_Address_String()))
 		if err != nil {
-			log.Trace("accumulateReward err", "err", err)
+			log.Trace("accumulateBalance staking contract err", "err", err)
 			return err
 		}
 

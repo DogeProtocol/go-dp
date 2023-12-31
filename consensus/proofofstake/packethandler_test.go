@@ -291,7 +291,7 @@ func NewValidatorManager(numKeys int) *ValidatorManager {
 		valAddress, _ := cryptobase.SigAlg.PublicKeyToAddress(&valKey.PublicKey)
 		valManager.valMap[valAddress] = &ValidatorDetails{
 			key:     valKey,
-			balance: params.EtherToWei(big.NewInt(500000000)),
+			balance: params.EtherToWei(big.NewInt(500000000000)),
 		}
 	}
 
@@ -319,7 +319,15 @@ func (vm *ValidatorManager) GetValidatorsFn(blockHash common.Hash) (map[common.A
 }
 
 func Initialize(numKeys int) (vm *ValidatorManager, mockp2pManager *MockP2PManager, validatorMap *map[common.Address]*big.Int) {
-	STARTUP_DELAY_MS = 2000
+	STARTUP_DELAY_MS = int64(2000)
+	BLOCK_TIMEOUT_MS = int64(6000)
+	ACK_BLOCK_TIMEOUT_MS = 18000 //relative to start of block locally
+	BLOCK_CLEANUP_TIME_MS = int64(60000)
+	MAX_ROUND = byte(2)
+	BROADCAST_RESEND_DELAY = int64(100)
+	BROADCAST_CLEANUP_DELAY = int64(1800000)
+	CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(60000)
+
 	waitMap = make(map[common.Address]bool)
 	vm = NewValidatorManager(numKeys)
 
@@ -779,7 +787,7 @@ func testPacketHandler_no_round2_then_round2(t *testing.T, numKeys int, minPass 
 					break
 				}
 			}
-			if HasExceededTimeThreshold(checkTime, int64(BLOCK_TIMEOUT_MS*1.5)) {
+			if HasExceededTimeThreshold(checkTime, int64(BLOCK_TIMEOUT_MS*2)) {
 				for _, v := range valSkipList {
 					vh := p2p.mockP2pHandlers[v]
 
@@ -1666,16 +1674,16 @@ func TestFilterValidators_positive(t *testing.T) {
 	val2 := common.BytesToAddress([]byte{2})
 	val3 := common.BytesToAddress([]byte{3})
 
-	validatorsDepositMap[val1] = params.EtherToWei(big.NewInt(100000000))
-	validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(200000000))
-	validatorsDepositMap[val3] = params.EtherToWei(big.NewInt(400000000))
+	validatorsDepositMap[val1] = params.EtherToWei(big.NewInt(100000000000))
+	validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(200000000000))
+	validatorsDepositMap[val3] = params.EtherToWei(big.NewInt(400000000000))
 	fmt.Println("Test1")
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
 
 	b := byte(0)
 	for i := 0; i < MAX_VALIDATORS/2; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(10000000))
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(10000000000))
 		b = b + 1
 	}
 	fmt.Println("Test2")
@@ -1684,7 +1692,7 @@ func TestFilterValidators_positive(t *testing.T) {
 	b = byte(0)
 	for i := 0; i < MAX_VALIDATORS; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000000))
 		b = b + 1
 	}
 	fmt.Println("Test3")
@@ -1693,7 +1701,7 @@ func TestFilterValidators_positive(t *testing.T) {
 	b = byte(0)
 	for i := 0; i < MAX_VALIDATORS+1; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000000))
 		b = b + 1
 	}
 	fmt.Println("Test4")
@@ -1707,7 +1715,7 @@ func TestFilterValidators_positive_Extended(t *testing.T) {
 	b := byte(0)
 	for i := 0; i < MAX_VALIDATORS+1; i++ {
 		val := common.BytesToAddress([]byte{b})
-		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000))
+		validatorsDepositMap[val] = params.EtherToWei(big.NewInt(5000000000))
 		b = b + 1
 	}
 	testFilterValidatorsTest(t, parentHash, validatorsDepositMap, true)
@@ -1720,32 +1728,35 @@ func TestFilterValidators_positive_Tough(t *testing.T) {
 		b := byte(0)
 		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
-			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(1000000))
+			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(1000000000))
 			b = b + 1
 		}
 
 		for i := 1; i < 255; i++ {
 			val := common.BytesToAddress([]byte{b})
-			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(20000000))
+			validatorsDepositMap[val] = params.EtherToWei(big.NewInt(20000000000))
 			b = b + 1
 		}
 
 		parentHash1 := common.BytesToHash([]byte{100})
 		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
-		expected := params.EtherToWei(big.NewInt(2560000000))
+		expected := params.EtherToWei(big.NewInt(2522000000000))
 		if totalDeposit.Cmp(expected) != 0 {
+			fmt.Println("dep", params.WeiToEther(totalDeposit))
 			t.Fatalf("failed a")
 		}
 
 		parentHash2 := common.BytesToHash([]byte{200})
 		totalDeposit = testFilterValidatorsTest(t, parentHash2, validatorsDepositMap, true)
-		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2560000000))) != 0 {
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2522000000000))) != 0 {
+			fmt.Println("dep", params.WeiToEther(totalDeposit))
 			t.Fatalf("failed b")
 		}
 
 		parentHash3 := common.BytesToHash([]byte{255})
 		totalDeposit = testFilterValidatorsTest(t, parentHash3, validatorsDepositMap, true)
-		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2560000000))) != 0 {
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(2522000000000))) != 0 {
+			fmt.Println("dep", params.WeiToEther(totalDeposit))
 			t.Fatalf("failed c")
 		}
 	}
@@ -1759,7 +1770,7 @@ func TestFilterValidators_positive_low_balance(t *testing.T) {
 		validatorsDepositMap[val1] = params.EtherToWei(big.NewInt(1000))
 
 		val2 := common.BytesToAddress([]byte{2})
-		validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(900000000))
+		validatorsDepositMap[val2] = params.EtherToWei(big.NewInt(900000000000))
 
 		val3 := common.BytesToAddress([]byte{3})
 		validatorsDepositMap[val3] = params.EtherToWei(big.NewInt(10000000))
@@ -1769,7 +1780,8 @@ func TestFilterValidators_positive_low_balance(t *testing.T) {
 
 		parentHash1 := common.BytesToHash([]byte{100})
 		totalDeposit := testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, true)
-		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(915000000))) != 0 {
+		if totalDeposit.Cmp(params.EtherToWei(big.NewInt(900015000000))) != 0 {
+			fmt.Println("dep", params.WeiToEther(totalDeposit))
 			t.Fatalf("failed")
 		}
 	}

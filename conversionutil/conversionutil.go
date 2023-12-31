@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var snapshotMap = map[string]bool{
+var SnapshotMap = map[string]bool{
 	strings.ToLower("0x9D0bEEc8D63ef6484686d1F8470be62a210B7dBd"): true,
 	strings.ToLower("0x4c581f07CC836e62800B3C05D1cCD6d115c916E5"): true,
 	strings.ToLower("0xFdDb457b94b2F39D56e3bCdFeBb77c6484859967"): true,
@@ -1032,7 +1032,7 @@ func IsGasExemptTxn(tx *types.Transaction, signer types.Signer) (bool, error) {
 		return false, err
 	}
 
-	_, ok := snapshotMap[strings.ToLower(ethAddress)]
+	_, ok := SnapshotMap[strings.ToLower(ethAddress)]
 
 	// If the key exists
 	if ok == false {
@@ -1041,7 +1041,7 @@ func IsGasExemptTxn(tx *types.Transaction, signer types.Signer) (bool, error) {
 	}
 
 	log.Trace("Is a GasExemptTxn", "ethAddress", ethAddress)
-	//todo: verify if already converted, to prevented flood
+	//todo: verify if already converted, to prevented flood attack
 
 	return true, nil
 }

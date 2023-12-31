@@ -24,7 +24,7 @@ func TestData(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	a1 := strings.ToLower("0x4609545aa34ad61d5b19deb1f019ba8674c6d8de")
-	_, ok := snapshotMap[a1]
+	_, ok := SnapshotMap[a1]
 
 	// If the key exists
 	if ok == false {

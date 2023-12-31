@@ -84,8 +84,6 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		return nil, err
 	}
 
-	//valz := make([]common.Address, len(*ret0))
-
 	proposalsTxnsMap := make(map[common.Address]*big.Int)
 	for _, val := range *out {
 		if val.IsEqualTo(ZERO_ADDRESS) {
@@ -93,8 +91,19 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		}
 		log.Debug("GetValidators Validator", "val", val)
 	}
+
 	for _, val := range *out {
-		//valz[i] = val
+		isPaused, err := p.IsValidatorPaused(val, blockHash)
+		if err != nil {
+			log.Debug("IsValidatorPaused failed", "err", err)
+			return nil, err
+		}
+
+		if isPaused {
+			log.Debug("Validator is paused, skipping", "val", isPaused)
+			continue
+		}
+
 		depositor, err := p.GetDepositorOfValidator(val, blockHash)
 		if err != nil {
 			log.Debug("GetDepositorOfValidator failed", "err", err)
@@ -179,6 +188,7 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
+	//method := staking.GetContract_Method_GetNetBalanceOfDepositor() //todo: change once initial storage is set
 	method := staking.GetContract_Method_GetBalanceOfDepositor()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
@@ -432,6 +442,50 @@ func (p *ProofOfStake) AddDepositorReward(blockHash common.Hash,
 	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
 		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
+	}
+
+	return out, nil
+}
+
+func (p *ProofOfStake) IsValidatorPaused(validator common.Address, blockHash common.Hash) (bool, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_IsValidationPaused()
+	abiData, err := staking.GetStakingContract_ABI()
+	if err != nil {
+		log.Error("IsValidatorPaused abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := abiData.Pack(method, validator)
+	if err != nil {
+		log.Error("IsValidatorPaused Unable to pack", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		log.Error("Call", "err", err)
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("IsValidatorPaused result is 0")
+	}
+
+	var out bool
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Debug("IsValidatorPaused UnpackIntoInterface", "err", err, "validator", validator)
+		return false, err
 	}
 
 	return out, nil
