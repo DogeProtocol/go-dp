@@ -240,8 +240,8 @@ func (p *ProofOfStake) GetNetBalanceOfDepositor(depositor common.Address, blockH
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
-	//method := staking.GetContract_Method_GetNetBalanceOfDepositor() //todo: change once initial storage is set
-	method := staking.GetContract_Method_GetBalanceOfDepositor()
+	method := staking.GetContract_Method_GetNetBalanceOfDepositor() //todo: change once initial storage is set
+	//method := staking.GetContract_Method_GetBalanceOfDepositor()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
 		log.Error("GetNetBalanceOfDepositor abi error", "err", err)
