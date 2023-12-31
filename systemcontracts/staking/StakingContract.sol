@@ -79,12 +79,6 @@ interface IStakingContract {
         uint256 blockTime
     );
 
-    event OnChangeValidator(
-        address indexed depositorAddress,
-        address indexed oldValidatorAddress,
-        address indexed newValidatorAddress
-    );
-
     event OnPauseValidation(
         address depositorAddress,
         address validatorAddress
