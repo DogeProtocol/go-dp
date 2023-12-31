@@ -39,9 +39,6 @@ interface IStakingContract {
     //Deposit
     function newDeposit(address validatorAddress) external payable;
 
-    //Rotate
-    function changeValidator(address newValidatorAddress) external;
-
     //Pause
     function pauseValidation() external;
 
@@ -191,33 +188,6 @@ contract StakingContract is IStakingContract {
         );
     }
 
-    function changeValidator(address newValidatorAddress) override external {
-        require(_validatorExists[newValidatorAddress] == false, "Validator already exists");
-        require(_depositorExists[newValidatorAddress] == false, "Validator is a depositor");
-        require(_validatorEverExisted[newValidatorAddress] == false, "Validator already existed");
-        require(_depositorEverExisted[newValidatorAddress] == false, "Depositor already existed");
-        require(newValidatorAddress.balance == 0, "validator balance should be zero"); //Since we don't check validator credentials, atleast verify if zero balance
-        require(newValidatorAddress != address(0), "Invalid validator");
-
-        address depositorAddress = msg.sender;
-        require(depositorAddress != newValidatorAddress, "Depositor address cannot be same as Validator address");
-
-        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
-        require(_depositorWithdrawalRequests[depositorAddress] == 0, "Withdrawal is pending");
-
-        _validatorExists[newValidatorAddress] = true;
-        _validatorEverExisted[newValidatorAddress] = true;
-        _validatorToDepositorMapping[newValidatorAddress] = depositorAddress;
-        _depositorToValidatorMapping[depositorAddress] = newValidatorAddress;
-        _validatorList.push(newValidatorAddress);
-
-        address oldValidatorAddress = _depositorToValidatorMapping[depositorAddress];
-        _validatorExists[oldValidatorAddress] = false;
-        delete _validatorToDepositorMapping[oldValidatorAddress];
-
-        emit OnChangeValidator(depositorAddress, oldValidatorAddress, newValidatorAddress);
-    }
-
     function pauseValidation() override external {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
@@ -319,7 +289,7 @@ contract StakingContract is IStakingContract {
     }
 
     function getValidatorOfDepositor(address depositorAddress) override external view returns (address) {
-        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        address validatorAddress = _depositorToValidatorMapping[depositorAddress];
         return validatorAddress;
     }
 
@@ -363,13 +333,17 @@ contract StakingContract is IStakingContract {
     function doesValidatorExist(address validatorAddress) override external view returns (bool) {
         return _validatorExists[validatorAddress];
     }
+
     function didValidatorEverExist(address validatorAddress) override external view returns (bool) {
         return _validatorEverExisted[validatorAddress];
     }
+
     function doesDepositorExist(address depositorAddress) override external view returns (bool) {
         return _depositorExists[depositorAddress];
     }
+
     function didDepositorEverExist(address depositorAddress) override external view returns (bool) {
         return _depositorEverExisted[depositorAddress];
     }
+
 }
