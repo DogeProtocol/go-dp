@@ -855,7 +855,7 @@ func (w *worker) proposePhase(interrupt *int32, timestamp int64) error {
 	txsByNoncePreCheck := types.NewTransactionsByNonce(w.current.signer, pendingTxns, w.current.header.ParentHash)
 	txnFilteredMap := txsByNoncePreCheck.GetMap()
 
-	log.Info("worker transactions", "pendingCount", len(pendingTxns), "postFilterCount", txsByNoncePreCheck.GetTotalCount())
+	log.Debug("worker transactions", "pendingCount", len(pendingTxns), "postFilterCount", txsByNoncePreCheck.GetTotalCount())
 
 	s := w.current.state.Copy()
 	selectedTxns, err := w.engine.HandleTransactions(w.chain, w.current.header, s, txnFilteredMap)

@@ -14,6 +14,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/secp256k1"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	"github.com/DogeProtocol/dp/log"
 	"github.com/status-im/keycard-go/hexutils"
 	"strings"
 )
@@ -278,6 +279,7 @@ func VerifyEthereumAddressAndMessage(ethAddress string, messageDigest []byte, si
 	addressBytes := hexToAddress(ethAddress)
 
 	if bytes.Compare(recoveredAddressBytes, addressBytes) != 0 {
+		log.Trace("VerifyEthereumAddressAndMessage mismatch", "recoveredAddressBytes", common.Bytes2Hex(recoveredAddressBytes), "addressBytes", common.Bytes2Hex(addressBytes))
 		return fmt.Errorf("error : mismatch address bytes (recoveredAddressBytes, addressBytes) ")
 	}
 

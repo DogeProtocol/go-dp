@@ -12,7 +12,6 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
-	"math/rand"
 	"runtime/debug"
 	"sort"
 	"sync"
@@ -35,21 +34,22 @@ type ConsensusHandler struct {
 	outOfOrderPacketsMap            map[common.Hash][]*OutOfOrderPacket
 	outerPacketLock                 sync.Mutex
 	innerPacketLock                 sync.Mutex
-	broadcastLock                   sync.Mutex
+	p2pLock                         sync.Mutex
 	getValidatorsFn                 GetValidatorsFn
 	doesFinalizedTransactionExistFn DoesFinalizedTransactionExistFn
 	currentParentHash               common.Hash
 
 	timeStatMap map[string]int
 
-	nilVoteBlocks            uint64
-	okVoteBlocks             uint64
-	totalTransactions        uint64
-	maxTransactionsInBlock   uint64
-	maxTransactionsBlockTime int64
-	initTime                 time.Time
-	initialized              bool
-	packetHashLastSentMap    map[common.Hash]time.Time
+	nilVoteBlocks                uint64
+	okVoteBlocks                 uint64
+	totalTransactions            uint64
+	maxTransactionsInBlock       uint64
+	maxTransactionsBlockTime     int64
+	initTime                     time.Time
+	initialized                  bool
+	packetHashLastSentMap        map[common.Hash]time.Time
+	lastRequestConsensusDataTime time.Time
 }
 
 type BlockConsensusData struct {
@@ -67,17 +67,15 @@ type BlockAdditionalConsensusData struct {
 	InitTime         uint64                `json:"initTime" gencodec:"required"`
 }
 
-//todo: use mono clock
-
-const BLOCK_TIMEOUT_MS = 60000
-const ACK_BLOCK_TIMEOUT_MS = 300000 //relative to start of block locally
-const REQUEST_CONSENSUS_DATA_PERCENT = 20
-const BLOCK_CLEANUP_TIME_MS = 900
-const MAX_ROUND = 2
-const BROADCAST_RESEND_DELAY = 10000
-const BROADCAST_CLEANUP_DELAY = 1800000
-
-var STARTUP_DELAY_MS = int64(12000)
+// todo: use mono clock
+var BLOCK_TIMEOUT_MS = int64(60000)
+var ACK_BLOCK_TIMEOUT_MS = 300000 //relative to start of block locally
+var BLOCK_CLEANUP_TIME_MS = int64(900000)
+var MAX_ROUND = byte(2)
+var BROADCAST_RESEND_DELAY = int64(10000)
+var BROADCAST_CLEANUP_DELAY = int64(1800000)
+var CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(30000)
+var STARTUP_DELAY_MS = int64(120000)
 
 type BlockRoundState byte
 type VoteType byte
@@ -127,7 +125,7 @@ const (
 
 var (
 	MIN_VALIDATOR_DEPOSIT                               *big.Int       = params.EtherToWei(big.NewInt(5000000))
-	MIN_BLOCK_DEPOSIT                                   *big.Int       = params.EtherToWei(big.NewInt(640000000))
+	MIN_BLOCK_DEPOSIT                                   *big.Int       = params.EtherToWei(big.NewInt(500000000000))
 	MIN_BLOCK_TRANSACTION_WEIGHTED_PROPOSALS_PERCENTAGE *big.Int       = big.NewInt(70)
 	ZERO_HASH                                           common.Hash    = common.BytesToHash([]byte{0})
 	ZERO_ADDRESS                                        common.Address = common.BytesToAddress([]byte{0})
@@ -429,6 +427,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		highestProposalRoundSeen:     0,
 	}
 	blockStateDetails := cph.blockStateDetailsMap[parentHash]
+	cph.lastRequestConsensusDataTime = time.Now()
 
 	validators, err := cph.getValidatorsFn(parentHash)
 	if err != nil {
@@ -1943,7 +1942,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	}
 
 	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		log.Trace("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), "txn count", len(txns), "STARTUP_DELAY_MS", STARTUP_DELAY_MS)
+		log.Info("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), "pending txn count", len(txns), "STARTUP_DELAY_MS", STARTUP_DELAY_MS)
 		return errors.New("starting up")
 	}
 
@@ -1973,7 +1972,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
 		"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
 		"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
-		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime, "txns", len(txns))
+		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime, "pending txns", len(txns))
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {
@@ -1985,7 +1984,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		if shouldPropose {
 			cph.proposeBlock(parentHash, txns)
 		} else {
-			if HasExceededTimeThreshold(blockRoundDetails.initTime, int64(BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round))) {
+			if HasExceededTimeThreshold(blockRoundDetails.initTime, BLOCK_TIMEOUT_MS*int64(blockRoundDetails.Round)) {
 				cph.ackBlockProposalTimeout(parentHash)
 			} else {
 				cph.requestConsensusData(blockStateDetails)
@@ -2057,8 +2056,8 @@ func (cph *ConsensusHandler) cleanupBroadcast() {
 }
 
 func (cph *ConsensusHandler) broadCast(packet *eth.ConsensusPacket) error {
-	cph.broadcastLock.Lock()
-	defer cph.broadcastLock.Unlock()
+	cph.p2pLock.Lock()
+	defer cph.p2pLock.Unlock()
 	if packet == nil {
 		debug.PrintStack()
 		return errors.New("packet is nil")
@@ -2150,8 +2149,8 @@ func (cph *ConsensusHandler) getRequestConsensusDataPacket(blockStateDetails *Bl
 }
 
 func (cph *ConsensusHandler) requestConsensusData(blockStateDetails *BlockStateDetails) error {
-	cph.broadcastLock.Lock()
-	defer cph.broadcastLock.Unlock()
+	cph.p2pLock.Lock()
+	defer cph.p2pLock.Unlock()
 
 	dataToHash := append(blockStateDetails.parentHash.Bytes())
 	digestHash := crypto.Keccak256(dataToHash)
@@ -2178,11 +2177,11 @@ func (cph *ConsensusHandler) requestConsensusData(blockStateDetails *BlockStateD
 		return nil
 	}
 
-	r := rand.Intn(100)
-	log.Trace("requestConsensusData", "r", r, "elapsed", elapsed, "timeout", BLOCK_TIMEOUT_MS, "round", blockStateDetails.currentRound)
-	if r > REQUEST_CONSENSUS_DATA_PERCENT {
+	elapsed = Elapsed(cph.lastRequestConsensusDataTime)
+	if elapsed < CONSENSUS_DATA_REQUEST_RESEND_DELAY {
 		return nil
 	}
+	cph.lastRequestConsensusDataTime = time.Now()
 
 	log.Trace("requestConsensusData 1")
 	requestPacketDetails, err := cph.getRequestConsensusDataPacket(blockStateDetails)

@@ -40,7 +40,21 @@ interface IStakingContract {
     function newDeposit(address validatorAddress) external payable;
 
     //Rotate
-    function changeValidator(address newValidatorAddress) external payable;
+    function changeValidator(address newValidatorAddress) external;
+
+    //Pause
+    function pauseValidation() external;
+
+    //Resume
+    function resumeValidation() external;
+
+    //Withdraw
+    function initiateWithdrawal() external returns (uint256);
+    function completeWithdrawal() external returns (uint256);
+
+    //Rewards and Slashing
+    function addDepositorSlashing(address depositorAddress, uint256 slashAmount) external returns (uint256);
+    function addDepositorReward(address depositorAddress, uint256 rewardAmount) external returns (uint256);
 
     //get data
     function getDepositorCount() external view returns (uint256);
@@ -52,23 +66,17 @@ interface IStakingContract {
     function getNetBalanceOfDepositor(address depositorAddress) external view returns (uint256);
     function getDepositorRewards(address depositorAddress) external view returns (uint256);
     function getDepositorSlashings(address depositorAddress) external view returns (uint256);
-    function addDepositorSlashing(address depositorAddress, uint256 slashAmount) external returns (uint256);
-    function addDepositorReward(address depositorAddress, uint256 rewardAmount) external returns (uint256);
+    function getWithdrawalBlock(address depositorAddress) external view returns (uint256);
+    function isValidationPaused(address validatorAddress) external view returns (bool);
 
-    //Withdraw
-    function initiateWithdrawal() external;
-    function completeWithdrawal() external;
+    function doesValidatorExist(address validatorAddress) external view returns (bool);
+    function didValidatorEverExist(address validatorAddress) external view returns (bool);
+    function doesDepositorExist(address depositorAddress) external view returns (bool);
+    function didDepositorEverExist(address depositorAddress) external view returns (bool);
 
     event OnNewDeposit(
         address indexed depositorAddress,
         address indexed validatorAddress,
-        uint256 amount,
-        uint256 blockNumber,
-        uint256 blockTime
-    );
-
-    event OnIncreaseDeposit(
-        address indexed depositorAddress,
         uint256 amount,
         uint256 blockNumber,
         uint256 blockTime
@@ -80,25 +88,37 @@ interface IStakingContract {
         address indexed newValidatorAddress
     );
 
+    event OnPauseValidation(
+        address depositorAddress,
+        address validatorAddress
+    );
+
+    event OnResumeValidation(
+        address depositorAddress,
+        address validatorAddress
+    );
+
     event OnInitiateWithdrawal(
         address depositorAddress
     );
 
     event OnCompleteWithdrawal(
-        address depositorAddress
+        address depositorAddress,
+        uint256 netBalance
     );
 
-    event OnSlashing(address indexed depositorAddress, uint256 slashedAmount);
-    event OnReward(address indexed depositorAddress, uint256 rewardAmount);
-}
+    event OnSlashing(address indexed depositorAddress,
+        uint256 slashedAmount);
 
-//TODO: THIS IMPLEMENTATION IS INCOMPLETE AND NOT READY
+    event OnReward(address indexed depositorAddress,
+        uint256 rewardAmount);
+}
 
 contract StakingContract is IStakingContract {
     using SafeMath for uint256;
 
-    uint256 constant MINIMUM_DEPOSIT = 250000000000000000000000000; //250000000
-    uint256 constant WITHDRAWAL_BLOCK_DELAY = 250000;
+    uint256 constant MINIMUM_DEPOSIT = 5000000000000000000000000; //5000000
+    uint256 constant WITHDRAWAL_BLOCK_DELAY = 256000;
 
     address[] private _validatorList;
 
@@ -131,6 +151,9 @@ contract StakingContract is IStakingContract {
     //Withdrawal Request, depositor to withdrawalBlock
     mapping (address => uint256) private _depositorWithdrawalRequests;
 
+    //Whether validation is paused
+    mapping (address => bool) private _validationPaused;
+
     function newDeposit(address validatorAddress) override external payable {
         address depositorAddress = msg.sender;
         uint256 depositAmount = msg.value;
@@ -141,7 +164,7 @@ contract StakingContract is IStakingContract {
         require(_validatorExists[validatorAddress] == false, "Validator already exists");
         require(_validatorEverExisted[validatorAddress] == false, "Validator existed once");
         uint256 validatorBalance = validatorAddress.balance;
-        require(validatorBalance == 0, "validator balance should be zero"); //Since we don't check validator credentials, atleast verify if zero balance
+        require(validatorBalance == 0, "validator balance should be zero"); //Since we don't check validator signature, atleast verify if zero balance
 
         require(_depositorExists[depositorAddress] == false, "Depositor already exists");
         require(_depositorEverExisted[depositorAddress] == false, "Depositor existed once");
@@ -168,7 +191,7 @@ contract StakingContract is IStakingContract {
         );
     }
 
-    function changeValidator(address newValidatorAddress) override external payable {
+    function changeValidator(address newValidatorAddress) override external {
         require(_validatorExists[newValidatorAddress] == false, "Validator already exists");
         require(_depositorExists[newValidatorAddress] == false, "Validator is a depositor");
         require(_validatorEverExisted[newValidatorAddress] == false, "Validator already existed");
@@ -195,6 +218,115 @@ contract StakingContract is IStakingContract {
         emit OnChangeValidator(depositorAddress, oldValidatorAddress, newValidatorAddress);
     }
 
+    function pauseValidation() override external {
+        address depositorAddress = msg.sender;
+        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
+
+        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        require(_validationPaused[validatorAddress] == false, "Validation is already paused");
+        _validationPaused[validatorAddress] = true;
+
+        emit OnPauseValidation(depositorAddress, validatorAddress);
+    }
+
+    function resumeValidation() override external {
+        address depositorAddress = msg.sender;
+        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
+
+        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        require(_validationPaused[validatorAddress] == true, "Validation is not paused");
+        _validationPaused[validatorAddress] = false;
+
+        emit OnResumeValidation(depositorAddress, validatorAddress);
+    }
+
+    function initiateWithdrawal() override external returns (uint256) {
+        address depositorAddress = msg.sender;
+        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
+        require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
+        require(_depositorBalances[depositorAddress] > 0, "Depositor balance is zero");
+
+        uint256 netBalance = this.getNetBalanceOfDepositor(depositorAddress);
+        require(netBalance > 0, "Depositor net balance is zero");
+
+        _depositorWithdrawalRequests[depositorAddress] = block.number + WITHDRAWAL_BLOCK_DELAY;
+        _depositorExists[depositorAddress] = false;
+
+        emit OnInitiateWithdrawal(depositorAddress);
+
+        return netBalance;
+    }
+
+    function completeWithdrawal() override external returns (uint256) {
+        address depositorAddress = msg.sender;
+        require(_depositorWithdrawalRequests[depositorAddress] > 0, "Depositor withdrawal request does not exist");
+        require(block.number > _depositorWithdrawalRequests[depositorAddress], "Depositor withdrawal request pending");
+
+        uint256 balance = _depositorBalances[depositorAddress].add(_depositorRewards[depositorAddress]);
+        require(balance > _depositorSlashings[depositorAddress], "balance is negative");
+        uint256 netBalance = balance.sub(_depositorSlashings[depositorAddress]);
+
+        delete _depositorBalances[depositorAddress];
+        delete _depositorRewards[depositorAddress];
+        delete _depositorSlashings[depositorAddress];
+        delete _depositorExists[depositorAddress];
+        delete _depositorWithdrawalRequests[depositorAddress];
+
+        (bool success, ) = depositorAddress.call{value:netBalance}("");
+        // success should be true
+        require(success,"Withdraw failed");
+
+        emit OnCompleteWithdrawal(depositorAddress, netBalance);
+
+        return netBalance;
+    }
+
+    function addDepositorSlashing(address depositorAddress, uint256 slashAmount) override external returns (uint256) {
+        require(msg.sender == address(0), "Only VM calls are allowed");
+        _depositorSlashings[depositorAddress] = _depositorSlashings[depositorAddress].add(slashAmount);
+
+        address zeroAddress = address(0);
+        (bool success, ) = zeroAddress.call{value:slashAmount}("");
+        // success should be true
+        require(success,"transfer to zeroAddress failed");
+
+        emit OnSlashing(depositorAddress, slashAmount);
+        return _depositorSlashings[depositorAddress];
+    }
+
+    function addDepositorReward(address depositorAddress, uint256 rewardAmount) override external returns (uint256) {
+        require(msg.sender == address(0), "Only VM calls are allowed");
+        _depositorRewards[depositorAddress] = _depositorRewards[depositorAddress].add(rewardAmount);
+        emit OnReward(depositorAddress, rewardAmount);
+        return _depositorRewards[depositorAddress];
+    }
+
+    function getDepositorCount() override external view returns (uint256) {
+        return _depositorCount;
+    }
+
+    function getTotalDepositedBalance() override external view returns (uint256) {
+        return _totalDepositedBalance;
+    }
+
+    function listValidators() override external view returns (address[] memory) {
+        return _validatorList;
+    }
+
+    function getDepositorOfValidator(address validatorAddress) override external view returns (address) {
+        address depositorAddress = _validatorToDepositorMapping[validatorAddress];
+        return depositorAddress;
+    }
+
+    function getValidatorOfDepositor(address depositorAddress) override external view returns (address) {
+        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        return validatorAddress;
+    }
+
+    function getBalanceOfDepositor(address depositorAddress) override external view returns (uint256) {
+        return _depositorBalances[depositorAddress];
+    }
+
     function getNetBalanceOfDepositor(address depositorAddress) override external view returns (uint256) {
         if (_depositorExists[depositorAddress] == false) {
             return 0;
@@ -212,82 +344,32 @@ contract StakingContract is IStakingContract {
         return balance.sub(_depositorSlashings[depositorAddress]);
     }
 
-    function initiateWithdrawal() override external {
-        address depositorAddress = msg.sender;
-        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
-        require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
-        require(_depositorBalances[depositorAddress] > 0, "Depositor balance is zero");
-
-        _depositorWithdrawalRequests[depositorAddress] = block.number + WITHDRAWAL_BLOCK_DELAY;
-        _depositorExists[depositorAddress] == false;
-
-        emit OnInitiateWithdrawal(depositorAddress);
-    }
-
-    function completeWithdrawal() override external {
-        address depositorAddress = msg.sender;
-        require(_depositorWithdrawalRequests[depositorAddress] > 0, "Depositor withdrawal request does not exist");
-        require(block.number > _depositorWithdrawalRequests[depositorAddress], "Depositor withdrawal request pending");
-
-        uint256 amount = this.getNetBalanceOfDepositor(depositorAddress);
-
-        delete _depositorBalances[depositorAddress];
-        delete _depositorRewards[depositorAddress];
-        delete _depositorSlashings[depositorAddress];
-        delete _depositorExists[depositorAddress];
-
-        (bool success, ) = depositorAddress.call{value:amount}("");
-        // success should be true
-        require(success,"Withdraw failed");
-
-        emit OnCompleteWithdrawal(depositorAddress);
-    }
-
-    function getDepositorCount() override external view returns (uint256) {
-        return _depositorCount;
-    }
-
-    function getTotalDepositedBalance() override external view returns (uint256) {
-        return _totalDepositedBalance;
-    }
-
-    function getDepositorOfValidator(address validatorAddress) override external view returns (address) {
-        address depositoAddress = _validatorToDepositorMapping[validatorAddress];
-        return depositoAddress;
-    }
-
-    function getValidatorOfDepositor(address depositorAddress) override external view returns (address) {
-        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
-        return validatorAddress;
-    }
-
-    function listValidators() override external view returns (address[] memory) {
-        return _validatorList;
-    }
-
-    function getBalanceOfDepositor(address depositorAddress) override external view returns (uint256) {
-        return _depositorBalances[depositorAddress];
+    function getDepositorRewards(address depositorAddress) override external view returns (uint256) {
+        return _depositorRewards[depositorAddress];
     }
 
     function getDepositorSlashings(address depositorAddress) override external view returns (uint256) {
         return _depositorSlashings[depositorAddress];
     }
 
-    function getDepositorRewards(address depositorAddress) override external view returns (uint256) {
-        return _depositorRewards[depositorAddress];
+    function getWithdrawalBlock(address depositorAddress) override external view returns (uint256) {
+        return _depositorWithdrawalRequests[depositorAddress];
     }
 
-    function addDepositorSlashing(address depositorAddress, uint256 slashAmount) override external returns (uint256) {
-        require(msg.sender == address(0), "Only VM calls are allowed");
-        _depositorSlashings[depositorAddress] = _depositorSlashings[depositorAddress].add(slashAmount);
-        emit OnSlashing(depositorAddress, slashAmount);
-        return _depositorSlashings[depositorAddress];
+    function isValidationPaused(address validatorAddress) override external view returns (bool) {
+        return _validationPaused[validatorAddress];
     }
 
-    function addDepositorReward(address depositorAddress, uint256 rewardAmount) override external returns (uint256) {
-        require(msg.sender == address(0), "Only VM calls are allowed");
-        _depositorRewards[depositorAddress] = _depositorRewards[depositorAddress].add(rewardAmount);
-        emit OnReward(depositorAddress, rewardAmount);
-        return _depositorRewards[depositorAddress];
+    function doesValidatorExist(address validatorAddress) override external view returns (bool) {
+        return _validatorExists[validatorAddress];
+    }
+    function didValidatorEverExist(address validatorAddress) override external view returns (bool) {
+        return _validatorEverExisted[validatorAddress];
+    }
+    function doesDepositorExist(address depositorAddress) override external view returns (bool) {
+        return _depositorExists[depositorAddress];
+    }
+    function didDepositorEverExist(address depositorAddress) override external view returns (bool) {
+        return _depositorEverExisted[depositorAddress];
     }
 }

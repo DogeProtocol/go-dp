@@ -5,7 +5,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/params"
-	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math"
 	"math/big"
 	"strings"
@@ -69,10 +68,7 @@ func etherToWeiFloat(eth *big.Float) *big.Int {
 	return wei
 }
 
-func (c *ProofOfStake) accumulateReward(state *state.StateDB, blockNumber *big.Int, reward *big.Int) error {
-	if rewardStartBlock.Int64() <= blockNumber.Int64() {
-		contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
-		state.AddBalance(contractAddress, reward)
-	}
+func (c *ProofOfStake) accumulateBalance(state *state.StateDB, amount *big.Int, addr common.Address) error {
+	state.AddBalance(addr, amount)
 	return nil
 }
