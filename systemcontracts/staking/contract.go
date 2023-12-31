@@ -67,6 +67,7 @@ var (
 		Deposits: &Deposit{
 			GetDepositorCount:        "getDepositorCount",
 			GetTotalDepositedBalance: "getTotalDepositedBalance",
+			GetValidatorOfDepositor:  "getValidatorOfDepositor",
 			DoesDepositorExist:       "doesDepositorExist",
 			DidDepositorEverExist:    "didDepositorEverExist",
 		},

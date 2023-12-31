@@ -148,7 +148,7 @@ func (p *ProofOfStake) GetValidatorOfDepositor(depositor common.Address, blockHa
 	// call
 	data, err := abiData.Pack(method, depositor)
 	if err != nil {
-		log.Error("Unable to pack tx for get depositor", "error", err)
+		log.Error("Unable to pack tx for get validator", "error", err)
 		return common.Address{}, err
 	}
 	// block
