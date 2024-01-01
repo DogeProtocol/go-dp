@@ -78,7 +78,7 @@ var BROADCAST_RESEND_DELAY = int64(10000)
 var BROADCAST_CLEANUP_DELAY = int64(1800000)
 var CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(30000)
 var STARTUP_DELAY_MS = int64(120000)
-var BLOCK_PERIOD_TIME_CHANGE = uint64(8) //propose timeChanges every N blocks
+var BLOCK_PERIOD_TIME_CHANGE = uint64(256) //propose timeChanges every N blocks
 var ALLOWED_TIME_SKEW_MINUTES = 3.0
 
 type BlockRoundState byte
