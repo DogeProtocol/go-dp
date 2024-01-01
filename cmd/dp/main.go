@@ -260,6 +260,11 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	if len(os.Args) < 2 {
+		fmt.Println("Invalid arguments")
+		os.Exit(-1)
+	}
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

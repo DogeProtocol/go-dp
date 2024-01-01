@@ -73,8 +73,7 @@ var (
 	slashAmount = params.EtherToWei(big.NewInt(100))
 
 	rewardStartBlockNumber = uint64(slashStartBlockNumber)
-	//slashStartBlockNumber = uint64(1497600)
-	slashStartBlockNumber = uint64(1)
+	slashStartBlockNumber  = uint64(100800)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -708,15 +707,6 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				log.Trace("AddDepositorSlashing err", "err", err)
 				return err
 			}
-
-			/*
-				//Increase balance of ZERO_ADDRESS, since amount is slashed
-				err = c.accumulateBalance(state, slashAmount, ZERO_ADDRESS)
-				if err != nil {
-					log.Trace("accumulateBalance ZERO_ADDRESS error", "err", err)
-					return err
-				}*/
-
 			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
 		}
 	}
@@ -739,6 +729,14 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			return err
 		}
 		log.Trace(">reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
+	}
+
+	//Fix blocktime
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0 && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
+		header.Time = blockConsensusData.BlockTime
+	} else {
+		header.Time = parent.Time + c.config.Period
 	}
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))

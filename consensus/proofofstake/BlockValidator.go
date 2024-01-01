@@ -10,6 +10,7 @@ import (
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
+	"time"
 )
 
 type PacketMap struct {
@@ -520,6 +521,27 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 	return nil
 }
 
+// In this function, absolute time cannot be validated, since this function can get called at a different time, for example when new node is created and is reading old blocks
+// Hence only basic checks are allowed
+func ValidateBlockProposalTime(blockNumber uint64, proposedTime uint64) bool {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+		if proposedTime == 0 {
+			return false
+		}
+
+		tm := time.Unix(int64(proposedTime), 0)
+		if tm.Second() != 0 || tm.Nanosecond() != 0 { //No granularity at anything other than minute level allowed, to reduce ability to manipulate blockHash
+			return false
+		}
+	} else {
+		if proposedTime != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
 func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[common.Address]*big.Int) error {
 	header := block.Header()
 
@@ -548,6 +570,11 @@ func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[com
 		}
 	} else {
 		txnList = make([]common.Hash, 0)
+	}
+
+	if ValidateBlockProposalTime(block.Number().Uint64(), blockConsensusData.BlockTime) == false {
+		log.Warn("ValidateBlockProposalTime failed", "blockNumber", block.Number().Uint64(), "proposedTime", blockConsensusData.BlockTime)
+		return errors.New("ValidateBlockProposalTime failed")
 	}
 
 	return ValidateBlockConsensusDataInner(txnList, header.ParentHash, blockConsensusData, blockAdditionalConsensusData, validatorDepositMap)
