@@ -3,6 +3,7 @@ package proofofstake
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
@@ -60,6 +61,7 @@ type BlockConsensusData struct {
 	SlashedBlockProposers []common.Address `json:"nilvotedBlockProposers" gencodec:"required"`
 	Round                 byte
 	SelectedTransactions  []common.Hash `json:"selectedTransactions" gencodec:"required"` //this will be a super-set of transactions that actually got executed
+	BlockTime             uint64        `json:"blockTime" gencodec:"required"`
 }
 
 type BlockAdditionalConsensusData struct {
@@ -75,7 +77,9 @@ var MAX_ROUND = byte(2)
 var BROADCAST_RESEND_DELAY = int64(10000)
 var BROADCAST_CLEANUP_DELAY = int64(1800000)
 var CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(30000)
-var STARTUP_DELAY_MS = int64(120000)
+var STARTUP_DELAY_MS = int64(12000)
+var BLOCK_PERIOD_TIME_CHANGE = uint64(8) //propose timeChanges every N blocks
+var ALLOWED_TIME_SKEW_MINUTES = 3.0
 
 type BlockRoundState byte
 type VoteType byte
@@ -188,11 +192,13 @@ type BlockStateDetails struct {
 	ackProposalTime int64
 	precommitTime   int64
 	commitTime      int64
+	blockNumber     uint64
 }
 
 type ProposalDetails struct {
-	Txns  []common.Hash `json:"Txns" gencodec:"required"`
-	Round byte          `json:"Round" gencodec:"required"`
+	Txns      []common.Hash `json:"Txns" gencodec:"required"`
+	Round     byte          `json:"Round" gencodec:"required"`
+	BlockTime uint64        `json:"BlockTime" gencodec:"required"` //Is only valid for blocks divisible by 256. Only hour and minute should be set, rest should be zero.
 }
 
 type ProposalAckDetails struct {
@@ -412,7 +418,7 @@ func filterValidators(parentHash common.Hash, valDepMap *map[common.Address]*big
 	return filteredValidators, filteredDepositValue, blockMinWeightedProposalsRequired, nil
 }
 
-func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Hash) error {
+func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Hash, blockNumber uint64) error {
 	_, ok := cph.blockStateDetailsMap[parentHash]
 
 	if ok == true {
@@ -425,6 +431,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		initTime:                     time.Now(),
 		parentHash:                   parentHash,
 		highestProposalRoundSeen:     0,
+		blockNumber:                  blockNumber,
 	}
 	blockStateDetails := cph.blockStateDetailsMap[parentHash]
 	cph.lastRequestConsensusDataTime = time.Now()
@@ -673,6 +680,7 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 	if blockConsensusData.VoteType == VOTE_TYPE_OK {
 		blockConsensusData.BlockProposer.CopyFrom(blockRoundDetails.proposer)
 		blockConsensusData.ProposalHash.CopyFrom(blockRoundDetails.proposalHash)
+		blockConsensusData.BlockTime = blockRoundDetails.blockProposalDetails.BlockTime
 
 		if blockRoundDetails.proposalTxns != nil {
 			blockConsensusData.SelectedTransactions = make([]common.Hash, len(blockRoundDetails.proposalTxns))
@@ -683,6 +691,7 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 	} else {
 		blockConsensusData.BlockProposer.CopyFrom(ZERO_ADDRESS)
 		blockConsensusData.ProposalHash.CopyFrom(getNilVoteProposalHash(parentHash, blockStateDetails.currentRound))
+		blockConsensusData.BlockTime = 0
 	}
 
 	blockConsensusData.PrecommitHash.CopyFrom(blockRoundDetails.precommitHash)
@@ -888,6 +897,10 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 
 	if blockRoundDetails.proposer.IsEqualTo(validator) == false {
 		return errors.New("invalid proposer")
+	}
+
+	if ValidateBlockProposalTimeConsensus(blockStateDetails.blockNumber, proposalDetails.BlockTime) == false {
+		return errors.New("block time validation failed, skipping packet")
 	}
 
 	if validator.IsEqualTo(cph.account.Address) == true && self == false {
@@ -1486,7 +1499,57 @@ func Elapsed(startTime time.Time) int64 {
 	return diff
 }
 
-func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.Hash) error {
+func GetProposalTime(blockNumber uint64) uint64 {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+		blockTime := uint64(time.Now().UTC().Unix())
+		if blockTime%60 != 0 {
+			blockTime = blockTime - (blockTime % 60)
+		}
+
+		return blockTime
+	} else {
+		return 0
+	}
+}
+
+func ValidateBlockProposalTimeConsensus(blockNumber uint64, proposedTime uint64) bool {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+		if proposedTime == 0 {
+			return false
+		}
+
+		tm := time.Unix(int64(proposedTime), 0)
+		if tm.Second() != 0 || tm.Nanosecond() != 0 { //No granularity at anything other than minute level allowed, to reduce ability to manipulate blockHash
+			return false
+		}
+		currTimeVal := time.Now().UTC().Unix() //Note that packet may have arrived late. So, these comparisions are approximate.
+		if currTimeVal%60 != 0 {
+			currTimeVal = currTimeVal - (currTimeVal % 60)
+		}
+		currTime := time.Unix(currTimeVal, 0)
+
+		if currTime.Before(tm) {
+			difference := tm.Sub(currTime)
+			if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
+				return false
+			}
+		} else if currTime.After(tm) {
+			difference := currTime.Sub(tm)
+			fmt.Println(difference.Minutes())
+			if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
+				return false
+			}
+		}
+	} else {
+		if proposedTime != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.Hash, blockNumber uint64) error {
 	var packet *eth.ConsensusPacket
 	blockStateDetails := cph.blockStateDetailsMap[parentHash]
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
@@ -1506,6 +1569,8 @@ func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.
 	} else {
 		proposalDetails.Txns = make([]common.Hash, 0)
 	}
+	proposalDetails.BlockTime = GetProposalTime(blockNumber)
+
 	log.Trace("ProposeBlock with txns", "count", len(proposalDetails.Txns))
 
 	data, err := rlp.EncodeToBytes(proposalDetails)
@@ -1946,7 +2011,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		return errors.New("starting up")
 	}
 
-	err := cph.initializeBlockStateIfRequired(parentHash)
+	err := cph.initializeBlockStateIfRequired(parentHash, blockNumber)
 	if err != nil {
 		return err
 	}
@@ -1982,7 +2047,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		cph.blockStateDetailsMap[parentHash] = blockStateDetails
 
 		if shouldPropose {
-			cph.proposeBlock(parentHash, txns)
+			cph.proposeBlock(parentHash, txns, blockNumber)
 		} else {
 			if HasExceededTimeThreshold(blockRoundDetails.initTime, BLOCK_TIMEOUT_MS*int64(blockRoundDetails.Round)) {
 				cph.ackBlockProposalTimeout(parentHash)

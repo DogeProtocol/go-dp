@@ -1829,3 +1829,141 @@ func TestFilterValidators_positive_low_balance_negative(t *testing.T) {
 		testFilterValidatorsTest(t, parentHash1, validatorsDepositMap, false)
 	}
 }
+
+func TestBlockProposalTime(t *testing.T) {
+	for i := uint64(0); i < 1000000000; i += 256 {
+		if GetProposalTime(i) == 0 {
+			fmt.Println(i)
+			t.Fatalf("failed 1")
+		}
+	}
+
+	t1 := GetProposalTime(256)
+	tm := time.Unix(int64(t1), 0)
+	fmt.Println(tm)
+
+	if tm.Second() != 0 || tm.Nanosecond() != 0 {
+		t.Fatalf("failed 2")
+	}
+
+	val := tm.Unix()
+	if val%60 != 0 {
+		t.Fatalf("failed 3")
+	}
+
+	if GetProposalTime(1) == 0 {
+		t.Fatalf("failed 4")
+	}
+
+	if GetProposalTime(128) != 0 {
+		t.Fatalf("failed 5")
+	}
+}
+
+func TestValidateBlockProposalTime(t *testing.T) {
+	if ValidateBlockProposalTime(1, GetProposalTime(1)) == false {
+		t.Fatalf("failed 1")
+	}
+
+	if ValidateBlockProposalTime(256, GetProposalTime(256)) == false {
+		t.Fatalf("failed 2")
+	}
+
+	if ValidateBlockProposalTime(2, GetProposalTime(2)) == false {
+		t.Fatalf("failed 3")
+	}
+
+	if ValidateBlockProposalTime(1, GetProposalTime(2)) == true {
+		t.Fatalf("failed 4")
+	}
+
+	if ValidateBlockProposalTime(1, GetProposalTime(1)+1) == true {
+		t.Fatalf("failed 5")
+	}
+}
+
+func TestValidateBlockProposalTimeConsensus(t *testing.T) {
+	if ValidateBlockProposalTimeConsensus(1, GetProposalTime(1)) == false {
+		t.Fatalf("failed 1")
+	}
+
+	if ValidateBlockProposalTimeConsensus(256, GetProposalTime(256)) == false {
+		t.Fatalf("failed 2")
+	}
+
+	if ValidateBlockProposalTimeConsensus(2, GetProposalTime(2)) == false {
+		t.Fatalf("failed 3")
+	}
+
+	if ValidateBlockProposalTimeConsensus(1, GetProposalTime(2)) == true {
+		t.Fatalf("failed 4")
+	}
+
+	if ValidateBlockProposalTimeConsensus(1, GetProposalTime(1)+1) == true {
+		t.Fatalf("failed 5")
+	}
+
+	tm := time.Now().UTC().Add(time.Minute * time.Duration(1)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 6")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(2)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 7")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(3)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 8")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(4)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == true {
+		t.Fatalf("failed 9")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(-1)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 10")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(-2)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 11")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(-3)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == false {
+		t.Fatalf("failed 12")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(-4)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == true {
+		t.Fatalf("failed 13")
+	}
+}

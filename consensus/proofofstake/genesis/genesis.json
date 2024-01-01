@@ -12,12 +12,12 @@
     "berlinBlock": 0,
     "londonBlock": 0,
     "proofofstake": {
-      "period": 4,
+      "period": 6,
       "epoch": 30000
     }
   },
   "nonce": "0x0",
-  "timestamp": "0x62884ECD",
+  "timestamp": "0x6591664B",
   "gasLimit": "30000000",
   "difficulty": "0x1",
   "mixHash":  "0x0000000000000000000000000000000000000000000000000000000000000000",

@@ -19,6 +19,8 @@ package core
 import (
 	"errors"
 	"github.com/DogeProtocol/dp/conversionutil"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
+	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"math"
 	"math/big"
 	"sort"
@@ -118,6 +120,8 @@ var (
 	slotsGauge   = metrics.NewRegisteredGauge("txpool/slots", nil)
 
 	reheapTimer = metrics.NewRegisteredTimer("txpool/reheap", nil)
+
+	txnStartAllowedTime = int64(1713052800) //April 14th, 2024
 )
 
 // TxStatus is the current status of a transaction as seen by the pool.
@@ -551,6 +555,15 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+	if time.Now().UTC().Unix() < txnStartAllowedTime {
+		if tx.To().IsEqualTo(conversion.CONVERSION_CONTRACT_ADDRESS) || tx.To().IsEqualTo(staking.STAKING_CONTRACT_ADDRESS) {
+			log.Debug("txn in allowed date range", "txn", tx.Hash())
+		} else {
+			log.Warn("txn not in allowed date range, dropping it", "txn", tx.Hash())
+			return errors.New("txn not in allowed time range")
+		}
+	}
+
 	// Reject transactions over defined size to prevent DOS attacks
 	if uint64(tx.Size()) > txMaxSize {
 		return ErrOversizedData
