@@ -70,7 +70,7 @@ var (
 	diffInTurn = big.NewInt(2) // Block difficulty for in-turn signatures
 	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
 
-	slashAmount = params.EtherToWei(big.NewInt(100))
+	slashAmount = params.EtherToWei(big.NewInt(10))
 
 	rewardStartBlockNumber = uint64(slashStartBlockNumber)
 	slashStartBlockNumber  = uint64(100800)
