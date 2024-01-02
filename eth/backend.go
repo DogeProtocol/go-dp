@@ -22,7 +22,6 @@ import (
 	"github.com/DogeProtocol/dp/consensus/proofofstake"
 	"github.com/DogeProtocol/dp/handler"
 	"math/big"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -286,13 +285,9 @@ func makeExtraData(extra []byte) []byte {
 	if len(extra) == 0 {
 		// create default extradata
 		extra, _ = rlp.EncodeToBytes([]interface{}{
-			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
-			"geth",
-			runtime.Version(),
-			runtime.GOOS,
+			"DogeProtocol123123",
 		})
 	}
-
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
 
 		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
