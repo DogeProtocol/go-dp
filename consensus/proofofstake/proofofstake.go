@@ -733,7 +733,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	//Fix blocktime
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0 && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
+	if (header.Number.Uint64() == 1 || header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0) && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
 		header.Time = blockConsensusData.BlockTime
 	} else {
 		header.Time = parent.Time + c.config.Period
