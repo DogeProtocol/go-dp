@@ -73,7 +73,7 @@ var (
 	slashAmount = params.EtherToWei(big.NewInt(10))
 
 	rewardStartBlockNumber = uint64(slashStartBlockNumber)
-	slashStartBlockNumber  = uint64(100800)
+	slashStartBlockNumber  = uint64(1497600)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
