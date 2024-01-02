@@ -10,9 +10,13 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/node"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sort"
 	"sync"
@@ -80,6 +84,7 @@ var CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(30000)
 var STARTUP_DELAY_MS = int64(120000)
 var BLOCK_PERIOD_TIME_CHANGE = uint64(64) //propose timeChanges every N blocks
 var ALLOWED_TIME_SKEW_MINUTES = 3.0
+var SKIP_HASH_CHECK = false
 
 type BlockRoundState byte
 type VoteType byte
@@ -477,7 +482,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return errors.New("min block deposit not met")
 	}
 
-	return nil
+	return cph.SaveHash(parentHash)
 }
 
 func (cph *ConsensusHandler) initializeNewBlockRound(newRoundReason NewRoundReason) error {
@@ -1994,14 +1999,97 @@ func (cph *ConsensusHandler) commitBlock(parentHash common.Hash) error {
 	return cph.broadCast(packet)
 }
 
+func (cph *ConsensusHandler) DoesPreviousHashMatch(parentHash common.Hash) (bool, error) {
+	skipCheck := os.Getenv("SKIP_CONSENSUS_STARTUP_HASH_CHECK")
+	if SKIP_HASH_CHECK || (len(skipCheck) > 0 && skipCheck == "1") {
+		log.Warn("SKIP_CONSENSUS_STARTUP_HASH_CHECK is set, skipping hash check")
+		return false, nil
+	}
+
+	datadir := node.DefaultDataDir()
+	hashFilePath := filepath.Join(datadir, "previoushash.txt")
+	log.Trace("DoesPreviousHashMatch", "path", hashFilePath, "parentHash", parentHash)
+
+	if _, err := os.Stat(hashFilePath); errors.Is(err, os.ErrNotExist) {
+		log.Trace("DoesPreviousHashMatch previous hash not found")
+		return false, nil
+	}
+
+	b, err := ioutil.ReadFile(hashFilePath)
+	if err != nil {
+		return false, err
+	}
+	hash := common.HexToHash(string(b))
+
+	if hash.IsEqualTo(parentHash) {
+		return true, nil
+	}
+
+	log.Trace("Previous doesn't match current parentHash, is ok to proceed with consensus", "previous", hash.Hex(), "current parentHash", parentHash.Hex())
+	return false, nil
+}
+
+func ensureDir(dirName string) error {
+	err := os.Mkdir(dirName, os.ModeDir)
+	if err == nil {
+		return nil
+	}
+	if os.IsExist(err) {
+		// check that the existing path is a directory
+		info, err := os.Stat(dirName)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return errors.New("path exists but is not a directory")
+		}
+		return nil
+	}
+	return err
+}
+
+func (cph *ConsensusHandler) SaveHash(parentHash common.Hash) error {
+	datadir := node.DefaultDataDir()
+	hashFilePath := filepath.Join(datadir, "previoushash.txt")
+
+	if err := ensureDir(datadir); err != nil {
+		return err
+	}
+
+	f, err := os.Create(hashFilePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(parentHash.Hex())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []common.Hash, blockNumber uint64) error {
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
 	if cph.initialized == false {
+
+		matched, err := cph.DoesPreviousHashMatch(parentHash)
+		if err != nil {
+			log.Warn("DoesPreviousHashMatch on parent hash failed")
+			return err
+		}
+
+		if matched {
+			log.Warn("Previous block hash before restart matches current parentHash. Will wait for one block to get mined before starting.", "parentHash", parentHash)
+			return errors.New("Waiting for previous block to mine")
+		}
+
 		cph.initTime = time.Now()
 		cph.initialized = true
 		cph.packetHashLastSentMap = make(map[common.Hash]time.Time)
+
 		log.Info("Starting up...")
 		return errors.New("starting up")
 	}

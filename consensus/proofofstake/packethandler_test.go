@@ -327,6 +327,7 @@ func Initialize(numKeys int) (vm *ValidatorManager, mockp2pManager *MockP2PManag
 	BROADCAST_RESEND_DELAY = int64(100)
 	BROADCAST_CLEANUP_DELAY = int64(1800000)
 	CONSENSUS_DATA_REQUEST_RESEND_DELAY = int64(60000)
+	SKIP_HASH_CHECK = true
 
 	waitMap = make(map[common.Address]bool)
 	vm = NewValidatorManager(numKeys)
