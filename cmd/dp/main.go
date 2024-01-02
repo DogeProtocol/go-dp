@@ -19,13 +19,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"runtime/pprof"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/cmd/utils"
@@ -40,7 +33,14 @@ import (
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/metrics"
 	"github.com/DogeProtocol/dp/node"
+	"github.com/bt51/ntpclient"
 	"gopkg.in/urfave/cli.v1"
+	"os"
+	"runtime/pprof"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -247,7 +247,7 @@ func init() {
 }
 
 func main() {
-	log.Info("Starting Geth")
+	log.Info("Starting DP")
 
 	cpuProf := os.Getenv("CPU_PROF")
 	if len(cpuProf) > 0 {
@@ -324,11 +324,25 @@ func geth(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
+	checkTimeSync()
+
 	prepare(ctx)
+
+	//Ask for passphrase rightaway if unlock account was specified
+	passphrase := ""
+	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
+	if len(inputs) > 0 && len(inputs[0]) > 0 {
+		fmt.Println("inputs", len(inputs), inputs)
+		passphrase = os.Getenv("DP_ACC_PWD")
+		if len(passphrase) == 0 {
+			passphrase = utils.GetPassPhrase("Enter the passphrase for decrypting the wallet:", false)
+		}
+	}
+
 	stack, backend := makeFullNode(ctx)
 	defer stack.Close()
 
-	startNode(ctx, stack, backend)
+	startNode(ctx, stack, backend, passphrase)
 	stack.Wait()
 	return nil
 }
@@ -336,14 +350,14 @@ func geth(ctx *cli.Context) error {
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
-func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
+func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, passphrase string) {
 	debug.Memsize.Add("node", stack)
+
+	// Unlock any account specifically requested
+	unlockAccounts(ctx, stack, passphrase)
 
 	// Start up the node itself
 	utils.StartNode(ctx, stack)
-
-	// Unlock any account specifically requested
-	unlockAccounts(ctx, stack)
 
 	// Register wallet event handlers to open and auto-derive wallets
 	events := make(chan accounts.WalletEvent, 16)
@@ -435,7 +449,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 }
 
 // unlockAccounts unlocks any account specifically requested.
-func unlockAccounts(ctx *cli.Context, stack *node.Node) {
+func unlockAccounts(ctx *cli.Context, stack *node.Node, passphrase string) {
 	var unlocks []string
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	for _, input := range inputs {
@@ -454,16 +468,52 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 	}
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
-	passphrase := os.Getenv("DP_ACC_PWD")
 	if len(passphrase) == 0 {
 		passwords := utils.MakePasswordList(ctx)
 		for i, account := range unlocks {
 			unlockAccount(ks, account, i, passwords)
 		}
 	} else {
-		fmt.Println("Password passed from environment variable DP_ACC_PWD")
+		log.Info("Password passed")
 		for i, account := range unlocks {
 			unlockAccount(ks, account, i, []string{passphrase})
 		}
 	}
+}
+
+func checkTimeSync() {
+	skipTimeCheck := os.Getenv("SKIP_TIME_CHECK")
+	if len(skipTimeCheck) > 0 && skipTimeCheck == "1" {
+		return
+	}
+
+	log.Info("Checking time. Please wait....")
+	ntpTime, err := ntpclient.GetNetworkTime("pool.ntp.org", 123)
+	if err != nil {
+		log.Warn("Error trying to check time", "err", err)
+		return
+	}
+
+	const ALLOWED_TIME_SKEW_MINUTES = 2
+
+	ntpTimeUtc := ntpTime.UTC()
+	currTimeUtc := time.Now().UTC()
+
+	if currTimeUtc.Before(ntpTimeUtc) {
+		difference := ntpTimeUtc.Sub(currTimeUtc)
+		if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
+			log.Error("There is clock skew in your device. This can affect functionality. Please set the correct time.", "ntp time", ntpTime.Format(time.UnixDate), "device time", currTimeUtc.Format(time.UnixDate))
+			log.Info("To disable this check, set the environment variable SKIP_TIME_CHECK to 1")
+			os.Exit(-1)
+		}
+	} else if currTimeUtc.After(ntpTimeUtc) {
+		difference := currTimeUtc.Sub(ntpTimeUtc)
+		if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
+			log.Error("There is clock skew in your device. This can affect functionality. Please set the correct time.", "ntp time", ntpTime.Format(time.UnixDate), "device time", currTimeUtc.Format(time.UnixDate))
+			log.Info("To disable this time check (not recommended), set the environment variable SKIP_TIME_CHECK to 1")
+			os.Exit(-1)
+		}
+	}
+
+	log.Info("Completed time check.")
 }
