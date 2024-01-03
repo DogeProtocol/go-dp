@@ -53,7 +53,8 @@ jobs:
          copy ${{ github.workspace }}\build\dputil.exe ${{ github.workspace }}\build\dp\dputil.exe
          copy ${{ github.workspace }}\templibs\liboqs\oqs.dll ${{ github.workspace }}\build\dp\oqs.dll
          copy ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll ${{ github.workspace }}\build\dp\hybridpqc.dll
-         copy ${{ github.workspace }}\consensus\proofofstake\genesis\genesis.json         
+         copy ${{ github.workspace }}\consensus\proofofstake\genesis\genesis.json ${{ github.workspace }}\build\dp\genesis.json
+         copy ${{ github.workspace }}\resources\*.* ${{ github.workspace }}\build\dp\
          powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows.zip
          powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows.txt
          
