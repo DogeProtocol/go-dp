@@ -526,7 +526,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 func ValidateBlockProposalTime(blockNumber uint64, proposedTime uint64) bool {
 	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
 		if proposedTime == 0 {
-			return false
+			return true
 		}
 
 		tm := time.Unix(int64(proposedTime), 0)
