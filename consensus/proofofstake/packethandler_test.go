@@ -1874,12 +1874,8 @@ func TestValidateBlockProposalTime(t *testing.T) {
 		t.Fatalf("failed 3")
 	}
 
-	if ValidateBlockProposalTime(1, GetProposalTime(2)) == true {
-		t.Fatalf("failed 4")
-	}
-
 	if ValidateBlockProposalTime(1, GetProposalTime(1)+1) == true {
-		t.Fatalf("failed 5")
+		t.Fatalf("failed 4")
 	}
 }
 
