@@ -2,29 +2,31 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/DogeProtocol/dp/accounts/abi/bind"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/console/prompt"
+	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/crypto/crosssign"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
-	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
-	"github.com/DogeProtocol/dp/ethclient"
-	"github.com/DogeProtocol/dp/systemcontracts/conversion"
+	"github.com/DogeProtocol/dp/log"
 	"io/ioutil"
-	"math/big"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 )
 
+const READ_API_URL = "http://localhost:8080"
+const WRITE_API_URL = "http://localhost:8008"
+
 func printHelp() {
 	fmt.Println("===========")
+	fmt.Println(" dputil ")
+	fmt.Println("      Set a default environment variables:")
+	fmt.Println("           DP_RAW_URL")
 	fmt.Println("dputil genesis-sign ETH_ADDRESS DEPOSITOR_QUANTUM_ADDRESS VALIDATOR_QUANTUM_ADDRESS AMOUNT")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE_DIR, DP_DEPOSITOR_ACC_PWD, DP_VALIDATOR_ACC_PWD")
@@ -35,7 +37,7 @@ func printHelp() {
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
 	fmt.Println("===========")
-	fmt.Println("dputil getcoinsfortokens ETH_ADDRESS")
+	fmt.Println("dputil getcoinsfortokens ETH_ADDRESS ETH_SIGNATURE")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
 	fmt.Println("===========")
@@ -56,16 +58,16 @@ func main() {
 		return
 	}
 	rawURL = os.Getenv("DP_RAW_URL")
-
-	if len(rawURL) == 0 {
-		os := runtime.GOOS
-		if os == "windows" {
-			rawURL = "//./pipe/geth.ipc"
-		} else {
-			rawURL = "~/.ethereum/geth.ipc"
+	/*
+		if len(rawURL) == 0 {
+			os := runtime.GOOS
+			if os == "windows" {
+				rawURL = "//./pipe/geth.ipc"
+			} else {
+				rawURL = "~/.ethereum/geth.ipc"
+			}
 		}
-	}
-
+	*/
 	if os.Args[1] == "balance" {
 		balance()
 	} else if os.Args[1] == "send" {
@@ -239,12 +241,19 @@ func balance() {
 		return
 	}
 
-	ethBalance, weiBalance, err := getBalance(addr)
-	if err != nil {
-		fmt.Println("Error", err)
+	if len(rawURL) == 0 {
+		ethBalance, weiBalance, nonce, err := requestGetBalance(addr)
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+		fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance, "nonce", nonce)
+	} else {
+		ethBalance, weiBalance, err := getBalance(addr)
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+		fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance)
 	}
-	fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance)
-
 }
 
 type Txn struct {
@@ -375,70 +384,92 @@ func ConvertToCoins() error {
 		return errors.New("invalid EthAddress")
 	}
 
-	ethSignature := os.Args[3]
-	fmt.Println("ethSignature len", len(ethSignature))
+	_, ok := conversionutil.SnapshotMap[strings.ToLower(ethAddress)]
 
-	keyFile := os.Getenv("DP_KEY_FILE")
-	if len(keyFile) == 0 {
-		return errors.New("DP_KEY_FILE environment variable is not set")
+	if ok == false {
+		log.Trace("IsGasExemptTxn address not in snapshot", "ethAddress", ethAddress)
+		return errors.New("unidentified eth address")
 	}
 
-	accPwd := os.Getenv("DP_ACC_PWD")
-	if len(accPwd) == 0 {
-		return errors.New("DP_ACC_PWD environment variable is not set")
-	}
-
-	key, err := GetKeyFromFile(keyFile)
+	ethConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you conform ETH ADDRESS %s ?", ethAddress))
 	if err != nil {
 		return err
 	}
+	if ethConfirm != false {
 
-	return ConvertCoins(ethAddress, ethSignature, key)
-}
+		fmt.Println()
 
-func ConvertCoins(ethAddress string, ethSignature string, key *signaturealgorithm.PrivateKey) error {
-	client, err := ethclient.Dial(rawURL)
-	if err != nil {
-		return err
+		ethSignature := os.Args[3]
+
+		keyFile := os.Getenv("DP_KEY_FILE")
+		if len(keyFile) == 0 {
+			return errors.New("DP_KEY_FILE environment variable is not set")
+		}
+
+		accPwd := os.Getenv("DP_ACC_PWD")
+		if len(accPwd) == 0 {
+			return errors.New("DP_ACC_PWD environment variable is not set")
+		}
+
+		key, err := GetKeyFromFile(keyFile)
+		if err != nil {
+			return err
+		}
+
+		qAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+		if err != nil {
+			return err
+		}
+
+		quantumAddress := qAddr.Hex()
+
+		time.Sleep(500 * time.Millisecond)
+
+		fmt.Println()
+		quantumConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you conform QUANTUM ADDRESS %s ?", quantumAddress))
+		if err != nil {
+			return err
+		}
+		if quantumConfirm != false {
+
+			crossSignDetails := &crosssign.ConversionSignDetails{
+				EthAddress:        strings.ToLower(ethAddress),
+				EthereumSignature: ethSignature,
+				QuantumAddress:    strings.ToLower(quantumAddress),
+			}
+
+			_, err := crosssign.VerifyConversion(crossSignDetails)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println()
+			fmt.Println("ETH ADDRESS, ETH SIGNATURE AND QUANTUM ADDRESS is verified... - Done")
+			fmt.Println()
+
+			time.Sleep(500 * time.Millisecond)
+			fmt.Println("Warning!!!")
+			time.Sleep(3000 * time.Millisecond)
+			fmt.Println("Final conformation")
+			time.Sleep(3000 * time.Millisecond)
+			fmt.Println("Verify your message ...")
+			time.Sleep(3000 * time.Millisecond)
+
+			message := strings.Replace(crosssign.ConversionMessageTemplate, "[ETH_ADDRESS]", strings.ToLower(ethAddress), 1)
+			message = strings.Replace(message, "[QUANTUM_ADDRESS]", strings.ToLower(quantumAddress), 1)
+
+			finalConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("%s", message))
+			if err != nil {
+				return err
+			}
+			if finalConfirm != false {
+				if len(rawURL) == 0 {
+					return requestConvertCoins(ethAddress, ethSignature, key)
+				} else {
+					return convertCoins(ethAddress, ethSignature, key)
+				}
+			}
+		}
 	}
-
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-	if err != nil {
-		return err
-	}
-	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
-
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		return err
-	}
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		return err
-	}
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
-	if err != nil {
-		return err
-	}
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
-
-	contract, err := conversion.NewConversion(contractAddress, client)
-	if err != nil {
-		return err
-	}
-
-	tx, err := contract.RequestConversion(txnOpts, ethAddress, ethSignature)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Txn Hash", tx.Hash())
-
-	//fmt.Println("data", common.Bytes2Hex(tx.Data()), tx.Data(), len(tx.Data()))
-
-	time.Sleep(1000 * time.Millisecond)
-
 	return nil
 }
