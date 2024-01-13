@@ -1,26 +1,41 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
+	"github.com/DogeProtocol/dp/accounts/abi/bind"
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/core/types"
+	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/ethclient"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type KeyStore struct {
 	Handle *keystore.KeyStore
+}
+
+type BalanceData struct {
+	Result struct {
+		Balance string `json:"_balance"`
+		Nonce   string `json:"nonce"`
+	}
 }
 
 func etherToWei(val *big.Int) *big.Int {
@@ -50,8 +65,49 @@ func getBalance(address string) (ethBalance string, weiBalance string, err error
 	if err != nil {
 		return "", "", err
 	}
-
 	return weiToEther(balance).String(), balance.String(), nil
+}
+
+func requestGetBalance(address string) (ethBalance string, weiBalance string, nonce string, err error) {
+	request, err := http.NewRequest("GET", READ_API_URL+"/api/accounts/"+address+"/balance", nil)
+	if err != nil {
+		return "", "", "", err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	httpClient := &http.Client{}
+	response, err := httpClient.Do(request)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	var balanceData BalanceData
+	err = json.Unmarshal(body, &balanceData)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if len(balanceData.Result.Balance) == 0 {
+		balanceData.Result.Balance = "0"
+	}
+	if len(balanceData.Result.Nonce) == 0 {
+		balanceData.Result.Nonce = "0"
+	}
+
+	balance := new(big.Int)
+	_, err = fmt.Sscan(balanceData.Result.Balance, balance)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return weiToEther(balance).String(), balanceData.Result.Balance, balanceData.Result.Nonce, nil
 }
 
 func findAllAddresses() ([]string, error) {
@@ -129,7 +185,7 @@ func GetKeyFromFile(keyFile string) (*signaturealgorithm.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return key.PrivateKey, nil
 }
 
@@ -340,4 +396,146 @@ func SetUpKeyStore() *KeyStore {
 	ks := &KeyStore{}
 	ks.Handle = keystore.NewKeyStore(dataDir, keystore.LightScryptN, keystore.LightScryptP)
 	return ks
+}
+
+func convertCoins(ethAddress string, ethSignature string, key *signaturealgorithm.PrivateKey) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		return err
+	}
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	if err != nil {
+		return err
+	}
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	contract, err := conversion.NewConversion(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.RequestConversion(txnOpts, ethAddress, ethSignature)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Submitted Tx Data. After 10 minutes check account balance")
+
+	fmt.Println("Txn Hash", tx.Hash())
+
+	//fmt.Println("data", common.Bytes2Hex(tx.Data()), tx.Data(), len(tx.Data()))
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func requestConvertCoins(ethAddress string, ethSignature string, key *signaturealgorithm.PrivateKey) error {
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+
+	if err != nil {
+		return err
+	}
+	_, _, n, err := requestGetBalance(fromAddress.String())
+	if err != nil {
+		return err
+	}
+
+	var nonce uint64
+	fmt.Sscan(n, &nonce)
+
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	method := conversion.GetContract_Method_requestConversion()
+	abiData, err := conversion.GetConversionContract_ABI()
+	if err != nil {
+		return err
+	}
+
+	input, err := abiData.Pack(method, ethAddress, ethSignature)
+	if err != nil {
+		return err
+	}
+
+	baseTx := types.NewDefaultFeeTransactionSimple(nonce, &contractAddress, txnOpts.Value,
+		txnOpts.GasLimit, input)
+
+	var rawTx *types.Transaction
+	rawTx = types.NewTx(baseTx)
+
+	if txnOpts.Signer == nil {
+		return errors.New("no signer to authorize the transaction with")
+	}
+
+	signTx, err := txnOpts.Signer(txnOpts.From, rawTx)
+	if err != nil {
+		return err
+	}
+
+	signTxBinary, err := signTx.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	tx := signTx
+	txData := hexutil.Encode(signTxBinary)
+
+	var jsonStr = []byte(`{"txnData" : "` + txData + `"}`)
+
+	request, err := http.NewRequest("POST", WRITE_API_URL+"/api/transactions", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	httpClient := &http.Client{}
+	response, err := httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+
+	defer response.Body.Close()
+
+	//body, err := ioutil.ReadAll(response.Body)
+	//if err != nil {
+	//	return err
+	//}
+
+	//bodyString := string(body)
+
+	fmt.Println("Successfully sent Tx Data. After 10 minutes check account balance")
+
+	fmt.Println("Txn Hash", tx.Hash())
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
 }

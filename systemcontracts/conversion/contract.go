@@ -30,6 +30,10 @@ func GetContract_Method_setConverted() string {
 	return "setConverted"
 }
 
+func GetContract_Method_requestConversion() string {
+	return "requestConversion"
+}
+
 func GetConversionContract_ABI() (abi.ABI, error) {
 	a, err := abi.JSON(strings.NewReader(ConversionMetaData.ABI))
 	return a, err
