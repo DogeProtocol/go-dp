@@ -35,11 +35,11 @@ func printHelp() {
 	fmt.Println("===========")
 	fmt.Println("dputil getconversionmessage ETH_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
-	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
+	fmt.Println("           DP_KEY_FILE")
 	fmt.Println("===========")
 	fmt.Println("dputil getcoinsfortokens ETH_ADDRESS ETH_SIGNATURE")
 	fmt.Println("      Set the following environment variables:")
-	fmt.Println("           DP_KEY_FILE, DP_ACC_PWD")
+	fmt.Println("           DP_KEY_FILE")
 	fmt.Println("===========")
 	fmt.Println("dputil balance ACCOUNT_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
@@ -347,12 +347,16 @@ func GetConversionMessage() error {
 		return errors.New("DP_KEY_FILE environment variable is not set")
 	}
 
-	accPwd := os.Getenv("DP_ACC_PWD")
+	fmt.Println(fmt.Sprintf("Quantum wallet address %s", keyFile))
+	accPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the quantum wallet password : "))
+	if err != nil {
+		return err
+	}
 	if len(accPwd) == 0 {
-		return errors.New("DP_ACC_PWD environment variable is not set")
+		return errors.New("password is not set")
 	}
 
-	key, err := GetKeyFromFile(keyFile)
+	key, err := GetKeyFromFile(keyFile, accPwd)
 	if err != nil {
 		return err
 	}
@@ -407,7 +411,8 @@ func ConvertToCoins() error {
 		return errors.New("DP_KEY_FILE environment variable is not set")
 	}
 
-	accPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the password for your quantum wallet located at %s", keyFile))
+	fmt.Println(fmt.Sprintf("Quantum wallet addres %s", keyFile))
+	accPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the quantum wallet password : "))
 	if err != nil {
 		return err
 	}
@@ -434,7 +439,7 @@ func ConvertToCoins() error {
 	}
 	fmt.Println()
 
-	key, err := GetKeyFromFile(keyFile)
+	key, err := GetKeyFromFile(keyFile, accPwd)
 	if err != nil {
 		return err
 	}

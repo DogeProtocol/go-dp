@@ -174,13 +174,13 @@ type ConnectionContext struct {
 	Key    *keystore.Key
 }
 
-func GetKeyFromFile(keyFile string) (*signaturealgorithm.PrivateKey, error) {
+func GetKeyFromFile(keyFile string, accPwd string) (*signaturealgorithm.PrivateKey, error) {
 	secretKey, err := ReadDataFile(keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	password := os.Getenv("DP_ACC_PWD")
+	password := accPwd
 	key, err := keystore.DecryptKey(secretKey, password)
 	if err != nil {
 		return nil, err
