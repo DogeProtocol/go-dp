@@ -449,7 +449,7 @@ func ConvertToCoins() error {
 	time.Sleep(500 * time.Millisecond)
 
 	fmt.Println()
-	quantumConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you confirm you want the coins at QUANTUM ADDRESS %s ?", quantumAddress))
+	quantumConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you confirm that you want the coins deposited to QUANTUM ADDRESS %s ?", quantumAddress))
 	if err != nil {
 		return err
 	}
