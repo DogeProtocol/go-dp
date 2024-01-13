@@ -246,13 +246,13 @@ func balance() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-		fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance, "nonce", nonce)
+		fmt.Println("Address", addr, "coins", ethBalance, "wei", weiBalance, "nonce", nonce)
 	} else {
 		ethBalance, weiBalance, err := getBalance(addr)
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-		fmt.Println("Address", addr, "eth", ethBalance, "wei", weiBalance)
+		fmt.Println("Address", addr, "coins", ethBalance, "wei", weiBalance)
 	}
 }
 
