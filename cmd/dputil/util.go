@@ -174,13 +174,13 @@ type ConnectionContext struct {
 	Key    *keystore.Key
 }
 
-func GetKeyFromFile(keyFile string) (*signaturealgorithm.PrivateKey, error) {
+func GetKeyFromFile(keyFile string, accPwd string) (*signaturealgorithm.PrivateKey, error) {
 	secretKey, err := ReadDataFile(keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	password := os.Getenv("DP_ACC_PWD")
+	password := accPwd
 	key, err := keystore.DecryptKey(secretKey, password)
 	if err != nil {
 		return nil, err
@@ -440,8 +440,6 @@ func convertCoins(ethAddress string, ethSignature string, key *signaturealgorith
 
 	fmt.Println("Txn Hash", tx.Hash())
 
-	//fmt.Println("data", common.Bytes2Hex(tx.Data()), tx.Data(), len(tx.Data()))
-
 	time.Sleep(1000 * time.Millisecond)
 
 	return nil
@@ -524,16 +522,12 @@ func requestConvertCoins(ethAddress string, ethSignature string, key *signaturea
 
 	defer response.Body.Close()
 
-	//body, err := ioutil.ReadAll(response.Body)
-	//if err != nil {
-	//	return err
-	//}
-
-	//bodyString := string(body)
-
-	fmt.Println("Successfully sent Tx Data. After 10 minutes check account balance")
-
-	fmt.Println("Txn Hash", tx.Hash())
+	fmt.Println("Your request to get the quantum dp coins has been added to the queue for processing. Please check your account balance after 10 minutes.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println("Your can you use the following command to check your account balance: ")
+	fmt.Println("dputil balance [YOUR_QUANTUM_ADDRESS]")
+	fmt.Println("Do double check that you have backed up your quantum wallet safely in multiple devices and offline backups. And remember your password!")
+	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)
 
