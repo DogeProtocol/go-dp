@@ -391,85 +391,105 @@ func ConvertToCoins() error {
 		return errors.New("unidentified eth address")
 	}
 
-	ethConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you conform ETH ADDRESS %s ?", ethAddress))
+	ethConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you confirm that your ETH ADDRESS having the Dogep tokens is %s ?", ethAddress))
 	if err != nil {
 		return err
 	}
-	if ethConfirm != false {
-
-		fmt.Println()
-
-		ethSignature := os.Args[3]
-
-		keyFile := os.Getenv("DP_KEY_FILE")
-		if len(keyFile) == 0 {
-			return errors.New("DP_KEY_FILE environment variable is not set")
-		}
-
-		accPwd := os.Getenv("DP_ACC_PWD")
-		if len(accPwd) == 0 {
-			return errors.New("DP_ACC_PWD environment variable is not set")
-		}
-
-		key, err := GetKeyFromFile(keyFile)
-		if err != nil {
-			return err
-		}
-
-		qAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-		if err != nil {
-			return err
-		}
-
-		quantumAddress := qAddr.Hex()
-
-		time.Sleep(500 * time.Millisecond)
-
-		fmt.Println()
-		quantumConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you conform QUANTUM ADDRESS %s ?", quantumAddress))
-		if err != nil {
-			return err
-		}
-		if quantumConfirm != false {
-
-			crossSignDetails := &crosssign.ConversionSignDetails{
-				EthAddress:        strings.ToLower(ethAddress),
-				EthereumSignature: ethSignature,
-				QuantumAddress:    strings.ToLower(quantumAddress),
-			}
-
-			_, err := crosssign.VerifyConversion(crossSignDetails)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println()
-			fmt.Println("ETH ADDRESS, ETH SIGNATURE AND QUANTUM ADDRESS is verified... - Done")
-			fmt.Println()
-
-			time.Sleep(500 * time.Millisecond)
-			fmt.Println("Warning!!!")
-			time.Sleep(3000 * time.Millisecond)
-			fmt.Println("Final conformation")
-			time.Sleep(3000 * time.Millisecond)
-			fmt.Println("Verify your message ...")
-			time.Sleep(3000 * time.Millisecond)
-
-			message := strings.Replace(crosssign.ConversionMessageTemplate, "[ETH_ADDRESS]", strings.ToLower(ethAddress), 1)
-			message = strings.Replace(message, "[QUANTUM_ADDRESS]", strings.ToLower(quantumAddress), 1)
-
-			finalConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("%s", message))
-			if err != nil {
-				return err
-			}
-			if finalConfirm != false {
-				if len(rawURL) == 0 {
-					return requestConvertCoins(ethAddress, ethSignature, key)
-				} else {
-					return convertCoins(ethAddress, ethSignature, key)
-				}
-			}
-		}
+	if ethConfirm != true {
+		return errors.New("confirmation not made")
 	}
-	return nil
+	fmt.Println()
+
+	ethSignature := os.Args[3]
+
+	keyFile := os.Getenv("DP_KEY_FILE")
+	if len(keyFile) == 0 {
+		return errors.New("DP_KEY_FILE environment variable is not set")
+	}
+
+	accPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the password for your quantum wallet located at %s", keyFile))
+	if err != nil {
+		return err
+	}
+	if len(accPwd) == 0 {
+		return errors.New("password is not set")
+	}
+	fmt.Println()
+
+	backupConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you confirm that you have backed up your quantum wallet located at %s ?", keyFile))
+	if err != nil {
+		return err
+	}
+	if backupConfirm != true {
+		return errors.New("confirmation not made")
+	}
+	fmt.Println()
+
+	passwordConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you understand that the wallet password will always be required to use the quantum wallet at %s?", keyFile))
+	if err != nil {
+		return err
+	}
+	if passwordConfirm != true {
+		return errors.New("confirmation not made")
+	}
+	fmt.Println()
+
+	key, err := GetKeyFromFile(keyFile)
+	if err != nil {
+		return err
+	}
+
+	qAddr, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	quantumAddress := qAddr.Hex()
+
+	time.Sleep(500 * time.Millisecond)
+
+	fmt.Println()
+	quantumConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you confirm you want the coins at QUANTUM ADDRESS %s ?", quantumAddress))
+	if err != nil {
+		return err
+	}
+	if quantumConfirm != true {
+		return errors.New("confirmation not made")
+	}
+	fmt.Println()
+
+	crossSignDetails := &crosssign.ConversionSignDetails{
+		EthAddress:        strings.ToLower(ethAddress),
+		EthereumSignature: ethSignature,
+		QuantumAddress:    strings.ToLower(quantumAddress),
+	}
+
+	_, err = crosssign.VerifyConversion(crossSignDetails)
+	if err != nil {
+		fmt.Println("An error occurred while verifying the ethereum signature.")
+		return err
+	}
+
+	time.Sleep(3000 * time.Millisecond)
+	fmt.Println("Final conformation!!!")
+	time.Sleep(3000 * time.Millisecond)
+	fmt.Println("Verify your message...")
+	time.Sleep(3000 * time.Millisecond)
+
+	message := strings.Replace(crosssign.ConversionMessageTemplate, "[ETH_ADDRESS]", strings.ToLower(ethAddress), 1)
+	message = strings.Replace(message, "[QUANTUM_ADDRESS]", strings.ToLower(quantumAddress), 1)
+
+	finalConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("%s", message))
+	if err != nil {
+		return err
+	}
+	if finalConfirm != true {
+		return errors.New("confirmation not made")
+	}
+
+	if len(rawURL) == 0 {
+		return requestConvertCoins(ethAddress, ethSignature, key)
+	} else {
+		return convertCoins(ethAddress, ethSignature, key)
+	}
 }
