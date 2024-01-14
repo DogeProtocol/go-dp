@@ -729,6 +729,11 @@ var (
 		Name:  "catalyst",
 		Usage: "Catalyst mode (eth2 integration testing)",
 	}
+
+	EnableBackupsFlag = cli.BoolFlag{
+		Name:  "enablebackup",
+		Usage: "Whether to enable backups og blocks, transactions etc.",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1205,6 +1210,10 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setNodeUserIdent(ctx, cfg)
 	setDataDir(ctx, cfg)
 	setSmartCard(ctx, cfg)
+
+	if ctx.GlobalIsSet(EnableBackupsFlag.Name) {
+		cfg.EnableBackups = ctx.GlobalBool(EnableBackupsFlag.Name)
+	}
 
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
 		cfg.ExternalSigner = ctx.GlobalString(ExternalSignerFlag.Name)

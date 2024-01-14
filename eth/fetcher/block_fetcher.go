@@ -39,9 +39,9 @@ const (
 )
 
 const (
-	maxQueueDist = 32  // Maximum allowed distance from the chain head to queue
-	hashLimit    = 256 // Maximum number of unique blocks or headers a peer may have announced
-	blockLimit   = 64  // Maximum number of unique blocks a peer may have delivered
+	maxQueueDist = 32000 // Maximum allowed distance from the chain head to queue
+	hashLimit    = 256   // Maximum number of unique blocks or headers a peer may have announced
+	blockLimit   = 64    // Maximum number of unique blocks a peer may have delivered
 )
 
 var (
@@ -342,6 +342,7 @@ func (f *BlockFetcher) loop() {
 		// Clean up any expired block fetches
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
+				log.Trace("BlockFetcher announce timeout", "hash", hash)
 				f.forgetHash(hash)
 			}
 		}
@@ -360,6 +361,7 @@ func (f *BlockFetcher) loop() {
 				if f.queueChangeHook != nil {
 					f.queueChangeHook(hash, true)
 				}
+				log.Trace("BlockFetcher high up the chain", "number", number, "height", height)
 				break
 			}
 			// Otherwise if fresh and still unknown, try and import
@@ -543,7 +545,7 @@ func (f *BlockFetcher) loop() {
 						announce.time = task.time
 
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.EmptyRootHash {
+						if header.TxHash == types.EmptyRootHash && (header.UnhashedConsensusData == nil || len(header.UnhashedConsensusData) == 0) {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
 							block := types.NewBlockWithHeader(header)
@@ -701,8 +703,10 @@ func (f *BlockFetcher) enqueue(peer string, header *types.Header, block *types.B
 	)
 	if header != nil {
 		hash, number = header.Hash(), header.Number.Uint64()
+		log.Trace("BlockFetcher enqueue header", "hash", hash, "number", number)
 	} else {
 		hash, number = block.Hash(), block.NumberU64()
+		log.Trace("BlockFetcher enqueue block", "hash", hash, "number", number)
 	}
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
