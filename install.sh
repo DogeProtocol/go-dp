@@ -29,11 +29,11 @@ curl -Lo $PWD/templibs/liboqs/includes.zip https://github.com/DogeProtocol/liboq
 unzip $PWD/templibs/liboqs/includes.zip -d $PWD/templibs/liboqs
 echo "e04a39e332b169aad8370fbcd99aa8ab03ab5d0e621d711e78c6c9f6aa341d56 $PWD/templibs/liboqs/includes.zip" | sha256sum --check  - || exit 1
 
-curl -Lo $PWD/templibs/hybrid-pqc/libhybridpqc.so https://github.com/DogeProtocol/hybrid-pqc/releases/download/v0.1.12/libhybridpqc.so
-echo "bc2cafd3f281bc2443ae00fd1a7daf79aa214d8b8839219b61314bab033ee5ff $PWD/templibs/hybrid-pqc/libhybridpqc.so" | sha256sum --check  - || exit 1
+curl -Lo $PWD/templibs/hybrid-pqc/libhybridpqc.so.2 https://github.com/DogeProtocol/hybrid-pqc/releases/download/v0.1.12/libhybridpqc.so.2
+echo "bc2cafd3f281bc2443ae00fd1a7daf79aa214d8b8839219b61314bab033ee5ff $PWD/templibs/hybrid-pqc/libhybridpqc.so.2" | sha256sum --check  - || exit 1
 
-curl -Lo $PWD/templibs/liboqs/liboqs.so https://github.com/DogeProtocol/liboqs/releases/download/v0.0.4/liboqs.so
-echo "6694aaff32255faafab324011b7f5ea5ca0f527e0b901265597871dfb01ddf72 $PWD/templibs/liboqs/liboqs.so" | sha256sum --check  - || exit 1
+curl -Lo $PWD/templibs/liboqs/liboqs.so.5 https://github.com/DogeProtocol/liboqs/releases/download/v0.0.4/liboqs.so.5
+echo "6694aaff32255faafab324011b7f5ea5ca0f527e0b901265597871dfb01ddf72 $PWD/templibs/liboqs/liboqs.so.5" | sha256sum --check  - || exit 1
 
 echo " "
 echo "Installation complete. To start building:"
