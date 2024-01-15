@@ -18,6 +18,7 @@ package miner
 
 import (
 	"errors"
+	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/conversionutil"
@@ -500,6 +501,13 @@ func (w *worker) taskLoop() {
 			log.Trace("taskCh1.3")
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				log.Warn("Block sealing failed", "err", err)
+			}
+			backupManager := backupmanager.GetInstance()
+			if backupManager != nil {
+				err := backupManager.BackupBlock(task.block)
+				if err != nil {
+					log.Warn("Error backing up block", "err", err)
+				}
 			}
 			log.Trace("taskCh2")
 		case <-w.exitCh:

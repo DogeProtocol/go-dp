@@ -443,7 +443,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 
 	validators, err := cph.getValidatorsFn(parentHash)
 	if err != nil {
-		log.Trace("getValidatorsFn", "err", err)
+		log.Error("getValidatorsFn", "err", err)
 		delete(cph.blockStateDetailsMap, parentHash)
 		return err
 	}
@@ -467,7 +467,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 
 	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
 	if ok == false {
-		log.Trace("Not a validator in this block")
+		log.Error("Not a validator in this block")
 	}
 
 	log.Debug("blockStateDetails", "totalBlockDepositValue", blockStateDetails.totalBlockDepositValue,
@@ -542,7 +542,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	}
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		return errors.New("startup delay")
+		return errors.New("received consensus packet, but consensus is not ready yet")
 	}
 
 	if packet == nil {
@@ -864,7 +864,7 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 	cph.innerPacketLock.Lock()
 	defer cph.innerPacketLock.Unlock()
 
-	log.Trace("validator proposal", "validator", validator, "self", cph.account.Address)
+	log.Trace("validator proposal", "validator", validator, "self", cph.account.Address, "hash", packet.ParentHash)
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
 		return errors.New("unknown parentHash")
@@ -998,7 +998,7 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 
 	_, ok = blockRoundDetails.validatorProposalAcks[validator]
 	if ok == true {
-		//return errors.New("already received proposal")
+
 		//todo: compare
 	} else {
 		if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS {
@@ -2379,7 +2379,7 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	defer cph.innerPacketLock.Unlock()
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		return nil, errors.New("startup delay")
+		return nil, errors.New("received request for consensus packet, but consensus is not ready yet")
 	}
 
 	requestDetails := RequestConsensusPacketDetails{}

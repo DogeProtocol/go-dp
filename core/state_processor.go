@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/consensus/misc"
 	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/log"
@@ -74,7 +75,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
-	//vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -105,6 +105,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
+
+	backupManager := backupmanager.GetInstance()
+	if backupManager != nil {
+		err := backupManager.BackupBlock(block)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }

@@ -1,0 +1,65 @@
+name: Mac Release
+
+on:
+  push:
+    tags:
+    - '*'    
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: true
+
+      matrix:
+        os: [macos-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+       go-version: '^1.21.1'
+
+    - name: Install Dependencies
+      run: cd ${{ github.workspace }} && ./install-mac.sh
+        
+    - name: Build
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/templibs/pkg-config
+      run: |
+         ls ${{ github.workspace }}/templibs/pkg-config
+         echo $PKG_CONFIG_PATH
+         mkdir ${{ github.workspace }}/build && go build -o ${{ github.workspace }}/build ./...
+
+    - name: Create Release
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/templibs/pkg-config
+      
+      run: |
+         mkdir ${{ github.workspace }}/build/dp-release
+         cp ${{ github.workspace }}/build/dp ${{ github.workspace }}/build/dp-release/dp
+         cp ${{ github.workspace }}/build/dputil ${{ github.workspace }}/build/dp-release/dputil
+         cp ${{ github.workspace }}/templibs/liboqs/liboqs.5.dylib ${{ github.workspace }}/build/dp-release/liboqs.5.dylib
+         cp ${{ github.workspace }}/templibs/hybrid-pqc/libhybridpqc.2.dylib ${{ github.workspace }}/build/dp-release/libhybridpqc.2.dylib
+         cp ${{ github.workspace }}/consensus/proofofstake/genesis/genesis.json ${{ github.workspace }}/build/dp-release/genesis.json
+         cp ${{ github.workspace }}/resources/*.* ${{ github.workspace }}/build/dp-release/
+         rm ${{ github.workspace }}/build/dp-release/connect.cmd
+         rm ${{ github.workspace }}/build/dp-release/connectvalidator.cmd         
+         cd ${{ github.workspace }}/build/dp-release && tar -czf ${{ github.workspace }}/build/dp-release-mac.gz .
+         sha256sum ${{ github.workspace }}/build/dp-release-mac.gz >${{ github.workspace }}/build/releasehash-mac.txt
+         
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: dp-release-mac
+        path: |
+              ${{ github.workspace }}/build/*.*
+              
+    - name: release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifacts: "build/*.gz,build/*.txt"
