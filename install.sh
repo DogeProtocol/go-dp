@@ -35,6 +35,12 @@ echo "bc2cafd3f281bc2443ae00fd1a7daf79aa214d8b8839219b61314bab033ee5ff $PWD/temp
 curl -Lo $PWD/templibs/liboqs/liboqs.so.5 https://github.com/DogeProtocol/liboqs/releases/download/v0.0.4/liboqs.so.5
 echo "6694aaff32255faafab324011b7f5ea5ca0f527e0b901265597871dfb01ddf72 $PWD/templibs/liboqs/liboqs.so.5" | sha256sum --check  - || exit 1
 
+curl -Lo $PWD/templibs/hybrid-pqc/libhybridpqc.so https://github.com/DogeProtocol/hybrid-pqc/releases/download/v0.1.12/libhybridpqc.so
+echo "bc2cafd3f281bc2443ae00fd1a7daf79aa214d8b8839219b61314bab033ee5ff $PWD/templibs/hybrid-pqc/libhybridpqc.so" | sha256sum --check  - || exit 1
+
+curl -Lo $PWD/templibs/liboqs/liboqs.so https://github.com/DogeProtocol/liboqs/releases/download/v0.0.4/liboqs.so
+echo "6694aaff32255faafab324011b7f5ea5ca0f527e0b901265597871dfb01ddf72 $PWD/templibs/liboqs/liboqs.so" | sha256sum --check  - || exit 1
+
 echo " "
 echo "Installation complete. To start building:"
 echo "1) Switch to the go-dp folder."
