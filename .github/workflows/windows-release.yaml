@@ -56,6 +56,7 @@ jobs:
          copy ${{ github.workspace }}\consensus\proofofstake\genesis\genesis.json ${{ github.workspace }}\build\dp\genesis.json
          copy ${{ github.workspace }}\resources\*.* ${{ github.workspace }}\build\dp\
          del ${{ github.workspace }}\build\dp\connect.sh
+         del ${{ github.workspace }}\build\dp\connectvalidator.sh         
          powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows.zip
          powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows.txt
          
