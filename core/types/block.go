@@ -18,6 +18,7 @@
 package types
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -79,7 +80,7 @@ type Header struct {
 	Time          uint64         `json:"timestamp"        gencodec:"required"`
 	Extra         []byte         `json:"extraData"        gencodec:"required"`
 	Author        common.Hash    `json:"author"           gencodec:"required"`
-	ConsensusData []byte         `json:"consensusData"  gencodec:"required"`
+	ConsensusData []byte         `json:"consensusData"    gencodec:"required"`
 	MixDigest     common.Hash    `json:"mixHash"`
 	Nonce         BlockNonce     `json:"nonce"`
 
@@ -105,6 +106,21 @@ func (h *Header) Hash() common.Hash {
 	clonedHeader.UnhashedConsensusData = nil
 
 	return rlpHash(clonedHeader)
+}
+
+func (h *Header) IsEqualTo(otherHeader *Header) bool {
+	hash1 := h.Hash()
+	hash2 := otherHeader.Hash()
+
+	if hash1.IsEqualTo(hash2) == false {
+		return false
+	}
+
+	if bytes.Compare(h.UnhashedConsensusData, otherHeader.UnhashedConsensusData) != 0 {
+		return false
+	}
+
+	return true
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -231,6 +247,36 @@ func CopyHeader(h *Header) *Header {
 	return &cpy
 }
 
+func (b *Block) IsInternalDataEqualTo(otherBlock *Block) bool {
+	if b.header.IsEqualTo(otherBlock.header) == false {
+		return false
+	}
+
+	if b.transactions == nil {
+		if otherBlock.transactions != nil {
+			return false
+		}
+		return true
+	}
+
+	if len(b.transactions) != len(otherBlock.transactions) {
+		return false
+	}
+
+	for i := range b.transactions {
+		tx1 := b.transactions[i]
+		tx2 := otherBlock.transactions[i]
+		tx1Hash := tx1.Hash()
+		tx2Hash := tx2.Hash()
+
+		if tx1Hash.IsEqualTo(tx2Hash) == false {
+			return false
+		}
+	}
+
+	return true
+}
+
 // DecodeRLP decodes the Ethereum
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	var eb extblock
@@ -241,6 +287,26 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	b.header, b.transactions = eb.Header, eb.Txs
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
+}
+
+func DecodeBlockFromRLP(input []byte) (*Block, error) {
+	var eb extblock
+
+	err := rlp.Decode(bytes.NewReader(input), &eb)
+	if err != nil {
+		return nil, err
+	}
+
+	blk := Block{
+		header: eb.Header,
+	}
+
+	if eb.Txs != nil {
+		blk.transactions = make(Transactions, len(eb.Txs))
+		copy(blk.transactions, eb.Txs)
+	}
+
+	return &blk, nil
 }
 
 // EncodeRLP serializes b into the Ethereum RLP block format.

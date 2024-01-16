@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
@@ -636,6 +637,12 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		invalidTxMeter.Mark(1)
 		return false, err
 	}
+
+	backupManager := backupmanager.GetInstance()
+	if backupManager != nil {
+		backupManager.BackupTransaction(tx)
+	}
+
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
 		// New transaction is better than our worse ones, make room for it.

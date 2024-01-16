@@ -225,15 +225,18 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 	if atomic.LoadUint32(&h.fastSync) == 1 && atomic.LoadUint32(&h.snapSync) == 0 {
 		h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
 	}
+	heighter := func() uint64 {
+		return h.chain.CurrentBlock().NumberU64()
+	}
+
 	h.Downloader = downloader.New(h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
+	h.Downloader.SetChainHeighter(heighter)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
-	heighter := func() uint64 {
-		return h.chain.CurrentBlock().NumberU64()
-	}
+
 	inserter := func(blocks types.Blocks) (int, error) {
 		// If sync hasn't reached the checkpoint yet, deny importing weird blocks.
 		//

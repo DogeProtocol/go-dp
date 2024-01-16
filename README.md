@@ -4,19 +4,31 @@ go-dp is a Golang implementation of the Doge Protocol blockchain node client. Th
 
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/bbbMPyzJTM)
 
-## Prerequisites
+### Prerequisites
 
-### Post Quantum Cryptography
+Requires GO version 1.21 or later.
 
-1) Follow the steps in https://github.com/open-quantum-safe/liboqs to build the liboqs binaries (Post Quantum Cryptography Libraries)
-2) Follow the steps in https://github.com/DogeProtocol/hybrid-pqc to build the hybrid-pqc binaries (Post Quantum Cryptography Libraries)
-3) Install Package Manager:
-#### Linux
+#### Linux (Ubuntu)
+
+Has only been tested on Ubuntu version 22. Lower Ubuntu versions might need openssl library installation (libcrypto).
+
+##### Setup
 ```
-apt-get install -y pkg-config
+- 1) Open a new bash window and navigate to the go-dp folder.
+- 2) Run ./install-ubuntu.sh
+- 3) Make sure you add the environment variables to your bash profile as described at the end of the output of the previous command.
 ```
+
+##### Building
+- 1) Open a new terminal and navigate to the go-dp folder.
+- 2) Run go build -o YOUR_BUILD_FOLDER ./...
+
 #### Windows
-Ensure you have allowed Powershell local script execution.
+Ensure you have allowed Powershell local script execution. You can enable this by running the following command in Powershell window that is opened as an administrator:
+
+```
+Set-ExecutionPolicy RemoteSigned
+```
 
 ##### Setup 
 - 1) Open a new terminal and navigate to the go-dp folder.
@@ -24,21 +36,28 @@ Ensure you have allowed Powershell local script execution.
  
 #### Building     
 
-- 1) Open a new command prompt and navigate to the go-dp folder. If you are using Terminal or Powershell prompt, then copy the content of the templibs/setenv.cmd file and run them directly.
+- 1) Open a new command prompt and navigate to the go-dp folder. Note that this method doesn't work in Powershell or Terminal, hence use command prompt.
 - 2) Run templibs/setenv.cmd 
-     
-## Building geth
+- 3) Run go build -o YOUR_BUILD_FOLDER ./...
 
-Building `geth` requires both a Go (version 1.14 or later) and a C compiler. You can install
-them using your favourite package manager. Once the dependencies and pre-requisites detailed above are installed, run:
+#### Mac
 
+Has only been tested on Apple M1.
+
+##### Setup
 ```
-cd cmd/geth
-go build -o c:\build 
+- 1) Ensure brew is installed. To install brew, follow the instructions at https://brew.sh
+- 2) Open a new Terminal window and navigate to the go-dp folder.
+- 3) Run ./install-mac.sh
+- 4) Make sure you add the environment variables to your shell profile as described at the end of the output of the previous command.
 ```
+
+##### Building
+- 1) Open a new terminal and navigate to the go-dp folder. Ensure that appropriate environment variables from the prerequisites section have been set.
+- 2) Run go build -o YOUR_BUILD_FOLDER ./...
 
 ### Running geth
-Check the [documentation](https://dpdocs.org/testnet-setup.html) portal for information on running the blockchain node client.
+Check the [documentation](https://dpdocs.org) portal for information on running the blockchain node client.
 
 ## Major changes from [go-ethereum](https://github.com/ethereum/go-ethereum)
 

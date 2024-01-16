@@ -20,6 +20,7 @@ package utils
 import (
 	"compress/gzip"
 	"fmt"
+	"github.com/DogeProtocol/dp/backupmanager"
 	"io"
 	"os"
 	"os/signal"
@@ -67,6 +68,13 @@ func Fatalf(format string, args ...interface{}) {
 }
 
 func StartNode(ctx *cli.Context, stack *node.Node) {
+	if stack.Config().EnableBackups {
+		_, err := backupmanager.NewBackupManager(stack.InstanceDir())
+		if err != nil {
+			Fatalf("Error starting protocol stack (backup manager initialize failed: %v", err)
+		}
+	}
+
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}
@@ -88,6 +96,14 @@ func StartNode(ctx *cli.Context, stack *node.Node) {
 		<-sigc
 		log.Info("Got interrupt, shutting down...")
 		go stack.Close()
+		backupManager := backupmanager.GetInstance()
+		if backupManager != nil {
+			err := backupManager.Close()
+			if err != nil {
+				log.Warn("Error closing backup manager", "err", err)
+			}
+			log.Info("Closed backup manager")
+		}
 		for i := 10; i > 0; i-- {
 			<-sigc
 			if i > 1 {

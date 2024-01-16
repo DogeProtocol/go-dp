@@ -1,4 +1,4 @@
-name: Multi Platform Release
+name: Windows Release
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
-      fail-fast: false
+      fail-fast: true
 
       matrix:
         os: [windows-latest]
@@ -55,13 +55,15 @@ jobs:
          copy ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll ${{ github.workspace }}\build\dp\hybridpqc.dll
          copy ${{ github.workspace }}\consensus\proofofstake\genesis\genesis.json ${{ github.workspace }}\build\dp\genesis.json
          copy ${{ github.workspace }}\resources\*.* ${{ github.workspace }}\build\dp\
+         del ${{ github.workspace }}\build\dp\connect.sh
+         del ${{ github.workspace }}\build\dp\connectvalidator.sh         
          powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows.zip
          powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
-        name: dprelease
+        name: dp-release-windows
         path: |
               ${{ github.workspace }}/build/*.*
               

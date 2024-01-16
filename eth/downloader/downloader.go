@@ -83,6 +83,9 @@ var (
 	errNoAncestorFound         = errors.New("no common ancestor found")
 )
 
+// chainHeightFn is a callback type to retrieve the current chain height.
+type chainHeightFn func() uint64
+
 type Downloader struct {
 	mode uint32         // Synchronisation mode defining the strategy used (per sync cycle), use d.getMode() to get the SyncMode
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
@@ -130,6 +133,8 @@ type Downloader struct {
 	stateSyncStart chan *stateSync
 	trackStateReq  chan *stateReq
 	stateCh        chan dataPack // Channel receiving inbound node state data
+
+	chainHeightFunc chainHeightFn // Retrieves the current chain's height
 
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
@@ -287,6 +292,10 @@ func (d *Downloader) RegisterPeer(id string, version uint, peer Peer) error {
 		return err
 	}
 	return nil
+}
+
+func (d *Downloader) SetChainHeighter(fn chainHeightFn) {
+	d.chainHeightFunc = fn
 }
 
 // RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
@@ -817,6 +826,7 @@ func (d *Downloader) findAncestorSpanSearch(p *peerConnection, mode SyncMode, re
 					p.log.Warn("Head headers broke chain ordering", "index", i, "requested", expectNumber, "received", number)
 					return 0, fmt.Errorf("%w: %v", errInvalidChain, errors.New("head headers broke chain ordering"))
 				}
+				p.log.Trace("downloader got block", "number", number)
 			}
 			// Check if a common ancestor was found
 			finished = true
