@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-const READ_API_URL = "https://scan.dpapi.org"
-const WRITE_API_URL = "https://txn.dpapi.org"
+const READ_API_URL = "http://localhost:8080"  //"https://scan.dpapi.org"
+const WRITE_API_URL = "http://localhost:8008" //"https://txn.dpapi.org"
 
 func printHelp() {
 	fmt.Println("===========")
@@ -547,6 +547,7 @@ func Deposit() error {
 	if common.IsHexAddress(validatorAddr) == false {
 		return errors.New("invalid validator address " + validatorAddr)
 	}
+
 	_, err := ParseBigFloat(depositorAmount)
 	if err != nil {
 		return err
@@ -566,11 +567,6 @@ func Deposit() error {
 		return errors.New("depositor password is not set")
 	}
 
-	depKey, err := GetKeyFromFile(depositorKeyFile, depositorPwd)
-	if err != nil {
-		return errors.New("error decrypting depositor key " + err.Error())
-	}
-
 	fmt.Println()
 
 	depositorPasswordConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you understand that the depositor password will always be required to use the quantum depositor wallet at %s?", depositorKeyFile))
@@ -581,6 +577,11 @@ func Deposit() error {
 		return errors.New("confirmation not made")
 	}
 	fmt.Println()
+
+	depKey, err := GetKeyFromFile(depositorKeyFile, depositorPwd)
+	if err != nil {
+		return errors.New("error decrypting depositor key " + err.Error())
+	}
 
 	depAddressFromKey, err := cryptobase.SigAlg.PublicKeyToAddress(&depKey.PublicKey)
 	if err != nil {
@@ -637,7 +638,7 @@ func Deposit() error {
 }
 
 func InitiateWithdrawal() error {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 2 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}
@@ -699,7 +700,7 @@ func InitiateWithdrawal() error {
 }
 
 func CompleteWithdrawal() error {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 2 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}

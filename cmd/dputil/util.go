@@ -567,7 +567,7 @@ func newDeposit(validatorAddress string, depositAmount string, key *signaturealg
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(250000)
 
 	val, _ := ParseBigFloat(depositAmount)
 	txnOpts.Value = etherToWeiFloat(val)
@@ -615,7 +615,7 @@ func requestNewDeposit(validatorAddress string, depositAmount string, key *signa
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(2500000)
 
 	val, _ := ParseBigFloat(depositAmount)
 	txnOpts.Value = etherToWeiFloat(val)
@@ -626,7 +626,7 @@ func requestNewDeposit(validatorAddress string, depositAmount string, key *signa
 		return err
 	}
 
-	input, err := abiData.Pack(method, validatorAddress)
+	input, err := abiData.Pack(method, common.HexToAddress(validatorAddress))
 	if err != nil {
 		return err
 	}
@@ -678,7 +678,6 @@ func requestNewDeposit(validatorAddress string, depositAmount string, key *signa
 
 	return nil
 }
-
 
 func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
@@ -820,7 +819,6 @@ func requestInitiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	return nil
 }
-
 
 func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
