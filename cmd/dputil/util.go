@@ -550,13 +550,11 @@ func newDeposit(validatorAddress string, depositAmount string, key *signaturealg
 	if err != nil {
 		return err
 	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
+	
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return err
 	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
 	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
@@ -615,7 +613,7 @@ func requestNewDeposit(validatorAddress string, depositAmount string, key *signa
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(2500000)
+	txnOpts.GasLimit = uint64(250000)
 
 	val, _ := ParseBigFloat(depositAmount)
 	txnOpts.Value = etherToWeiFloat(val)
@@ -687,18 +685,15 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	}
 
 	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-
 	if err != nil {
 		return err
 	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
+	
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return err
 	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
-
+	
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
 	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
 
@@ -832,13 +827,11 @@ func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return err
 	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
 	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
