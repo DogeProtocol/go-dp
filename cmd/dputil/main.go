@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-const READ_API_URL = "https://scan.dpapi.org"
-const WRITE_API_URL = "https://txn.dpapi.org"
+const READ_API_URL = "" //"https://scan.dpapi.org"
+const WRITE_API_URL = "" //"https://txn.dpapi.org"
 
 func printHelp() {
 	fmt.Println("===========")
