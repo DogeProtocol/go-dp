@@ -45,9 +45,15 @@ type Method struct {
 }
 
 type Deposit struct {
+	NewDeposit               string `json:"newDeposit"`
+	InitiateWithdrawal       string `json:"initiateWithdrawal"`
+	CompleteWithdrawal       string `json:"completeWithdrawal"`
 	GetDepositorCount        string `json:"getDepositorCount"`
 	GetTotalDepositedBalance string `json:"getTotalDepositedBalance"`
 	GetValidatorOfDepositor  string `json:"getValidatorOfDepositor"`
+	GetDepositorRewards      string `json:"getDepositorRewards"`
+	GetDepositorSlashings    string `json:"getDepositorSlashings"`
+	GetWithdrawalBlock       string `json:"getWithdrawalBlock"`
 	DoesDepositorExist       string `json:"doesDepositorExist"`
 	DidDepositorEverExist    string `json:"didDepositorEverExist"`
 }
@@ -67,9 +73,14 @@ type Validator struct {
 var (
 	methods_collection = &Method{
 		Deposits: &Deposit{
+			NewDeposit:               "newDeposit",
+			InitiateWithdrawal:       "initiateWithdrawal",
+			CompleteWithdrawal:       "completeWithdrawal",
 			GetDepositorCount:        "getDepositorCount",
 			GetTotalDepositedBalance: "getTotalDepositedBalance",
 			GetValidatorOfDepositor:  "getValidatorOfDepositor",
+			GetDepositorRewards:      "getDepositorRewards",
+			GetDepositorSlashings:    "getDepositorSlashings",
 			DoesDepositorExist:       "doesDepositorExist",
 			DidDepositorEverExist:    "didDepositorEverExist",
 		},
@@ -121,7 +132,7 @@ func GetContractVerify(address common.Address) bool {
 }
 
 func IsStakingContract() error {
-	if len(stakingContract) < 40 {
+	if len(stakingContract) < (common.HashLength * 2) {
 		return fmt.Errorf("Staking contractor is not found")
 	}
 	return nil
@@ -139,6 +150,18 @@ func GetStakingContract_ABI() (abi.ABI, error) {
 	s := StakingMetaData.ABI
 	abi, err := abi.JSON(strings.NewReader(s))
 	return abi, err
+}
+
+func GetContract_Method_NewDeposit() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.NewDeposit
+}
+
+func GetContract_Method_InitiateWithdrawal() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.InitiateWithdrawal
+}
+
+func GetContract_Method_CompleteWithdrawal() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.CompleteWithdrawal
 }
 
 // Validators method
