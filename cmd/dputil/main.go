@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-const READ_API_URL = ""  //"https://scan.dpapi.org"
-const WRITE_API_URL = "" //"https://txn.dpapi.org"
+const READ_API_URL = "https://scan.dpapi.org"
+const WRITE_API_URL = "https://txn.dpapi.org"
 
 func printHelp() {
 	fmt.Println("===========")
@@ -45,15 +45,15 @@ func printHelp() {
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
 	fmt.Println("===========")
-	fmt.Println("dputil newdeposit DEPOSITOR_ADDRESS VALIDATOR_ADDRESS DEPOSITOR_AMOUNT")
+	fmt.Println("dputil stakingdeposit DEPOSITOR_ADDRESS VALIDATOR_ADDRESS DEPOSITOR_AMOUNT")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE")
 	fmt.Println("===========")
-	fmt.Println("dputil initiatewithdrawal DEPOSITOR_ADDRESS")
+	fmt.Println("dputil initiatestakingwithdrawal DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE")
 	fmt.Println("===========")
-	fmt.Println("dputil completewithdrawal DEPOSITOR_ADDRESS")
+	fmt.Println("dputil completestakingwithdrawal DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE")
 	fmt.Println("===========")
@@ -104,17 +104,17 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "newdeposit" {
+	} else if os.Args[1] == "stakingdeposit" {
 		err := Deposit()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "initiatewithdrawal" {
+	} else if os.Args[1] == "initiatestakingwithdrawal" {
 		err := InitiateWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "completewithdrawal" {
+	} else if os.Args[1] == "completestakingwithdrawal" {
 		err := CompleteWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
@@ -640,7 +640,8 @@ func Deposit() error {
 	}
 
 	if len(rawURL) == 0 {
-		return requestNewDeposit(validatorAddr, depositorAmount, depKey)
+		return errors.New("DP_RAW_URL environment variable not specified")
+		//return requestNewDeposit(validatorAddr, depositorAmount, depKey)
 	} else {
 		return newDeposit(validatorAddr, depositorAmount, depKey)
 	}
@@ -702,7 +703,8 @@ func InitiateWithdrawal() error {
 	}
 
 	if len(rawURL) == 0 {
-		return requestInitiateWithdrawal(depKey)
+		return errors.New("DP_RAW_URL environment variable not specified")
+		//return requestInitiateWithdrawal(depKey)
 	} else {
 		return initiateWithdrawal(depKey)
 	}
@@ -764,7 +766,8 @@ func CompleteWithdrawal() error {
 	}
 
 	if len(rawURL) == 0 {
-		return requestCompleteWithdrawal(depKey)
+		return errors.New("DP_RAW_URL environment variable not specified")
+		//return requestCompleteWithdrawal(depKey)
 	} else {
 		return completeWithdrawal(depKey)
 	}
@@ -783,7 +786,7 @@ func DepositorBalance() error {
 	}
 
 	if len(rawURL) == 0 {
-		return nil
+		return errors.New("DP_RAW_URL environment variable not specified")
 	} else {
 		return getBalanceOfDepositor(depositorAddr)
 	}
