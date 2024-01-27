@@ -550,7 +550,7 @@ func newDeposit(validatorAddress string, depositAmount string, key *signaturealg
 	if err != nil {
 		return err
 	}
-	
+
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return err
@@ -688,12 +688,12 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	
+
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
 		return err
 	}
-	
+
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
 	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
 
@@ -947,6 +947,34 @@ func requestCompleteWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func getBalanceOfDepositor(dep string) error {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	instance, err := staking.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	depositor := common.HexToAddress(dep)
+	depositorBalance, err := instance.GetBalanceOfDepositor(nil, depositor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
+
 	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)

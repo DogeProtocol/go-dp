@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const READ_API_URL = "" //"https://scan.dpapi.org"
+const READ_API_URL = ""  //"https://scan.dpapi.org"
 const WRITE_API_URL = "" //"https://txn.dpapi.org"
 
 func printHelp() {
@@ -56,6 +56,10 @@ func printHelp() {
 	fmt.Println("dputil completewithdrawal DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_KEY_FILE")
+	fmt.Println("===========")
+	fmt.Println("dputil stakingbalance DEPOSITOR_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
 	fmt.Println("===========")
 	fmt.Println("dputil send FROM_ADDRESS TO_ADDRESS QUANTITY")
 	fmt.Println("===========")
@@ -112,6 +116,11 @@ func main() {
 		}
 	} else if os.Args[1] == "completewithdrawal" {
 		err := CompleteWithdrawal()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "stakingbalance" {
+		err := DepositorBalance()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
@@ -527,7 +536,7 @@ func ConvertToCoins() error {
 }
 
 func Deposit() error {
-	if len(os.Args) < 4 {
+	if len(os.Args) < 5 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}
@@ -638,7 +647,7 @@ func Deposit() error {
 }
 
 func InitiateWithdrawal() error {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}
@@ -700,7 +709,7 @@ func InitiateWithdrawal() error {
 }
 
 func CompleteWithdrawal() error {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}
@@ -758,5 +767,24 @@ func CompleteWithdrawal() error {
 		return requestCompleteWithdrawal(depKey)
 	} else {
 		return completeWithdrawal(depKey)
+	}
+}
+
+func DepositorBalance() error {
+	if len(os.Args) < 3 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	depositorAddr := os.Args[2]
+
+	if common.IsHexAddress(depositorAddr) == false {
+		return errors.New("invalid depositor address " + depositorAddr)
+	}
+
+	if len(rawURL) == 0 {
+		return nil
+	} else {
+		return getBalanceOfDepositor(depositorAddr)
 	}
 }
