@@ -58,7 +58,7 @@ type DefaultFeeTx struct {
 
 // NewTransaction creates an unsigned legacy transaction.
 // Deprecated: use NewTx instead.
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, data []byte) *Transaction {
 	return NewDefaultFeeTransaction(big.NewInt(DEFAULT_CHAIN_ID), nonce, &to, amount, gasLimit, GAS_TIER_DEFAULT, data)
 }
 
