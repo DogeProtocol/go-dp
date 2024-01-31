@@ -34,12 +34,14 @@ func main() {
 
 }
 
+//export PublicKeyToAddress
 func PublicKeyToAddress(pKey_str *C.char, pk_count int) (*C.char, *C.char) {
 	pubBytes := C.GoBytes(unsafe.Pointer(pKey_str), C.int(pk_count))
 	address := common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:]).String()
 	return C.CString(address), nil
 }
 
+//export TxMessage
 func TxMessage(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C.char, *C.char) {
 	ts := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
 		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
@@ -64,6 +66,7 @@ func TxMessage(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C.char
 	return C.CString(message.String()), nil
 }
 
+//export TxHash
 func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
 	ts := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
@@ -86,6 +89,7 @@ func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 	return C.CString(signTx.Hash().String()), nil
 }
 
+//export TxData
 func TxData(from, nonce, to, value, gasLimit, data, chainId,
 	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
 
@@ -115,6 +119,7 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 	return C.CString(signTxEncode), nil
 }
 
+//export ExportKey
 func ExportKey(skKeyStr, pkKeyStr, authentication *C.char, skCount int, pkCount int) (*C.char, *C.char) {
 
 	privateBytes := C.GoBytes(unsafe.Pointer(skKeyStr), C.int(skCount))
@@ -152,6 +157,7 @@ func ExportKey(skKeyStr, pkKeyStr, authentication *C.char, skCount int, pkCount 
 	return C.CString(string(keyJson)), nil
 }
 
+//export ImportKey
 func ImportKey(skKeyStr, authentication *C.char, skCount int) (*C.char, *C.char) {
 
 	keyJson := C.GoBytes(unsafe.Pointer(skKeyStr), C.int(skCount))
@@ -165,6 +171,7 @@ func ImportKey(skKeyStr, authentication *C.char, skCount int) (*C.char, *C.char)
 	return C.CString(string(key.PrivateKey.PriData)), nil
 }
 
+//export DogeProtocolToWei
 func DogeProtocolToWei(quantity *C.char) (*C.char, *C.char) {
 	dp := new(big.Float)
 	_, err := fmt.Sscan(C.GoString(quantity), dp)
@@ -180,6 +187,7 @@ func DogeProtocolToWei(quantity *C.char) (*C.char, *C.char) {
 	return C.CString(wei.String()), nil
 }
 
+//export ParseBigFloat
 func ParseBigFloat(quantity *C.char) (*C.char, *C.char) {
 	var value string
 	value = C.GoString(quantity)
@@ -193,6 +201,7 @@ func ParseBigFloat(quantity *C.char) (*C.char, *C.char) {
 	return C.CString(f.String()), nil
 }
 
+//export WeiToDogeProtocol
 func WeiToDogeProtocol(quantity *C.char) (*C.char, *C.char) {
 	wei := new(big.Int)
 	_, err := fmt.Sscan(C.GoString(quantity), wei)
