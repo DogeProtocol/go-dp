@@ -6,7 +6,9 @@ Go- Web assembly
 
 
 
-/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" CXX="/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++" GOOS=android GOARCH=arm64 CGO_ENABLED=1 go build
+CC=/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang"
+CXX="/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++"
+GOOS=android GOARCH=arm64 CGO_ENABLED=1 go build
 
 Go- Android
 ---------------------
