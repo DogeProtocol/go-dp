@@ -1,6 +1,8 @@
 name: android library Release
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - '*'
 
 jobs:
   build:
@@ -19,13 +21,6 @@ jobs:
     - uses: actions/setup-go@v4
       with:
        go-version: '^1.21.1'
-    - name: Check Files
-      run: |
-           ls /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/
-           ls /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-*
-           ls /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-*
-           ls /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-*
-           ls /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-*
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
