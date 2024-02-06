@@ -5,6 +5,9 @@ Go- Web assembly
 	3. path\wasm\web>go build -o c:\build\dp.wasm
 
 
+
+/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" CXX="/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++" GOOS=android GOARCH=arm64 CGO_ENABLED=1 go build
+
 Go- Android
 ---------------------
     android-armv7a:
