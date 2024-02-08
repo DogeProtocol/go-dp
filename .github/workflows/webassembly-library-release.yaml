@@ -1,0 +1,53 @@
+name: Webassembly library Release
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: true
+
+      matrix:
+        os: [ubuntu-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+       go-version: '^1.21.1'
+    - name: Create build folder
+      run: |
+        mkdir ${{ github.workspace }}/build
+        mkdir ${{ github.workspace }}/build/wasm
+    - name: Build Webassembly library
+      run: |                
+        export CGO_ENABLED=1
+        export GOOS=js
+        export GOARCH=wasm
+        go build -o ${{ github.workspace }}/build/wasm/libgodp.wasm ${{ github.workspace }}/wasm/web/main.go
+    - name: Check Files
+      run:  ls  ${{ github.workspace }}/build
+    - name: Create Release
+      run: |
+        tar -czf ${{ github.workspace }}/build/webassembly-wasm.gz ${{ github.workspace }}/build/wasm/.
+        sha256sum ${{ github.workspace }}/build/webassembly-wasm.gz >${{ github.workspace }}/build/webassembly-wasm.txt
+    - name: Check Release Files
+      run: |
+        ls  ${{ github.workspace }}/build/webassembly-*.*
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: webassembly-library-release
+        path: |
+          ${{ github.workspace }}/build/*.*
+    - name: release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifacts: "build/*.gz,build/*.txt"
