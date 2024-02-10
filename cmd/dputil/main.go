@@ -508,7 +508,7 @@ func ConvertToCoins() error {
 	}
 
 	time.Sleep(3000 * time.Millisecond)
-	fmt.Println("Final conformation!!!")
+	fmt.Println("Final confirmation!!!")
 	time.Sleep(3000 * time.Millisecond)
 	fmt.Println("Verify your message...")
 	time.Sleep(3000 * time.Millisecond)
@@ -563,7 +563,7 @@ func Deposit() error {
 		return errors.New("error finding DEPOSITOR_ADDRESS in DP_KEY_FILE_DIR " + err.Error())
 	}
 
-	fmt.Println(fmt.Sprintf("Depositor wallet addres %s", depositorKeyFile))
+	fmt.Println(fmt.Sprintf("Depositor wallet address %s", depositorKeyFile))
 	depositorPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the depositor wallet password : "))
 	if err != nil {
 		return err
@@ -664,7 +664,7 @@ func InitiateWithdrawal() error {
 		return errors.New("error finding DEPOSITOR_ADDRESS in DP_KEY_FILE_DIR " + err.Error())
 	}
 
-	fmt.Println(fmt.Sprintf("Depositor wallet addres %s", depositorKeyFile))
+	fmt.Println(fmt.Sprintf("Depositor wallet address %s", depositorKeyFile))
 	depositorPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the depositor wallet password : "))
 	if err != nil {
 		return err
@@ -727,7 +727,7 @@ func CompleteWithdrawal() error {
 		return errors.New("error finding DEPOSITOR_ADDRESS in DP_KEY_FILE_DIR " + err.Error())
 	}
 
-	fmt.Println(fmt.Sprintf("Depositor wallet addres %s", depositorKeyFile))
+	fmt.Println(fmt.Sprintf("Depositor wallet address %s", depositorKeyFile))
 	depositorPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the depositor wallet password : "))
 	if err != nil {
 		return err

@@ -32,16 +32,16 @@ import (
 )
 
 const (
-	lightTimeout  = time.Millisecond       // Time allowance before an announced header is explicitly requested
-	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block/transaction is explicitly requested
-	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
-	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block/transaction
+	lightTimeout  = time.Millisecond         // Time allowance before an announced header is explicitly requested
+	arriveTimeout = 15000 * time.Millisecond // Time allowance before an announced block/transaction is explicitly requested
+	gatherSlack   = 1000 * time.Millisecond  // Interval used to collate almost-expired announces with fetches
+	fetchTimeout  = 60 * time.Second         // Maximum allotted time to return an explicitly requested block/transaction
 )
 
 const (
-	maxQueueDist = 32000 // Maximum allowed distance from the chain head to queue
-	hashLimit    = 256   // Maximum number of unique blocks or headers a peer may have announced
-	blockLimit   = 64    // Maximum number of unique blocks a peer may have delivered
+	maxQueueDist = 32000  // Maximum allowed distance from the chain head to queue
+	hashLimit    = 320000 // Maximum number of unique blocks or headers a peer may have announced
+	blockLimit   = 320000 // Maximum number of unique blocks a peer may have delivered
 )
 
 var (
@@ -366,9 +366,11 @@ func (f *BlockFetcher) loop() {
 			}
 			// Otherwise if fresh and still unknown, try and import
 			if (number < height) || (f.light && f.getHeader(hash) != nil) || (!f.light && f.getBlock(hash) != nil) {
+				log.Trace("forgetBlock", "number", number, "hash", hash, "height", height)
 				f.forgetBlock(hash)
 				continue
 			}
+			log.Trace("block fetcher import", "number", number, "height", height)
 			if f.light {
 				f.importHeaders(op.origin, op.header)
 			} else {
@@ -387,7 +389,7 @@ func (f *BlockFetcher) loop() {
 
 			count := f.announces[notification.origin] + 1
 			if count > hashLimit {
-				log.Debug("Peer exceeded outstanding announces", "peer", notification.origin, "limit", hashLimit)
+				log.Debug("Peer exceeded outstanding announces", "peer", notification.origin, "limit", hashLimit, "count", count)
 				blockAnnounceDOSMeter.Mark(1)
 				break
 			}
@@ -711,7 +713,7 @@ func (f *BlockFetcher) enqueue(peer string, header *types.Header, block *types.B
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
-		log.Debug("Discarded delivered header or block, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", blockLimit)
+		log.Debug("Discarded delivered header or block, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", blockLimit, "count", count)
 		blockBroadcastDOSMeter.Mark(1)
 		f.forgetHash(hash)
 		return

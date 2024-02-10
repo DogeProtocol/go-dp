@@ -39,9 +39,9 @@ import (
 )
 
 var (
-	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
-	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request
-	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
+	MaxBlockFetch   = 16  // Amount of blocks to be fetched per retrieval request
+	MaxHeaderFetch  = 16  // Amount of block headers to be fetched per retrieval request
+	MaxSkeletonSize = 16  // Number of header fetches to need for a skeleton assembly
 	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
@@ -465,6 +465,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	if err != nil {
 		return err
 	}
+	log.Trace("downloader", "height", height, "origin", origin)
 	d.syncStatsLock.Lock()
 	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
 		d.syncStatsChainOrigin = origin

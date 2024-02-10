@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +32,9 @@ import (
 	"github.com/DogeProtocol/dp/p2p/enode"
 	"github.com/DogeProtocol/dp/trie"
 )
+
+const REBROADCAST_CLEANUP_MILLI_SECONDS = 300000
+const REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS = 300000
 
 // EthHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
@@ -101,7 +105,18 @@ func (h *EthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 	case *eth.ConsensusPacket:
 		if h.consensusHandler != nil {
-			return h.consensusHandler.Handler.HandleConsensusPacket(packet)
+			packetHash := packet.Hash()
+			err := h.consensusHandler.Handler.HandleConsensusPacket(packet)
+			if err != nil && h.rebroadcastCount > 0 && h.peers != nil && h.peers.peers != nil && h.ShouldRebroadcastIfYesSetFlag(packetHash) {
+				for _, p := range h.peers.peers {
+					if strings.Compare(peer.ID(), p.ID()) != 0 {
+						log.Trace("Rebroadcast ConsensusPacket", "incoming peer", peer.ID(), "outgoing peer", p.ID(), "parentHash", packet.ParentHash, "packetHash", packetHash.Hex())
+						p.AsyncSendConsensusPacket(packet)
+					}
+				}
+			}
+
+			return err
 		} else {
 			return nil
 		}
@@ -263,4 +278,39 @@ func (h *EthHandler) handleRequestPeerList(peer *eth.Peer) error {
 func (h *EthHandler) handlePeerList(peer *eth.Peer, packet *eth.PeerListPacket) error {
 	log.Trace("handlePeerList", "peercount", len(packet.PeerList), "peer", peer.Node().IP())
 	return h.handlePeerListFn(packet.PeerList)
+}
+
+func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool {
+	h.rebroadcastLock.Lock()
+	defer h.rebroadcastLock.Unlock()
+
+	_, ok := h.rebroadcastMap[packetHash]
+	if ok == false {
+		h.rebroadcastMap[packetHash] = time.Now().UnixNano()
+
+		//Lazy cleanup
+		if Elapsed(h.rebroadcastLastCleanupTime) > REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS {
+			log.Debug("Cleaning up rebroadcast queue")
+			for k, v := range h.rebroadcastMap {
+				start := v / int64(time.Millisecond)
+				end := time.Now().UnixNano() / int64(time.Millisecond)
+				diff := end - start
+				if diff > REBROADCAST_CLEANUP_MILLI_SECONDS {
+					log.Debug("Cleaning up rebroadcast packet hash", k.Hex())
+					delete(h.rebroadcastMap, k)
+				}
+			}
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func Elapsed(startTime time.Time) int64 {
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	start := startTime.UnixNano() / int64(time.Millisecond)
+	diff := end - start
+	return diff
 }
