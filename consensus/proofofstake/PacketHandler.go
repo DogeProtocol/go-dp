@@ -545,8 +545,9 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 		return errors.New("received consensus packet, but consensus is not ready yet")
 	}
 
-	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil {
-		return errors.New("invalid packet, nil data")
+	if packet == nil {
+		debug.PrintStack()
+		panic("packet is nil")
 	}
 
 	err := cph.processPacket(packet)
@@ -1188,9 +1189,9 @@ func (cph *ConsensusHandler) shouldMoveToNextRoundProposalAcks(parentHash common
 			_, ok1 := blockRoundDetails.validatorProposalAcks[val]
 			if ok1 == true {
 				currentRoundDepositSoFar = common.SafeAddBigInt(depositAmount, currentRoundDepositSoFar)
-				log.Trace("currentRoundDepositSoFar received packet", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
+				log.Trace("currentRoundDepositSoFar", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
 			} else {
-				log.Trace("currentRoundDepositSoFar did not receive packet from validator", "val", val)
+				log.Trace("currentRoundDepositSoFar val no", "val", val)
 			}
 		} else {
 			totalGreaterRoundDepositCount = common.SafeAddBigInt(depositAmount, totalGreaterRoundDepositCount)
@@ -2379,10 +2380,6 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
 		return nil, errors.New("received request for consensus packet, but consensus is not ready yet")
-	}
-
-	if packet.RequestData == nil {
-		return nil, errors.New("invalid request consensus data packet")
 	}
 
 	requestDetails := RequestConsensusPacketDetails{}

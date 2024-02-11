@@ -19,7 +19,6 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/DogeProtocol/dp/crypto"
 	"io"
 	"math/big"
 
@@ -394,12 +393,6 @@ func (*PooledTransactionsPacket) Kind() byte   { return PooledTransactionsMsg }
 
 func (*ConsensusPacket) Name() string { return "ConsensusPacket" }
 func (*ConsensusPacket) Kind() byte   { return ConsensusMsg }
-func (c *ConsensusPacket) Hash() common.Hash {
-	if c.ConsensusData == nil || c.Signature == nil {
-		return c.ParentHash
-	}
-	return crypto.Keccak256Hash(c.ConsensusData, c.ParentHash[:], c.Signature)
-}
 
 func (*RequestConsensusDataPacket) Name() string { return "RequestConsensusDataPacket" }
 func (*RequestConsensusDataPacket) Kind() byte   { return RequestConsensusDataMsg }

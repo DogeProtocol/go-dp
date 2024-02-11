@@ -18,7 +18,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
@@ -147,7 +146,6 @@ var (
 		configFileFlag,
 		utils.CatalystFlag,
 		utils.EnableBackupsFlag,
-		utils.RebroadcastCountFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -340,10 +338,6 @@ func geth(ctx *cli.Context) error {
 		if len(passphrase) == 0 {
 			passphrase = utils.GetPassPhrase("Enter the passphrase for decrypting the wallet:", false)
 		}
-
-		if len(passphrase) == 0 {
-			utils.Fatalf("Cannot unlock account without password")
-		}
 	}
 
 	stack, backend := makeFullNode(ctx)
@@ -361,10 +355,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, passp
 	debug.Memsize.Add("node", stack)
 
 	// Unlock any account specifically requested
-	_, err := unlockAccounts(ctx, stack, passphrase)
-	if err != nil {
-		utils.Fatalf("Could not unlock the account: %v", err)
-	}
+	unlockAccounts(ctx, stack, passphrase)
 
 	// Start up the node itself
 	utils.StartNode(ctx, stack)
@@ -459,7 +450,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, passp
 }
 
 // unlockAccounts unlocks any account specifically requested.
-func unlockAccounts(ctx *cli.Context, stack *node.Node, passphrase string) (accounts.Account, error) {
+func unlockAccounts(ctx *cli.Context, stack *node.Node, passphrase string) {
 	var unlocks []string
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	for _, input := range inputs {
@@ -467,16 +458,10 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node, passphrase string) (acco
 			unlocks = append(unlocks, trimmed)
 		}
 	}
-
 	// Short circuit if there is no account to unlock.
 	if len(unlocks) == 0 {
-		return accounts.Account{}, nil
+		return
 	}
-
-	if len(unlocks) > 1 {
-		return accounts.Account{}, errors.New("only one account unlock is supported")
-	}
-
 	// If insecure account unlocking is not allowed if node's APIs are exposed to external.
 	// Print warning log to user and skip unlocking.
 	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
@@ -487,19 +472,14 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node, passphrase string) (acco
 	if len(passphrase) == 0 {
 		passwords := utils.MakePasswordList(ctx)
 		for i, account := range unlocks {
-			account, _, err := unlockAccount(ks, account, i, passwords)
-
-			return account, err
+			unlockAccount(ks, account, i, passwords)
 		}
 	} else {
 		log.Info("Password passed")
 		for i, account := range unlocks {
-			account, _, err := unlockAccount(ks, account, i, []string{passphrase})
-			return account, err
+			unlockAccount(ks, account, i, []string{passphrase})
 		}
 	}
-
-	return accounts.Account{}, errors.New("no account exists to unlock")
 }
 
 func checkTimeSync() {

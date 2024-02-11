@@ -734,11 +734,6 @@ var (
 		Name:  "enablebackup",
 		Usage: "Whether to enable backups og blocks, transactions etc.",
 	}
-
-	RebroadcastCountFlag = cli.IntFlag{
-		Name:  "rebroadcastcount",
-		Usage: "Rebroadcast packets to N number of peers.",
-	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1218,10 +1213,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	if ctx.GlobalIsSet(EnableBackupsFlag.Name) {
 		cfg.EnableBackups = ctx.GlobalBool(EnableBackupsFlag.Name)
-	}
-
-	if ctx.GlobalIsSet(RebroadcastCountFlag.Name) {
-		cfg.RebroadcastCount = ctx.GlobalInt(RebroadcastCountFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {

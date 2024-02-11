@@ -17,7 +17,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"io/ioutil"
@@ -205,7 +204,7 @@ func accountList(ctx *cli.Context) error {
 }
 
 // tries unlocking the specified account a few times.
-func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []string) (accounts.Account, string, error) {
+func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []string) (accounts.Account, string) {
 	account, err := utils.MakeAddress(ks, address)
 	if err != nil {
 		utils.Fatalf("Could not list accounts: %v", err)
@@ -216,15 +215,11 @@ func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []str
 		err = ks.Unlock(account, password)
 		if err == nil {
 			log.Info("Unlocked account", "address", account.Address.Hex())
-			return account, password, nil
+			return account, password
 		}
 		if err, ok := err.(*keystore.AmbiguousAddrError); ok {
 			log.Info("Unlocked account", "address", account.Address.Hex())
-			account, errRet := ambiguousAddrRecovery(ks, err, password)
-			if errRet != nil {
-				return accounts.Account{}, "", errRet
-			}
-			return account, password, nil
+			return ambiguousAddrRecovery(ks, err, password), password
 		}
 		if err != keystore.ErrDecrypt {
 			// No need to prompt again if the error is not decryption-related.
@@ -234,10 +229,10 @@ func unlockAccount(ks *keystore.KeyStore, address string, i int, passwords []str
 	// All trials expended to unlock account, bail out
 	utils.Fatalf("Failed to unlock account %s (%v)", address, err)
 
-	return accounts.Account{}, "", errors.New("failed to unlock accounts")
+	return accounts.Account{}, ""
 }
 
-func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrError, auth string) (accounts.Account, error) {
+func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrError, auth string) accounts.Account {
 	fmt.Printf("Multiple key files exist for address %x:\n", err.Addr)
 	for _, a := range err.Matches {
 		fmt.Println("  ", a.URL)
@@ -252,7 +247,6 @@ func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrErr
 	}
 	if match == nil {
 		utils.Fatalf("None of the listed files could be unlocked.")
-		return *match, errors.New("ambiguousAddrRecovery unlock failed")
 	}
 	fmt.Printf("Your password unlocked %s\n", match.URL)
 	fmt.Println("In order to avoid this warning, you need to remove the following duplicate key files:")
@@ -261,7 +255,7 @@ func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrErr
 			fmt.Println("  ", a.URL)
 		}
 	}
-	return *match, nil
+	return *match
 }
 
 // accountCreate creates a new account into the keystore defined by the CLI flags.
@@ -308,10 +302,7 @@ func accountUpdate(ctx *cli.Context) error {
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
 	for _, addr := range ctx.Args() {
-		account, oldPassword, err := unlockAccount(ks, addr, 0, nil)
-		if err != nil {
-			utils.Fatalf("Could not unlock account to update the account: %v", err)
-		}
+		account, oldPassword := unlockAccount(ks, addr, 0, nil)
 		newPassword := utils.GetPassPhraseWithList("Please give a new password. Do not forget this password.", true, 0, nil)
 		if err := ks.Update(account, oldPassword, newPassword); err != nil {
 			utils.Fatalf("Could not update the account: %v", err)

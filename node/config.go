@@ -193,8 +193,6 @@ type Config struct {
 	AllowUnprotectedTxs bool `toml:",omitempty"`
 
 	EnableBackups bool
-
-	RebroadcastCount int
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

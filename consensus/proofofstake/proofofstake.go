@@ -708,10 +708,6 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
-
-			if c.signFn != nil && val.IsEqualTo(c.validator) {
-				log.Warn("You account got a slashing!", "parentHash", header.ParentHash)
-			}
 		}
 	}
 
@@ -732,11 +728,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			log.Trace("AddDepositorReward err", "err", err)
 			return err
 		}
-		log.Trace("Reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
-	}
-
-	if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
-		log.Info("You potentially proposed and mined a new block!", "parentHash", header.ParentHash)
+		log.Trace(">reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
 	}
 
 	//Fix blocktime
