@@ -537,17 +537,17 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
+	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+		return errors.New("invalid packet, nil data")
+	}
+
 	if cph.signFn == nil {
 		return nil
 	}
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		return errors.New("received consensus packet, but consensus is not ready yet")
-	}
-
-	if packet == nil {
-		debug.PrintStack()
-		panic("packet is nil")
+		log.Trace("received consensus packet, but consensus is not ready yet")
+		return nil
 	}
 
 	err := cph.processPacket(packet)
@@ -1189,9 +1189,9 @@ func (cph *ConsensusHandler) shouldMoveToNextRoundProposalAcks(parentHash common
 			_, ok1 := blockRoundDetails.validatorProposalAcks[val]
 			if ok1 == true {
 				currentRoundDepositSoFar = common.SafeAddBigInt(depositAmount, currentRoundDepositSoFar)
-				log.Trace("currentRoundDepositSoFar", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
+				log.Trace("currentRoundDepositSoFar received packet", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
 			} else {
-				log.Trace("currentRoundDepositSoFar val no", "val", val)
+				log.Trace("currentRoundDepositSoFar did not receive packet from validator", "val", val)
 			}
 		} else {
 			totalGreaterRoundDepositCount = common.SafeAddBigInt(depositAmount, totalGreaterRoundDepositCount)
@@ -2377,6 +2377,10 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 
 	cph.innerPacketLock.Lock()
 	defer cph.innerPacketLock.Unlock()
+
+	if packet == nil || packet.RequestData == nil || len(packet.RequestData) == 0 {
+		return nil, errors.New("invalid request consensus data packet")
+	}
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
 		return nil, errors.New("received request for consensus packet, but consensus is not ready yet")

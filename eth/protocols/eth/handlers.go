@@ -518,7 +518,6 @@ func handlePooledTransactions66(backend Backend, msg Decoder, peer *Peer) error 
 func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
 	_, err := peer.Node().Address()
 	if err != nil {
-		//fmt.Println("handleConsensus Address error", err)
 		return err
 	}
 
@@ -530,7 +529,6 @@ func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
 	// Transactions can be processed, parse all of them and deliver to the pool
 	var packet ConsensusPacket
 	if err := msg.Decode(&packet); err != nil {
-		//fmt.Println("handleConsensus error", err)
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
 	}
 	err = backend.Handle(peer, &packet)

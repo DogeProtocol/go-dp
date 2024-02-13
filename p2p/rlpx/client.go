@@ -189,7 +189,7 @@ func (c *Client) PerformHandshake() error {
 
 	//Validate that expected public key and remote public key are the same (additional sanity check)
 	if !bytes.Equal(serverPubKeyDataLocal, serverPubKeyDataRemote) {
-		log.Error("Public Key mismatch",
+		log.Trace("Public Key mismatch",
 			"serverSigningPublicKey", base64.StdEncoding.EncodeToString(c.serverSigningPublicKey.PubData),
 			"signature", base64.StdEncoding.EncodeToString(serverVerifyMessage.Signature[:serverVerifyMessage.SignatureLen]),
 			"serverPubKeyDataRemote", base64.StdEncoding.EncodeToString(serverPubKeyDataRemote))

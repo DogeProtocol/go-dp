@@ -1964,3 +1964,100 @@ func TestValidateBlockProposalTimeConsensus(t *testing.T) {
 		t.Fatalf("failed 13")
 	}
 }
+
+func Test_consensuspacket_negative(t *testing.T) {
+	numKeys := 4
+	_, p2p, _ := Initialize(numKeys)
+
+	for _, handler := range p2p.mockP2pHandlers {
+		h := handler
+
+		var p0 eth.ConsensusPacket
+		err := h.consensusHandler.HandleConsensusPacket(&p0)
+		if err == nil {
+			t.Fatalf("failed1")
+		}
+
+		p1 := eth.ConsensusPacket{}
+		err = h.consensusHandler.HandleConsensusPacket(&p1)
+
+		if err == nil {
+			t.Fatalf("failed2")
+		}
+
+		p2 := eth.ConsensusPacket{
+			Signature: make([]byte, 10),
+		}
+
+		err = h.consensusHandler.HandleConsensusPacket(&p2)
+
+		if err == nil {
+			t.Fatalf("failed3")
+		}
+
+		p3 := eth.ConsensusPacket{
+			ConsensusData: make([]byte, 10),
+		}
+
+		err = h.consensusHandler.HandleConsensusPacket(&p3)
+
+		if err == nil {
+			t.Fatalf("failed4")
+		}
+
+		p4 := eth.ConsensusPacket{
+			Signature:     make([]byte, 10),
+			ConsensusData: make([]byte, 0),
+		}
+
+		err = h.consensusHandler.HandleConsensusPacket(&p4)
+
+		if err == nil {
+			t.Fatalf("failed5")
+		}
+
+		p5 := eth.ConsensusPacket{
+			Signature:     make([]byte, 0),
+			ConsensusData: make([]byte, 10),
+		}
+
+		err = h.consensusHandler.HandleConsensusPacket(&p5)
+
+		if err == nil {
+			t.Fatalf("failed6")
+		}
+	}
+
+}
+
+func Test_requestconsensuspacket_negative(t *testing.T) {
+	numKeys := 4
+	_, p2p, _ := Initialize(numKeys)
+
+	for _, handler := range p2p.mockP2pHandlers {
+		h := handler
+
+		var p0 eth.RequestConsensusDataPacket
+		_, err := h.consensusHandler.HandleRequestConsensusDataPacket(&p0)
+		if err == nil {
+			t.Fatalf("failed1")
+		}
+
+		p1 := eth.RequestConsensusDataPacket{}
+		_, err = h.consensusHandler.HandleRequestConsensusDataPacket(&p1)
+
+		if err == nil {
+			t.Fatalf("failed2")
+		}
+
+		p2 := eth.RequestConsensusDataPacket{
+			RequestData: make([]byte, 0),
+		}
+
+		_, err = h.consensusHandler.HandleRequestConsensusDataPacket(&p2)
+
+		if err == nil {
+			t.Fatalf("failed3")
+		}
+	}
+}
