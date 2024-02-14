@@ -273,6 +273,10 @@ func balance() {
 		return
 	}
 
+	if strings.HasPrefix(addr, "0x") == false {
+		addr = "0x" + addr
+	}
+
 	if len(rawURL) == 0 {
 		ethBalance, weiBalance, nonce, err := requestGetBalance(addr)
 		if err != nil {
