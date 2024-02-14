@@ -168,6 +168,20 @@ func (ps *peerSet) PeerList() []string {
 	return peerList
 }
 
+func (ps *peerSet) PeerIdList() []string {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	peerList := make([]string, len(ps.peers))
+	i := 0
+	for _, peer := range ps.peers {
+		peerList[i] = peer.ID()
+		i = i + 1
+	}
+
+	return peerList
+}
+
 // peerWithHighestTD retrieves the known peer with the currently highest total
 // difficulty.
 func (ps *peerSet) peerWithHighestTD() *eth.Peer {

@@ -85,6 +85,7 @@ type HandlerConfig struct {
 	Checkpoint             *params.TrustedCheckpoint // Hard coded checkpoint for sync challenges
 	Whitelist              map[uint64]common.Hash    // Hard coded whitelist for sync challenged
 	ConsensusPacketHandler *ConsensusPacketHandler
+	RebroadcastCount       int
 }
 
 type ConsensusHandler interface {
@@ -137,6 +138,13 @@ type P2PHandler struct {
 	peerWG    sync.WaitGroup
 
 	handlePeerListFn HandlePeerList
+
+	rebroadcastCount int
+
+	rebroadcastMap map[common.Hash]int64 //packetHash to unixnano of packet first-time-received-time hash
+
+	rebroadcastLock            sync.Mutex
+	rebroadcastLastCleanupTime time.Time
 }
 
 var lock = &sync.Mutex{}
@@ -176,16 +184,19 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 		config.EventMux = new(event.TypeMux) // Nicety initialization for tests
 	}
 	h := &P2PHandler{
-		networkID:  config.Network,
-		forkFilter: forkid.NewFilter(config.Chain),
-		eventMux:   config.EventMux,
-		database:   config.Database,
-		txpool:     config.TxPool,
-		chain:      config.Chain,
-		peers:      newPeerSet(),
-		whitelist:  config.Whitelist,
-		txsyncCh:   make(chan *txsync),
-		quitSync:   make(chan struct{}),
+		networkID:                  config.Network,
+		forkFilter:                 forkid.NewFilter(config.Chain),
+		eventMux:                   config.EventMux,
+		database:                   config.Database,
+		txpool:                     config.TxPool,
+		chain:                      config.Chain,
+		peers:                      newPeerSet(),
+		whitelist:                  config.Whitelist,
+		txsyncCh:                   make(chan *txsync),
+		quitSync:                   make(chan struct{}),
+		rebroadcastCount:           config.RebroadcastCount,
+		rebroadcastMap:             make(map[common.Hash]int64),
+		rebroadcastLastCleanupTime: time.Now(),
 	}
 	if config.Sync == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast

@@ -30,6 +30,10 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			return nil, errors.New("unexpected parenthash")
 		}
 
+		if packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+			return nil, errors.New("invalid consensus packet, nil data")
+		}
+
 		dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 		digestHash := crypto.Keccak256(dataToVerify)
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
@@ -555,10 +559,18 @@ func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[com
 		return err
 	}
 
+	if blockConsensusData.SlashedBlockProposers == nil || blockConsensusData.SelectedTransactions == nil {
+		return errors.New("ValidateBlockConsensusData SlashedBlockProposers or SelectedTransactions is nil")
+	}
+
 	blockAdditionalConsensusData := &BlockAdditionalConsensusData{}
 	err = rlp.DecodeBytes(header.UnhashedConsensusData, blockAdditionalConsensusData)
 	if err != nil {
 		return err
+	}
+
+	if blockAdditionalConsensusData.ConsensusPackets == nil {
+		return errors.New("ValidateBlockConsensusData ConsensusPackets is nil")
 	}
 
 	txns := block.Transactions()

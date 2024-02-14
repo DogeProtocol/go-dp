@@ -113,7 +113,7 @@ func newFreezer(datadir string, namespace string, readonly bool) (*freezer, erro
 	// Open all the supported data tables
 	freezer := &freezer{
 		readonly:     readonly,
-		threshold:    params.FullImmutabilityThreshold,
+		threshold:    params.FreezerFullImmutabilityThreshold,
 		tables:       make(map[string]*freezerTable),
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),

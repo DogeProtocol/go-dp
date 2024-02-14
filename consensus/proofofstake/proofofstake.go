@@ -34,6 +34,7 @@ import (
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -377,30 +378,8 @@ func (c *ProofOfStake) HandleTransactions(chain consensus.ChainHeaderReader, hea
 func (c *ProofOfStake) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
+
 	go func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel() // cancel when we are finished consuming integers
-
-		currentNumber := uint64(c.ethAPI.BlockNumber())
-		currentHeader, err := c.ethAPI.GetHeaderByNumberInner(ctx, rpc.BlockNumber(currentNumber))
-		if err != nil {
-			results <- err
-			return
-		}
-
-		log.Debug("VerifyHeaders", "header", headers[0].Number.Uint64(), "currentHeader", currentNumber, "currentHeaderNumber", currentHeader.Number,
-			"hash", headers[0].Hash(), "parent", headers[0].ParentHash, "expected", currentHeader.Hash())
-		if headers[0].Number.Uint64() != uint64(currentNumber+1) || headers[0].ParentHash.IsEqualTo(currentHeader.Hash()) == false {
-			results <- err
-			return
-		}
-
-		_, err = c.GetValidators(headers[0].ParentHash)
-		if err != nil {
-			results <- err
-			return
-		}
-
 		for i, header := range headers {
 			err := c.verifyHeader(chain, header, headers[:i])
 
@@ -708,6 +687,10 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 				return err
 			}
 			log.Trace("slashed amount", "slashTotal", slashTotal, "slashAmount", slashAmount, "depositor", depositor)
+
+			if c.signFn != nil && val.IsEqualTo(c.validator) {
+				log.Warn("You account got a slashing!", "parentHash", header.ParentHash)
+			}
 		}
 	}
 
@@ -728,7 +711,11 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 			log.Trace("AddDepositorReward err", "err", err)
 			return err
 		}
-		log.Trace(">reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
+		log.Trace("Reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
+	}
+
+	if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
+		log.Info("You potentially proposed and mined a new block!", "parentHash", header.ParentHash)
 	}
 
 	//Fix blocktime
@@ -810,6 +797,7 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	debug.PrintStack()
 	c.validator = validator
 	c.signFn = signFn
 	c.signTxFn = signTxFn

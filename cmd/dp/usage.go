@@ -223,6 +223,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			cli.HelpFlag,
 			utils.CatalystFlag,
 			utils.EnableBackupsFlag,
+			utils.RebroadcastCountFlag,
 		},
 	},
 }
