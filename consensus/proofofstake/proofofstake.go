@@ -34,7 +34,6 @@ import (
 	"github.com/DogeProtocol/dp/trie"
 	"io"
 	"math/big"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -797,7 +796,6 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	debug.PrintStack()
 	c.validator = validator
 	c.signFn = signFn
 	c.signTxFn = signTxFn

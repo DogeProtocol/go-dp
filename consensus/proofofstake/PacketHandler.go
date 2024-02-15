@@ -55,6 +55,12 @@ type ConsensusHandler struct {
 	initialized                  bool
 	packetHashLastSentMap        map[common.Hash]time.Time
 	lastRequestConsensusDataTime time.Time
+
+	packetStats PacketStats
+}
+
+type PacketStats struct {
+	TotalIncomingPacketCount uint64
 }
 
 type BlockConsensusData struct {
@@ -550,6 +556,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 		return nil
 	}
 
+	cph.LogIncomingPacketStats()
 	err := cph.processPacket(packet)
 	if errors.Is(err, OutOfOrderPackerErr) {
 		pkt := eth.NewConsensusPacket(packet)
@@ -2089,6 +2096,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		cph.initTime = time.Now()
 		cph.initialized = true
 		cph.packetHashLastSentMap = make(map[common.Hash]time.Time)
+		cph.packetStats = PacketStats{}
 
 		log.Info("Starting up...")
 		return errors.New("starting up")
@@ -2125,7 +2133,8 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
 		"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
 		"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
-		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime, "pending txns", len(txns))
+		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime,
+		"pending txns", len(txns), "TotalIncomingPackets", cph.packetStats.TotalIncomingPacketCount)
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {
@@ -2456,4 +2465,8 @@ func getOkVotePreCommitHash(parentHash common.Hash, proposalHash common.Hash, ro
 
 func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
 	return crypto.Keccak256Hash(parentHash.Bytes(), []byte("precommit"), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
+}
+
+func (cph *ConsensusHandler) LogIncomingPacketStats() {
+	cph.packetStats.TotalIncomingPacketCount = cph.packetStats.TotalIncomingPacketCount + 1
 }
