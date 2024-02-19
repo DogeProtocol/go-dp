@@ -55,6 +55,12 @@ type ConsensusHandler struct {
 	initialized                  bool
 	packetHashLastSentMap        map[common.Hash]time.Time
 	lastRequestConsensusDataTime time.Time
+
+	packetStats PacketStats
+}
+
+type PacketStats struct {
+	TotalIncomingPacketCount uint64
 }
 
 type BlockConsensusData struct {
@@ -537,19 +543,20 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
+	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+		return errors.New("invalid packet, nil data")
+	}
+
 	if cph.signFn == nil {
 		return nil
 	}
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
-		return errors.New("received consensus packet, but consensus is not ready yet")
+		log.Trace("received consensus packet, but consensus is not ready yet")
+		return nil
 	}
 
-	if packet == nil {
-		debug.PrintStack()
-		panic("packet is nil")
-	}
-
+	cph.LogIncomingPacketStats()
 	err := cph.processPacket(packet)
 	if errors.Is(err, OutOfOrderPackerErr) {
 		pkt := eth.NewConsensusPacket(packet)
@@ -1189,9 +1196,9 @@ func (cph *ConsensusHandler) shouldMoveToNextRoundProposalAcks(parentHash common
 			_, ok1 := blockRoundDetails.validatorProposalAcks[val]
 			if ok1 == true {
 				currentRoundDepositSoFar = common.SafeAddBigInt(depositAmount, currentRoundDepositSoFar)
-				log.Trace("currentRoundDepositSoFar", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
+				log.Trace("currentRoundDepositSoFar received packet", "val", val, "depositAmount", depositAmount, "currentRoundDepositSoFar", currentRoundDepositSoFar)
 			} else {
-				log.Trace("currentRoundDepositSoFar val no", "val", val)
+				log.Trace("currentRoundDepositSoFar did not receive packet from validator", "val", val)
 			}
 		} else {
 			totalGreaterRoundDepositCount = common.SafeAddBigInt(depositAmount, totalGreaterRoundDepositCount)
@@ -2089,6 +2096,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		cph.initTime = time.Now()
 		cph.initialized = true
 		cph.packetHashLastSentMap = make(map[common.Hash]time.Time)
+		cph.packetStats = PacketStats{}
 
 		log.Info("Starting up...")
 		return errors.New("starting up")
@@ -2125,7 +2133,8 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
 		"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
 		"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
-		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime, "pending txns", len(txns))
+		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime,
+		"pending txns", len(txns), "TotalIncomingPackets", cph.packetStats.TotalIncomingPacketCount)
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {
@@ -2378,6 +2387,10 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 	cph.innerPacketLock.Lock()
 	defer cph.innerPacketLock.Unlock()
 
+	if packet == nil || packet.RequestData == nil || len(packet.RequestData) == 0 {
+		return nil, errors.New("invalid request consensus data packet")
+	}
+
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
 		return nil, errors.New("received request for consensus packet, but consensus is not ready yet")
 	}
@@ -2452,4 +2465,8 @@ func getOkVotePreCommitHash(parentHash common.Hash, proposalHash common.Hash, ro
 
 func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
 	return crypto.Keccak256Hash(parentHash.Bytes(), []byte("precommit"), ZERO_HASH.Bytes(), []byte{round}, []byte{byte(VOTE_TYPE_NIL)})
+}
+
+func (cph *ConsensusHandler) LogIncomingPacketStats() {
+	cph.packetStats.TotalIncomingPacketCount = cph.packetStats.TotalIncomingPacketCount + 1
 }

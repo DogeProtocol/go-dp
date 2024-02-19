@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -30,7 +31,11 @@ import (
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/p2p/enode"
 	"github.com/DogeProtocol/dp/trie"
+	"math/rand"
 )
+
+const REBROADCAST_CLEANUP_MILLI_SECONDS = 300000
+const REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS = 1800000
 
 // EthHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
@@ -101,7 +106,14 @@ func (h *EthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 	case *eth.ConsensusPacket:
 		if h.consensusHandler != nil {
-			return h.consensusHandler.Handler.HandleConsensusPacket(packet)
+			err := h.consensusHandler.Handler.HandleConsensusPacket(packet)
+			if err != nil {
+				log.Debug("Error in HandleConsensusPacket", "err", err)
+			} else {
+				go h.rebroadcast(peer.ID(), packet)
+			}
+
+			return err
 		} else {
 			return nil
 		}
@@ -263,4 +275,72 @@ func (h *EthHandler) handleRequestPeerList(peer *eth.Peer) error {
 func (h *EthHandler) handlePeerList(peer *eth.Peer, packet *eth.PeerListPacket) error {
 	log.Trace("handlePeerList", "peercount", len(packet.PeerList), "peer", peer.Node().IP())
 	return h.handlePeerListFn(packet.PeerList)
+}
+
+func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool {
+	h.rebroadcastLock.Lock()
+	defer h.rebroadcastLock.Unlock()
+
+	_, ok := h.rebroadcastMap[packetHash]
+	if ok == false {
+		h.rebroadcastMap[packetHash] = time.Now().UnixNano()
+
+		//Lazy cleanup
+		if Elapsed(h.rebroadcastLastCleanupTime) > REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS {
+			log.Error("Cleaning up rebroadcast queue")
+			for k, v := range h.rebroadcastMap {
+				start := v / int64(time.Millisecond)
+				end := time.Now().UnixNano() / int64(time.Millisecond)
+				diff := end - start
+				if diff > REBROADCAST_CLEANUP_MILLI_SECONDS {
+					log.Error("Cleaning up rebroadcast packet hash", k.Hex())
+					delete(h.rebroadcastMap, k)
+				}
+			}
+			h.rebroadcastLastCleanupTime = time.Now()
+		}
+
+		return true
+	}
+
+	log.Warn("ShouldRebroadcastIfYesSetFlag false", "packet", packetHash.Hex())
+	return false
+}
+
+func (h *EthHandler) rebroadcast(incomingPeerId string, packet *eth.ConsensusPacket) {
+	log.Trace("rebroadcast", "packet", packet.Hash().Hex())
+	packetHash := packet.Hash()
+	peerList := h.peers.PeerIdList()
+	for i := len(peerList) - 1; i > 0; i-- { //Fisher Yates shuffle. Send to a random set of peers each time
+		minVal := 0
+		maxVal := i
+		j := rand.Intn(maxVal-minVal) + minVal
+		temp := peerList[i]
+		peerList[i] = peerList[j]
+		peerList[j] = temp
+	}
+
+	count := 0
+	for index := range peerList {
+		p := h.peers.peer(peerList[index])
+		if p == nil {
+			continue
+		}
+		log.Trace("Rebroadcast peer", "peer", peerList[index])
+		if strings.Compare(incomingPeerId, p.ID()) != 0 {
+			log.Trace("Rebroadcast ConsensusPacket", "incoming peer", incomingPeerId, "outgoing peer", p.ID(), "parentHash", packet.ParentHash, "packetHash", packetHash.Hex())
+			p.AsyncSendConsensusPacket(packet)
+			count = count + 1
+			if count >= h.rebroadcastCount {
+				break
+			}
+		}
+	}
+}
+
+func Elapsed(startTime time.Time) int64 {
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	start := startTime.UnixNano() / int64(time.Millisecond)
+	diff := end - start
+	return diff
 }

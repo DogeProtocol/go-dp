@@ -259,7 +259,11 @@ loop:
 		select {
 		case node := <-nodesCh:
 			if err := d.checkDial(node); err != nil {
-				d.log.Trace("Discarding dial candidate", "id", node.ID(), "ip", node.IP(), "reason", err)
+				if errors.Is(err, errAlreadyConnected) || errors.Is(err, errRecentlyDialed) || errors.Is(err, errAlreadyDialing) {
+
+				} else {
+					d.log.Trace("Discarding dial candidate", "id", node.ID(), "ip", node.IP(), "reason", err)
+				}
 			} else {
 				d.startDial(newDialTask(node, dynDialedConn))
 			}
