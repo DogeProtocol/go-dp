@@ -9,7 +9,9 @@ import (
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/params"
+	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
+	"github.com/google/uuid"
 	"math/big"
 	"strings"
 	"syscall/js"
@@ -24,7 +26,6 @@ type TransactionDetails struct {
 	ToAddress   common.Address `json:"toAddress"`
 	Nonce       uint64         `json:"nonce"`
 	GasLimit    uint64         `json:"gasLimit"`
-	GasPrice    *big.Int       `json:"gasPrice"`
 	Value       *big.Int       `json:"value"`
 	Data        []byte         `json:"data"`
 	ChainId     *big.Int       `json:"chainId"`
@@ -36,6 +37,8 @@ func main() {
 	js.Global().Set("TxMessage", js.FuncOf(TxMessage))
 	js.Global().Set("TxHash", js.FuncOf(TxHash))
 	js.Global().Set("TxData", js.FuncOf(TxData))
+	js.Global().Set("ExportKey", js.FuncOf(ExportKey))
+	js.Global().Set("ImportKey", js.FuncOf(ImportKey))
 	js.Global().Set("DogeProtocolToWei", js.FuncOf(DogeProtocolToWei))
 	js.Global().Set("WeiToDogeProtocol", js.FuncOf(WeiToDogeProtocol))
 	js.Global().Set("ParseBigFloat", js.FuncOf(ParseBigFloat))
@@ -54,8 +57,7 @@ func TxMessage(this js.Value, args []js.Value) interface{} {
 
 	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
 		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].GasPrice,
-		ts.Transaction[0].Data)
+		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -78,16 +80,15 @@ func TxHash(this js.Value, args []js.Value) interface{} {
 
 	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
 		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].GasPrice,
-		ts.Transaction[0].Data)
+		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
-	pubData := js.Global().Get("Uint8Array").New(args[8])
+	pubData := js.Global().Get("Uint8Array").New(args[7])
 	pubBytes := make([]byte, pubData.Get("length").Int())
 	js.CopyBytesToGo(pubBytes, pubData)
 
-	sigData := js.Global().Get("Uint8Array").New(args[9])
+	sigData := js.Global().Get("Uint8Array").New(args[8])
 	sigBytes := make([]byte, sigData.Get("length").Int())
 	js.CopyBytesToGo(sigBytes, sigData)
 
@@ -104,12 +105,11 @@ func TxData(this js.Value, args []js.Value) interface{} {
 
 	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
 		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].GasPrice,
-		ts.Transaction[0].Data)
+		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
-	pubData := js.Global().Get("Uint8Array").New(args[8])
+	pubData := js.Global().Get("Uint8Array").New(args[7])
 	pubBytes := make([]byte, pubData.Get("length").Int())
 	js.CopyBytesToGo(pubBytes, pubData)
 
@@ -129,6 +129,58 @@ func TxData(this js.Value, args []js.Value) interface{} {
 
 	signTxEncode := hexutil.Encode(signTxBinary)
 	return signTxEncode
+}
+
+func ExportKey(this js.Value, args []js.Value) interface{} {
+	privData := js.Global().Get("Uint8Array").New(args[0])
+	privBytes := make([]byte, privData.Get("length").Int())
+	js.CopyBytesToGo(privBytes, privData)
+
+	pubData := js.Global().Get("Uint8Array").New(args[1])
+	pubBytes := make([]byte, pubData.Get("length").Int())
+	js.CopyBytesToGo(pubBytes, pubData)
+
+	auth := args[3].String()
+
+	var pubKeyAddress = common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:])
+
+	id, err := uuid.NewRandom()
+	if err != nil {
+		panic(fmt.Sprintf("Could not create random uuid: %v", err))
+	}
+
+	publicKey := ks.PublicKey{
+		PubData: pubBytes,
+	}
+
+	privateKey := &ks.PrivateKey{
+		PublicKey: publicKey,
+		PriData:   privBytes,
+	}
+
+	key := &ks.Key{
+		Id:         id,
+		Address:    pubKeyAddress,
+		PrivateKey: privateKey,
+	}
+
+	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), auth, ks.StandardScryptN, ks.StandardScryptP)
+	if err != nil {
+		return err
+	}
+
+	return string(keyJson[:])
+}
+
+func ImportKey(this js.Value, args []js.Value) interface{} {
+	keyJson := []byte(args[0].String())
+	auth := args[0].String()
+
+	key, err := ks.DecryptKey(keyJson, auth)
+	if err != nil {
+		return err
+	}
+	return string(key.PrivateKey.PriData)
 }
 
 func DogeProtocolToWei(this js.Value, args []js.Value) interface{} {
@@ -198,22 +250,16 @@ func transaction(args []js.Value) (transaction Transaction) {
 	fmt.Sscan(args[4].String(), &lTitle, &l)
 	gasLimit := l
 
-	gasPrice := new(big.Int)
-	_, err = fmt.Sscan(args[5].String(), gasPrice)
-	if err != nil {
-		panic(err)
-	}
-
-	var data []byte //args[6].String()
+	var data []byte //args[5].String()
 
 	var cTitle string
 	var c int64
-	fmt.Sscan(args[7].String(), &cTitle, &c)
+	fmt.Sscan(args[6].String(), &cTitle, &c)
 	chainId := big.NewInt(c)
 
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
-		GasPrice: gasPrice, Value: value, Data: data, ChainId: chainId}
+		Value: value, Data: data, ChainId: chainId}
 
 	var t Transaction
 	t.Transaction = append(t.Transaction, transactionDetails)
