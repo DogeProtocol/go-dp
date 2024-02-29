@@ -35,7 +35,7 @@ jobs:
       run:  ls  ${{ github.workspace }}/build
     - name: Create Release
       run: |
-        tar -czf ${{ github.workspace }}/build/webassembly-wasm.gz ${{ github.workspace }}/build/wasm/.
+        cd ${{ github.workspace }}/build/wasm && tar -czf ${{ github.workspace }}/build/webassembly-wasm.gz .
         sha256sum ${{ github.workspace }}/build/webassembly-wasm.gz >${{ github.workspace }}/build/webassembly-wasm.txt
     - name: Check Release Files
       run: |
