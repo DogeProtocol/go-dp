@@ -61,7 +61,7 @@ jobs:
         sha256sum ${{ github.workspace }}/build/android-arm64-v8a.tar.gz >${{ github.workspace }}/build/android-arm64-v8a.txt
         cd ${{ github.workspace }}/build/x86 && tar -czf ${{ github.workspace }}/build/android-x86.tar.gz .
         sha256sum ${{ github.workspace }}/build/android-x86.tar.gz >${{ github.workspace }}/build/android-x86.txt
-        ${{ github.workspace }}/build/x86_64 && tar -czf ${{ github.workspace }}/build/android-x86_64.tar.gz .
+        cd ${{ github.workspace }}/build/x86_64 && tar -czf ${{ github.workspace }}/build/android-x86_64.tar.gz .
         sha256sum ${{ github.workspace }}/build/android-x86_64.tar.gz >${{ github.workspace }}/build/android--x86_64.txt
     - name: Check Release Files
       run: |
