@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
@@ -12,6 +13,7 @@ import (
 	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/scrypt"
 	"math/big"
 	"strings"
 	"syscall/js"
@@ -34,6 +36,7 @@ type TransactionDetails struct {
 func main() {
 	done := make(chan struct{}, 0)
 	js.Global().Set("PublicKeyToAddress", js.FuncOf(PublicKeyToAddress))
+	js.Global().Set("Scrypt", js.FuncOf(Scrypt))
 	js.Global().Set("TxMessage", js.FuncOf(TxMessage))
 	js.Global().Set("TxHash", js.FuncOf(TxHash))
 	js.Global().Set("TxData", js.FuncOf(TxData))
@@ -43,6 +46,22 @@ func main() {
 	js.Global().Set("WeiToDogeProtocol", js.FuncOf(WeiToDogeProtocol))
 	js.Global().Set("ParseBigFloat", js.FuncOf(ParseBigFloat))
 	<-done
+}
+
+func Scrypt(this js.Value, args []js.Value) interface{} {
+	secret := args[0].String()
+
+	salt, err := base64.StdEncoding.DecodeString(args[1].String())
+	if err != nil {
+		return err
+	}
+
+	derivedKey, err := scrypt.Key([]byte(secret), salt, 262144, 8, 1, 32)
+	if err != nil {
+		return err
+	}
+
+	return base64.StdEncoding.EncodeToString(derivedKey)
 }
 
 func PublicKeyToAddress(this js.Value, args []js.Value) interface{} {
