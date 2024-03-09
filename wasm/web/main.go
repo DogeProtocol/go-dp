@@ -40,8 +40,8 @@ func main() {
 	js.Global().Set("TxMessage", js.FuncOf(TxMessage))
 	js.Global().Set("TxHash", js.FuncOf(TxHash))
 	js.Global().Set("TxData", js.FuncOf(TxData))
-	js.Global().Set("ExportKey", js.FuncOf(ExportKey))
-	js.Global().Set("ImportKey", js.FuncOf(ImportKey))
+	js.Global().Set("KeyPairToWalletJson", js.FuncOf(KeyPairToWalletJson))
+	js.Global().Set("JsonToWalletKeyPair", js.FuncOf(JsonToWalletKeyPair))
 	js.Global().Set("DogeProtocolToWei", js.FuncOf(DogeProtocolToWei))
 	js.Global().Set("WeiToDogeProtocol", js.FuncOf(WeiToDogeProtocol))
 	js.Global().Set("ParseBigFloat", js.FuncOf(ParseBigFloat))
@@ -150,7 +150,7 @@ func TxData(this js.Value, args []js.Value) interface{} {
 	return signTxEncode
 }
 
-func ExportKey(this js.Value, args []js.Value) interface{} {
+func KeyPairToWalletJson(this js.Value, args []js.Value) interface{} {
 	privData := js.Global().Get("Uint8Array").New(args[0])
 	privBytes := make([]byte, privData.Get("length").Int())
 	js.CopyBytesToGo(privBytes, privData)
@@ -159,9 +159,9 @@ func ExportKey(this js.Value, args []js.Value) interface{} {
 	pubBytes := make([]byte, pubData.Get("length").Int())
 	js.CopyBytesToGo(pubBytes, pubData)
 
-	auth := args[3].String()
+	passphrase := args[2].String()
 
-	var pubKeyAddress = common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:])
+	var pubKeyAddress = crypto.PublicKeyBytesToAddress(pubBytes)
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -183,7 +183,7 @@ func ExportKey(this js.Value, args []js.Value) interface{} {
 		PrivateKey: privateKey,
 	}
 
-	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), auth, ks.StandardScryptN, ks.StandardScryptP)
+	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), passphrase, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
 		return err
 	}
@@ -191,15 +191,15 @@ func ExportKey(this js.Value, args []js.Value) interface{} {
 	return string(keyJson[:])
 }
 
-func ImportKey(this js.Value, args []js.Value) interface{} {
+func JsonToWalletKeyPair(this js.Value, args []js.Value) interface{} {
 	keyJson := []byte(args[0].String())
-	auth := args[0].String()
+	passphrase := args[1].String()
 
-	key, err := ks.DecryptKey(keyJson, auth)
+	key, err := ks.DecryptKey(keyJson, passphrase)
 	if err != nil {
 		return err
 	}
-	return string(key.PrivateKey.PriData)
+	return base64.StdEncoding.EncodeToString(key.PrivateKey.PriData) + "," + base64.StdEncoding.EncodeToString(key.PrivateKey.PubData)
 }
 
 func DogeProtocolToWei(this js.Value, args []js.Value) interface{} {
