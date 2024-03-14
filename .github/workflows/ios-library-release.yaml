@@ -1,0 +1,66 @@
+name: ios library Release
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: true
+
+      matrix:
+        os: [macos-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+       go-version: '^1.21.1'
+    - name: Create build folder
+      run: |
+        mkdir ${{ github.workspace }}/build
+        mkdir ${{ github.workspace }}/build/ios_arm64
+        mkdir ${{ github.workspace }}/build/ios_amd64
+        mkdir ${{ github.workspace }}/build/ios_lib
+    - name: Build Android library
+      run: |
+        export SDK_PATH=`xcrun --sdk $SDK --show-sdk-path`
+        export CLANG=`xcrun --sdk $SDK --find clang`
+        export CARCH="x86_64"  # if compiling for iPhone simulator
+        export CARCH="arm64"  # if compiling for iPhone
+        export exec $CLANG -arch $CARCH -isysroot $SDK_PATH -mios-version-min=10.0 "$@"
+        export CGO_ENABLED=1
+        export GOOS=darwin
+        export GOARCH=amd64
+        export SDK=iphonesimulator
+        go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/wasm/mobile/main.go
+        export GOARCH=arm64
+        export SDK=iphoneos  
+        export CGO_CFLAGS="-fembed-bitcode"
+        go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_arm64/arm64.a ${{ github.workspace }}/wasm/mobile/main.go
+	lipo ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/build/ios_arm64/arm64.a -create -output  ${{ github.workspace }}/build/ios_lib/libgodp.a
+	cp ${{ github.workspace }}/build/ios_arm64/arm64.h ${{ github.workspace }}/build/ios_lib/libgodp.h
+    - name: Check Files
+      run:  ls  ${{ github.workspace }}/build/ios_lib
+    - name: Create Release
+      run: |
+        cd ${{ github.workspace }}/build/ios_lib && tar -czf ${{ github.workspace }}/build/ios.tar.gz .
+        sha256sum ${{ github.workspace }}/build/ios.tar.gz >${{ github.workspace }}/build/ios.txt
+    - name: Check Release Files
+      run: |
+        ls  ${{ github.workspace }}/build/io*.*
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios-library-release
+        path: |
+          ${{ github.workspace }}/build/*.*
+    - name: release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifacts: "build/*.gz,build/*.txt"
