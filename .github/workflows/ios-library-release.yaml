@@ -20,6 +20,9 @@ jobs:
     - uses: actions/setup-go@v4
       with:
        go-version: '^1.21.1'
+    - uses: actions/xcode-select-version-action@v1
+      with:
+        xcode-version: latest       
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
