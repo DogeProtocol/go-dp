@@ -1,28 +1,23 @@
 name: ios library Release
 on:
-  push:
-    tags:
-      - '*'
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: true
-
       matrix:
         os: [macos-latest]
         build_type: [Release]
-
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
       with:
        go-version: '^1.21.1'
-    - uses: actions/xcode-select-version-action@v1
+    - uses: maxim-lobanov/setup-xcode@v1.2.3
       with:
-        xcode-version: latest       
+        xcode-version: latest
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
