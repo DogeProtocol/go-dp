@@ -18,8 +18,6 @@ jobs:
     - uses: maxim-lobanov/setup-xcode@v1.2.3
       with:
         xcode-version: latest
-    - name: Select xcode
-      run: sudo xcode-select -switch /Library/Developer/CommandLineTools
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
@@ -31,15 +29,17 @@ jobs:
         export SDK_PATH=`xcrun --sdk $SDK --show-sdk-path`
         export CLANG=`xcrun --sdk $SDK --find clang`
         export CARCH="x86_64"  # if compiling for iPhone simulator
-        export CARCH="arm64"  # if compiling for iPhone
-        export exec $CLANG -arch $CARCH -isysroot $SDK_PATH -mios-version-min=10.0 "$@"
+        exec $CLANG -arch $CARCH -isysroot $SDK_PATH -mios-version-min=10.0 "$@"
         export CGO_ENABLED=1
         export GOOS=darwin
-        export GOARCH=amd64
+        export GOARCH=amd64        
         export SDK=iphonesimulator
+        export CC=exec $CLANG -arch $CARCH -isysroot $SDK_PATH -mios-version-min=10.0 "$@"
         go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/wasm/mobile/main.go
+        export CARCH="arm64"  # if compiling for iPhone
         export GOARCH=arm64
         export SDK=iphoneos  
+        export CC=exec $CLANG -arch $CARCH -isysroot $SDK_PATH -mios-version-min=10.0 "$@"
         export CGO_CFLAGS="-fembed-bitcode"
         go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_arm64/arm64.a ${{ github.workspace }}/wasm/mobile/main.go
         lipo ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/build/ios_arm64/arm64.a -create -output  ${{ github.workspace }}/build/ios_lib/libgodp.a
