@@ -19,7 +19,7 @@ jobs:
       with:
         xcode-version: latest
     - name: Select xcode
-      run: sudo xcode-select --switch /Applications/Xcode_14.2.app/Contents/Developer
+      run: sudo xcode-select -switch /Library/Developer/CommandLineTools
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
