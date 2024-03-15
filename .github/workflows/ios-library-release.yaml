@@ -18,6 +18,8 @@ jobs:
     - uses: maxim-lobanov/setup-xcode@v1.2.3
       with:
         xcode-version: latest
+    - name: Select xcode
+      run: sudo xcode-select --switch /Applications/Xcode_$(XcodeVersion).app/Contents/Developer
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
