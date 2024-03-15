@@ -20,12 +20,20 @@ jobs:
         xcode-version: latest
     - name: Create build folder
       run: |
+        sudo xcode-select -p
+        sudo xcode-select -s /Applications/Xcode_14.2.app/Contents/Developer
+        sudo xcode-select -p
+        sudo xcode-select -version
+        sudo xcodebuild -version
+    - name: Create build folder
+      run: |
         mkdir ${{ github.workspace }}/build
         mkdir ${{ github.workspace }}/build/ios_arm64
         mkdir ${{ github.workspace }}/build/ios_amd64
         mkdir ${{ github.workspace }}/build/ios_lib
     - name: Build IOS library
       run: |
+        export DEVELOPER_DIR="/Applications/Xcode_14.2.app/Contents/Developer"
         export SDK_PATH=`xcrun --sdk $SDK --show-sdk-path`
         export CLANG=`xcrun --sdk $SDK --find clang`
         export CARCH="x86_64"  # if compiling for iPhone simulator
