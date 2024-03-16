@@ -33,6 +33,7 @@ jobs:
         mkdir ${{ github.workspace }}/build/ios_lib
     - name: Build IOS library
       run: |
+        chmod +x ${{ github.workspace }}/clangwrap.sh
         export CGO_ENABLED=1
         export GOOS=darwin
         export GOARCH=amd64        
