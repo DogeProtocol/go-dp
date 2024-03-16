@@ -3,7 +3,7 @@ on:
   push:
     tags:
     - '*'
-    
+  workflow_dispatch:  
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -23,16 +23,6 @@ jobs:
         xcode-version: latest
     - name: Install coreutils for macOS
       run: brew install coreutils
-    - name: Select xcode 
-      run: |
-        sudo xcode-select -p
-        sudo xcode-select -s /Applications/Xcode_14.2.app/Contents/Developer
-        sudo xcode-select -p
-        sudo xcode-select -version
-        sudo xcodebuild -version
-    - name: Install utils 
-      run: |
-        
     - name: Create build folder
       run: |
         mkdir ${{ github.workspace }}/build
