@@ -33,19 +33,15 @@ jobs:
         mkdir ${{ github.workspace }}/build/ios_lib
     - name: Build IOS library
       run: |
-        echo $GOROOT
-        cp ${{ github.workspace }}/clangwrap.sh $GOROOT/misc/ios/clangwrap.sh
-        ls $GOROOT/misc/ios/c*.s*
-        chmod +x $GOROOT/misc/ios/clangwrap.sh
         export CGO_ENABLED=1
         export GOOS=darwin
         export GOARCH=amd64        
         export SDK=iphonesimulator
-        export CC=$GOROOT/misc/ios/clangwrap.sh
+        export CC=${{ github.workspace }}/clangwrap.sh
         go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/wasm/mobile/main.go
         export GOARCH=arm64
         export SDK=iphoneos  
-        export CC=$GOROOT/misc/ios/clangwrap.sh
+        export CC=${{ github.workspace }}/clangwrap.sh
         export CGO_CFLAGS="-fembed-bitcode"
         go build -buildmode=c-archive -trimpath -tags ios -o ${{ github.workspace }}/build/ios_arm64/arm64.a ${{ github.workspace }}/wasm/mobile/main.go
         lipo ${{ github.workspace }}/build/ios_amd64/amd64.a ${{ github.workspace }}/build/ios_arm64/arm64.a -create -output  ${{ github.workspace }}/build/ios_lib/libgodp.a
