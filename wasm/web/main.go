@@ -53,12 +53,12 @@ func Scrypt(this js.Value, args []js.Value) interface{} {
 
 	salt, err := base64.StdEncoding.DecodeString(args[1].String())
 	if err != nil {
-		return null
+		return nil
 	}
 
 	derivedKey, err := scrypt.Key([]byte(secret), salt, 262144, 8, 1, 32)
 	if err != nil {
-		return null
+		return nil
 	}
 
 	return base64.StdEncoding.EncodeToString(derivedKey)
@@ -82,7 +82,7 @@ func TxMessage(this js.Value, args []js.Value) interface{} {
 
 	signerHash, err := signer.Hash(tx)
 	if err != nil {
-		return null
+		return nil
 	}
 
 	var message strings.Builder
@@ -113,7 +113,7 @@ func TxHash(this js.Value, args []js.Value) interface{} {
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
-		return null
+		return nil
 	}
 
 	return signTx.Hash().String()
@@ -138,12 +138,12 @@ func TxData(this js.Value, args []js.Value) interface{} {
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
-		return null
+		return nil
 	}
 
 	signTxBinary, err := signTx.MarshalBinary()
 	if err != nil {
-		return null
+		return nil
 	}
 
 	signTxEncode := hexutil.Encode(signTxBinary)
@@ -185,7 +185,7 @@ func KeyPairToWalletJson(this js.Value, args []js.Value) interface{} {
 
 	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), passphrase, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
-		return null
+		return nil
 	}
 
 	return string(keyJson[:])
@@ -197,7 +197,7 @@ func JsonToWalletKeyPair(this js.Value, args []js.Value) interface{} {
 
 	key, err := ks.DecryptKey(keyJson, passphrase)
 	if err != nil {
-		return null
+		return nil
 	}
 	return base64.StdEncoding.EncodeToString(key.PrivateKey.PriData) + "," + base64.StdEncoding.EncodeToString(key.PrivateKey.PubData)
 }
@@ -206,7 +206,7 @@ func DogeProtocolToWei(this js.Value, args []js.Value) interface{} {
 	dp := new(big.Float)
 	_, err := fmt.Sscan(args[0].String(), dp)
 	if err != nil {
-		return null
+		return nil
 	}
 	truncInt, _ := dp.Int(nil)
 	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
@@ -226,7 +226,7 @@ func ParseBigFloat(this js.Value, args []js.Value) interface{} {
 	f.SetMode(big.ToNearestEven)
 	_, err := fmt.Sscan(value, f)
 	if err != nil {
-		return null
+		return nil
 	}
 	return f.String()
 }
@@ -235,7 +235,7 @@ func WeiToDogeProtocol(this js.Value, args []js.Value) interface{} {
 	wei := new(big.Int)
 	_, err := fmt.Sscan(args[0].String(), wei)
 	if err != nil {
-		return null
+		return nil
 	}
 	f := new(big.Float)
 	f.SetPrec(236)
