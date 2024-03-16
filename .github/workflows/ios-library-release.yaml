@@ -33,10 +33,10 @@ jobs:
         mkdir ${{ github.workspace }}/build/ios_lib
     - name: Build IOS library
       run: |
-	echo $GOROOT
-	cp ${{ github.workspace }}/clangwrap.sh $GOROOT/misc/ios/clangwrap.sh
-	ls $GOROOT/misc/ios/c*.s*
-	chmod +x $GOROOT/misc/ios/clangwrap.sh
+        echo $GOROO
+        cp ${{ github.workspace }}/clangwrap.sh ${{ github.workspace }}/misc/ios/clangwrap.sh
+        ls $GOROOT/misc/ios/c*.s*
+        chmod +x $GOROOT/misc/ios/clangwrap.sh
         export CGO_ENABLED=1
         export GOOS=darwin
         export GOARCH=amd64        
