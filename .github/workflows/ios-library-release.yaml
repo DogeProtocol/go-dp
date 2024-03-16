@@ -18,9 +18,6 @@ jobs:
     - uses: actions/setup-go@v4
       with:
        go-version: '^1.21.1'
-    - uses: maxim-lobanov/setup-xcode@v1.2.3
-      with:
-        xcode-version: latest
     - name: Install coreutils for macOS
       run: brew install coreutils
     - name: Create build folder
