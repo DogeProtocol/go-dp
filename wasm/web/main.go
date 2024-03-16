@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
@@ -12,6 +13,7 @@ import (
 	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/scrypt"
 	"math/big"
 	"strings"
 	"syscall/js"
@@ -34,15 +36,32 @@ type TransactionDetails struct {
 func main() {
 	done := make(chan struct{}, 0)
 	js.Global().Set("PublicKeyToAddress", js.FuncOf(PublicKeyToAddress))
+	js.Global().Set("Scrypt", js.FuncOf(Scrypt))
 	js.Global().Set("TxMessage", js.FuncOf(TxMessage))
 	js.Global().Set("TxHash", js.FuncOf(TxHash))
 	js.Global().Set("TxData", js.FuncOf(TxData))
-	js.Global().Set("ExportKey", js.FuncOf(ExportKey))
-	js.Global().Set("ImportKey", js.FuncOf(ImportKey))
+	js.Global().Set("KeyPairToWalletJson", js.FuncOf(KeyPairToWalletJson))
+	js.Global().Set("JsonToWalletKeyPair", js.FuncOf(JsonToWalletKeyPair))
 	js.Global().Set("DogeProtocolToWei", js.FuncOf(DogeProtocolToWei))
 	js.Global().Set("WeiToDogeProtocol", js.FuncOf(WeiToDogeProtocol))
 	js.Global().Set("ParseBigFloat", js.FuncOf(ParseBigFloat))
 	<-done
+}
+
+func Scrypt(this js.Value, args []js.Value) interface{} {
+	secret := args[0].String()
+
+	salt, err := base64.StdEncoding.DecodeString(args[1].String())
+	if err != nil {
+		return nil
+	}
+
+	derivedKey, err := scrypt.Key([]byte(secret), salt, 262144, 8, 1, 32)
+	if err != nil {
+		return nil
+	}
+
+	return base64.StdEncoding.EncodeToString(derivedKey)
 }
 
 func PublicKeyToAddress(this js.Value, args []js.Value) interface{} {
@@ -63,7 +82,7 @@ func TxMessage(this js.Value, args []js.Value) interface{} {
 
 	signerHash, err := signer.Hash(tx)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	var message strings.Builder
@@ -94,7 +113,7 @@ func TxHash(this js.Value, args []js.Value) interface{} {
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	return signTx.Hash().String()
@@ -119,19 +138,19 @@ func TxData(this js.Value, args []js.Value) interface{} {
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	signTxBinary, err := signTx.MarshalBinary()
 	if err != nil {
-		return err
+		return nil
 	}
 
 	signTxEncode := hexutil.Encode(signTxBinary)
 	return signTxEncode
 }
 
-func ExportKey(this js.Value, args []js.Value) interface{} {
+func KeyPairToWalletJson(this js.Value, args []js.Value) interface{} {
 	privData := js.Global().Get("Uint8Array").New(args[0])
 	privBytes := make([]byte, privData.Get("length").Int())
 	js.CopyBytesToGo(privBytes, privData)
@@ -140,9 +159,9 @@ func ExportKey(this js.Value, args []js.Value) interface{} {
 	pubBytes := make([]byte, pubData.Get("length").Int())
 	js.CopyBytesToGo(pubBytes, pubData)
 
-	auth := args[3].String()
+	passphrase := args[2].String()
 
-	var pubKeyAddress = common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:])
+	var pubKeyAddress = crypto.PublicKeyBytesToAddress(pubBytes)
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -164,30 +183,30 @@ func ExportKey(this js.Value, args []js.Value) interface{} {
 		PrivateKey: privateKey,
 	}
 
-	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), auth, ks.StandardScryptN, ks.StandardScryptP)
+	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), passphrase, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	return string(keyJson[:])
 }
 
-func ImportKey(this js.Value, args []js.Value) interface{} {
+func JsonToWalletKeyPair(this js.Value, args []js.Value) interface{} {
 	keyJson := []byte(args[0].String())
-	auth := args[0].String()
+	passphrase := args[1].String()
 
-	key, err := ks.DecryptKey(keyJson, auth)
+	key, err := ks.DecryptKey(keyJson, passphrase)
 	if err != nil {
-		return err
+		return nil
 	}
-	return string(key.PrivateKey.PriData)
+	return base64.StdEncoding.EncodeToString(key.PrivateKey.PriData) + "," + base64.StdEncoding.EncodeToString(key.PrivateKey.PubData)
 }
 
 func DogeProtocolToWei(this js.Value, args []js.Value) interface{} {
 	dp := new(big.Float)
 	_, err := fmt.Sscan(args[0].String(), dp)
 	if err != nil {
-		return err
+		return nil
 	}
 	truncInt, _ := dp.Int(nil)
 	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
@@ -207,7 +226,7 @@ func ParseBigFloat(this js.Value, args []js.Value) interface{} {
 	f.SetMode(big.ToNearestEven)
 	_, err := fmt.Sscan(value, f)
 	if err != nil {
-		return err
+		return nil
 	}
 	return f.String()
 }
@@ -216,7 +235,7 @@ func WeiToDogeProtocol(this js.Value, args []js.Value) interface{} {
 	wei := new(big.Int)
 	_, err := fmt.Sscan(args[0].String(), wei)
 	if err != nil {
-		return err
+		return nil
 	}
 	f := new(big.Float)
 	f.SetPrec(236)
