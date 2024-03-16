@@ -1,6 +1,9 @@
 name: ios library Release
 on:
-  workflow_dispatch:
+  push:
+    tags:
+    - '*'
+    
 jobs:
   build:
     runs-on: ${{ matrix.os }}
