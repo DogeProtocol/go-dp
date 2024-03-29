@@ -49,12 +49,13 @@ func NewLondonSigner(chainId *big.Int) Signer {
 	}
 }
 
-func NewLondonSignerDefaultChain() Signer {
-	return &londonSigner{
-		chainId: big.NewInt(DEFAULT_CHAIN_ID),
+/*
+	func NewLondonSignerDefaultChain() Signer {
+		return &londonSigner{
+			chainId: big.NewInt(DEFAULT_CHAIN_ID),
+		}
 	}
-}
-
+*/
 func (s londonSigner) ChainID() *big.Int {
 	return s.chainId
 }

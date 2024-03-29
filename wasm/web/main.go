@@ -9,7 +9,7 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
-	"github.com/DogeProtocol/dp/params"
+	abi "github.com/DogeProtocol/dp/wasm/accounts/abi"
 	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
 	"github.com/google/uuid"
@@ -35,16 +35,15 @@ type TransactionDetails struct {
 
 func main() {
 	done := make(chan struct{}, 0)
-	js.Global().Set("PublicKeyToAddress", js.FuncOf(PublicKeyToAddress))
 	js.Global().Set("Scrypt", js.FuncOf(Scrypt))
-	js.Global().Set("TxMessage", js.FuncOf(TxMessage))
-	js.Global().Set("TxHash", js.FuncOf(TxHash))
-	js.Global().Set("TxData", js.FuncOf(TxData))
+	js.Global().Set("PublicKeyToAddress", js.FuncOf(PublicKeyToAddress))
+	js.Global().Set("TxnHash", js.FuncOf(TxnHash))
+	js.Global().Set("TxnData", js.FuncOf(TxnData))
+	js.Global().Set("ContractData", js.FuncOf(ContractData))
 	js.Global().Set("KeyPairToWalletJson", js.FuncOf(KeyPairToWalletJson))
 	js.Global().Set("JsonToWalletKeyPair", js.FuncOf(JsonToWalletKeyPair))
-	js.Global().Set("DogeProtocolToWei", js.FuncOf(DogeProtocolToWei))
-	js.Global().Set("WeiToDogeProtocol", js.FuncOf(WeiToDogeProtocol))
 	js.Global().Set("ParseBigFloat", js.FuncOf(ParseBigFloat))
+	js.Global().Set("IsValidAddress", js.FuncOf(IsValidAddress))
 	<-done
 }
 
@@ -71,12 +70,17 @@ func PublicKeyToAddress(this js.Value, args []js.Value) interface{} {
 	return common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:]).String()
 }
 
-func TxMessage(this js.Value, args []js.Value) interface{} {
-	ts := transaction(args)
+func IsValidAddress(this js.Value, args []js.Value) interface{} {
+	address := args[0].String()
+	return common.IsHexAddress(address)
+}
 
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
+func TxnHash(this js.Value, args []js.Value) interface{} {
+	ts := transactionData(args)
+
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -90,41 +94,15 @@ func TxMessage(this js.Value, args []js.Value) interface{} {
 		sh := signerHash[i]
 		message.WriteString(string(sh))
 	}
-
 	return message.String()
 }
 
-func TxHash(this js.Value, args []js.Value) interface{} {
-	ts := transaction(args)
+func TxnData(this js.Value, args []js.Value) interface{} {
+	ts := transactionData(args)
 
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
-
-	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
-
-	pubData := js.Global().Get("Uint8Array").New(args[7])
-	pubBytes := make([]byte, pubData.Get("length").Int())
-	js.CopyBytesToGo(pubBytes, pubData)
-
-	sigData := js.Global().Get("Uint8Array").New(args[8])
-	sigBytes := make([]byte, sigData.Get("length").Int())
-	js.CopyBytesToGo(sigBytes, sigData)
-
-	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
-	if err != nil {
-		return nil
-	}
-
-	return signTx.Hash().String()
-}
-
-func TxData(this js.Value, args []js.Value) interface{} {
-	ts := transaction(args)
-
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -147,7 +125,36 @@ func TxData(this js.Value, args []js.Value) interface{} {
 	}
 
 	signTxEncode := hexutil.Encode(signTxBinary)
+
 	return signTxEncode
+}
+
+func ContractData(this js.Value, args []js.Value) interface{} {
+	method := args[0].String()
+
+	abiData, err := abi.JSON(strings.NewReader((args[1].String())))
+
+	if err != nil {
+		return nil
+	}
+
+	arguments := make([]interface{}, 0, len(args)-2)
+	for _, i := range args[2:] {
+		arguments = append(arguments, i.String())
+	}
+
+	data, err := abiData.Pack(method, arguments...)
+	if err != nil {
+		return nil
+	}
+
+	var d strings.Builder
+	for i := 0; i < len(data); i++ {
+		sh := data[i]
+		d.WriteString(string(sh))
+	}
+
+	return d.String()
 }
 
 func KeyPairToWalletJson(this js.Value, args []js.Value) interface{} {
@@ -202,21 +209,6 @@ func JsonToWalletKeyPair(this js.Value, args []js.Value) interface{} {
 	return base64.StdEncoding.EncodeToString(key.PrivateKey.PriData) + "," + base64.StdEncoding.EncodeToString(key.PrivateKey.PubData)
 }
 
-func DogeProtocolToWei(this js.Value, args []js.Value) interface{} {
-	dp := new(big.Float)
-	_, err := fmt.Sscan(args[0].String(), dp)
-	if err != nil {
-		return nil
-	}
-	truncInt, _ := dp.Int(nil)
-	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-	fracStr := strings.Split(fmt.Sprintf("%.18f", dp), ".")[1]
-	fracStr += strings.Repeat("0", 18-len(fracStr))
-	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-	wei := new(big.Int).Add(truncInt, fracInt)
-	return wei.String()
-}
-
 // ParseBigFloat parse string value to big.Float
 func ParseBigFloat(this js.Value, args []js.Value) interface{} {
 	var value string
@@ -231,50 +223,34 @@ func ParseBigFloat(this js.Value, args []js.Value) interface{} {
 	return f.String()
 }
 
-func WeiToDogeProtocol(this js.Value, args []js.Value) interface{} {
-	wei := new(big.Int)
-	_, err := fmt.Sscan(args[0].String(), wei)
-	if err != nil {
-		return nil
-	}
-	f := new(big.Float)
-	f.SetPrec(236)
-	f.SetMode(big.ToNearestEven)
-	fWei := new(big.Float)
-	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-	fWei.SetMode(big.ToNearestEven)
-	dp := f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
-	return dp.String()
-}
-
-func transaction(args []js.Value) (transaction Transaction) {
-
+func transactionData(args []js.Value) (transaction Transaction) {
 	fromAddress := common.HexToAddress(args[0].String())
 
-	var nTitle string
-	var n uint64
-	fmt.Sscan(args[1].String(), &nTitle, &n)
-	nonce := n
+	var nonceString string
+	var nonceUint64 uint64
+	fmt.Sscan(args[1].String(), &nonceString, &nonceUint64)
+	nonce := nonceUint64
 
 	toAddress := common.HexToAddress(args[2].String())
 
-	value := new(big.Int)
-	_, err := fmt.Sscan(args[3].String(), value)
-	if err != nil {
-		panic(err)
-	}
+	var valueString string
+	var valueInt64 int64
+	fmt.Sscan(args[3].String(), &valueString, &valueInt64)
+	value := big.NewInt(valueInt64)
 
-	var lTitle string
-	var l uint64
-	fmt.Sscan(args[4].String(), &lTitle, &l)
-	gasLimit := l
+	var gasString string
+	var gasUint64 uint64
+	fmt.Sscan(args[4].String(), &gasString, &gasUint64)
+	gasLimit := gasUint64
 
-	var data []byte //args[5].String()
+	var chainIdString string
+	var chainIdInt64 int64
+	fmt.Sscan(args[5].String(), &chainIdString, &chainIdInt64)
+	chainId := big.NewInt(chainIdInt64)
 
-	var cTitle string
-	var c int64
-	fmt.Sscan(args[6].String(), &cTitle, &c)
-	chainId := big.NewInt(c)
+	dataString := js.Global().Get("Uint8Array").New(args[6])
+	data := make([]byte, dataString.Get("length").Int())
+	js.CopyBytesToGo(data, dataString)
 
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
@@ -282,6 +258,7 @@ func transaction(args []js.Value) (transaction Transaction) {
 
 	var t Transaction
 	t.Transaction = append(t.Transaction, transactionDetails)
+
 	return t
 }
 
