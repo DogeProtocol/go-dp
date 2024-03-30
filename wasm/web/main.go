@@ -9,6 +9,7 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/params"
 	abi "github.com/DogeProtocol/dp/wasm/accounts/abi"
 	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
@@ -37,6 +38,7 @@ func main() {
 	done := make(chan struct{}, 0)
 	js.Global().Set("Scrypt", js.FuncOf(Scrypt))
 	js.Global().Set("PublicKeyToAddress", js.FuncOf(PublicKeyToAddress))
+	js.Global().Set("TxnSigningHash", js.FuncOf(TxnSigningHash))
 	js.Global().Set("TxnHash", js.FuncOf(TxnHash))
 	js.Global().Set("TxnData", js.FuncOf(TxnData))
 	js.Global().Set("ContractData", js.FuncOf(ContractData))
@@ -75,8 +77,12 @@ func IsValidAddress(this js.Value, args []js.Value) interface{} {
 	return common.IsHexAddress(address)
 }
 
-func TxnHash(this js.Value, args []js.Value) interface{} {
-	ts := transactionData(args)
+func TxnSigningHash(this js.Value, args []js.Value) interface{} {
+	ts, err := transactionData(args)
+	if err != nil {
+		fmt.Println("TxnSigningHash err", err)
+		return nil
+	}
 
 	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
 		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
@@ -97,8 +103,41 @@ func TxnHash(this js.Value, args []js.Value) interface{} {
 	return message.String()
 }
 
+func TxnHash(this js.Value, args []js.Value) interface{} {
+	ts, err := transactionData(args)
+	if err != nil {
+		fmt.Println("txnhash err", err)
+		return nil
+	}
+
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
+
+	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
+
+	pubData := js.Global().Get("Uint8Array").New(args[7])
+	pubBytes := make([]byte, pubData.Get("length").Int())
+	js.CopyBytesToGo(pubBytes, pubData)
+
+	sigData := js.Global().Get("Uint8Array").New(args[8])
+	sigBytes := make([]byte, sigData.Get("length").Int())
+	js.CopyBytesToGo(sigBytes, sigData)
+
+	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
+	if err != nil {
+		return nil
+	}
+
+	return signTx.Hash().String()
+}
+
 func TxnData(this js.Value, args []js.Value) interface{} {
-	ts := transactionData(args)
+	ts, err := transactionData(args)
+	if err != nil {
+		fmt.Println("TxnData err", err)
+		return nil
+	}
 
 	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
 		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
@@ -223,7 +262,15 @@ func ParseBigFloat(this js.Value, args []js.Value) interface{} {
 	return f.String()
 }
 
-func transactionData(args []js.Value) (transaction Transaction) {
+func ParseBigFloatInner(value string) (*big.Float, error) {
+	f := new(big.Float)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	_, err := fmt.Sscan(value, f)
+	return f, err
+}
+
+func transactionData(args []js.Value) (transaction Transaction, err error) {
 	fromAddress := common.HexToAddress(args[0].String())
 
 	var nonceString string
@@ -233,10 +280,14 @@ func transactionData(args []js.Value) (transaction Transaction) {
 
 	toAddress := common.HexToAddress(args[2].String())
 
-	var valueString string
-	var valueInt64 int64
-	fmt.Sscan(args[3].String(), &valueString, &valueInt64)
-	value := big.NewInt(valueInt64)
+	var ethVal *big.Float
+	var weiVal *big.Int
+	ethVal, err = ParseBigFloatInner(args[3].String())
+	if err != nil {
+		fmt.Println("ParseBigFloatInner", args[3].String(), "err", err)
+		return Transaction{}, err
+	}
+	weiVal = etherToWeiFloat(ethVal)
 
 	var gasString string
 	var gasUint64 uint64
@@ -254,15 +305,29 @@ func transactionData(args []js.Value) (transaction Transaction) {
 
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
-		Value: value, Data: data, ChainId: chainId}
+		Value: weiVal, Data: data, ChainId: chainId}
 
 	var t Transaction
 	t.Transaction = append(t.Transaction, transactionDetails)
 
-	return t
+	return t, nil
 }
 
 func signTxHash(tx *wasm.Transaction, signer wasm.Signer, pubBytes, sigBytes []byte) (*wasm.Transaction, error) {
 	sig := common.CombineTwoParts(sigBytes, pubBytes)
 	return tx.WithSignature(signer, sig)
+}
+
+func weiToEther(val *big.Int) *big.Int {
+	return new(big.Int).Div(val, big.NewInt(params.Ether))
+}
+
+func etherToWeiFloat(eth *big.Float) *big.Int {
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+	fracStr += strings.Repeat("0", 18-len(fracStr))
+	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+	wei := new(big.Int).Add(truncInt, fracInt)
+	return wei
 }
