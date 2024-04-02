@@ -142,7 +142,7 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 	if err != nil {
 		return nil, err
 	}
-	pubKeyAddress := common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:])
+	pubKeyAddress := crypto.PublicKeyBytesToAddress(pubBytes[:])
 
 	publicKey := PublicKey{
 		PubData: pubBytes,
