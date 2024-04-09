@@ -954,7 +954,129 @@ func requestCompleteWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	return nil
 }
 
-func getBalanceOfDepositor(dep string) error {
+func getBalanceOfDepositor(dep string) (*big.Int, error) {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	instance, err := staking.NewStaking(contractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	depositor := common.HexToAddress(dep)
+	depositorBalance, err := instance.GetBalanceOfDepositor(nil, depositor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("StakingBalance", "Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
+
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return depositorBalance, nil
+}
+
+func getNetBalanceOfDepositor(dep string) (*big.Int, error) {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	instance, err := staking.NewStaking(contractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	depositor := common.HexToAddress(dep)
+	depositorBalance, err := instance.GetNetBalanceOfDepositor(nil, depositor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("StakingNetBalance", "Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
+
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return depositorBalance, nil
+}
+
+func getDepositorOfValidator(val string) (common.Address, error) {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return common.ZERO_ADDRESS, err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	instance, err := staking.NewStaking(contractAddress, client)
+	if err != nil {
+		return common.ZERO_ADDRESS, err
+	}
+
+	validator := common.HexToAddress(val)
+	depositor, err := instance.GetDepositorOfValidator(nil, validator)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Depositor", depositor, "validator", validator)
+
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return depositor, err
+}
+
+func getDepositorBlockRewards(dep string) (*big.Int, error) {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	instance, err := staking.NewStaking(contractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	depositor := common.HexToAddress(dep)
+	depositorBalance, err := instance.GetDepositorRewards(nil, depositor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("BlockRewards", "Depositor", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
+
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return depositorBalance, nil
+}
+
+type ValidatorDetails struct {
+	depositor    common.Address
+	validator    common.Address
+	balance      *big.Int
+	netBalance   *big.Int
+	blockRewards *big.Int
+}
+
+func listValidators() error {
+	if len(rawURL) == 0 {
+		return errors.New("DP_RAW_URL environment variable not specified")
+	}
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -967,13 +1089,51 @@ func getBalanceOfDepositor(dep string) error {
 		return err
 	}
 
-	depositor := common.HexToAddress(dep)
-	depositorBalance, err := instance.GetBalanceOfDepositor(nil, depositor)
+	validatorList, err := instance.ListValidators(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
+	totalDepositedBalance := big.NewInt(int64(0))
+	ValidatorDetailsList := make([]*ValidatorDetails, len(validatorList))
+	for i := 0; i < len(validatorList); i++ {
+		depositor, err := getDepositorOfValidator(validatorList[i].String())
+		if err != nil {
+			return err
+		}
+
+		balanceVal, err := getBalanceOfDepositor(depositor.String())
+		if err != nil {
+			return err
+		}
+
+		netBalance, err := getNetBalanceOfDepositor(depositor.String())
+		if err != nil {
+			return err
+		}
+
+		blockrewards, err := getDepositorBlockRewards(depositor.String())
+		if err != nil {
+			return err
+		}
+
+		ValidatorDetailsList[i] = &ValidatorDetails{
+			depositor:    depositor,
+			balance:      balanceVal,
+			netBalance:   netBalance,
+			blockRewards: blockrewards,
+		}
+
+		totalDepositedBalance = totalDepositedBalance.Add(totalDepositedBalance, balanceVal)
+	}
+
+	for i := 0; i < len(ValidatorDetailsList); i++ {
+		validatorDetails := ValidatorDetailsList[i]
+		fmt.Println("Depositor", validatorDetails.depositor, "Validator", validatorDetails.validator, "balance coins", weiToEther(validatorDetails.balance).String(),
+			"netBalance coins", weiToEther(validatorDetails.netBalance).String(), "blockrewards coins", weiToEther(validatorDetails.blockRewards).String())
+	}
+
+	fmt.Println("Total validators", len(validatorList), "totalDepositedBalance", weiToEther(totalDepositedBalance).String())
 
 	fmt.Println()
 

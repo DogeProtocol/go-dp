@@ -35,6 +35,7 @@ var blockEndRange = []int64{22521600, 43545600, 64569600, 85593600, 106617600, 1
 	1494201600, 1515225600, 1536249600, 1557273600, 1578297600, 1599321600}
 
 func TestRewardGenerateYearly(t *testing.T) {
+	fmt.Println("rewardStartBlock===", rewardStartBlock)
 	for i := 1; i <= 350; i++ {
 		blockNumber := rewardStartBlock.Int64() + (blockYearly.Int64() * int64(i))
 		startBlockNumber := big.NewInt(blockNumber - blockYearly.Int64())
@@ -81,8 +82,8 @@ func TestRewardVerifyYearly(t *testing.T) {
 }
 
 func TestRewardVerifyBlocks(t *testing.T) {
-	startBlockNumber := big.NewInt(1497600 - 1000)
-	endBlockNumber := big.NewInt(1497500)
+	startBlockNumber := big.NewInt(int64(rewardStartBlockNumber) - 1000)
+	endBlockNumber := big.NewInt(int64(rewardStartBlockNumber - 500))
 	incrementBlock := big.NewInt(1)
 
 	for startBlockNumber.Int64() <= endBlockNumber.Int64() {

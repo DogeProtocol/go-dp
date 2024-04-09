@@ -19,7 +19,7 @@ var (
 	blockSecond = 6
 	blockYearly = big.NewInt(int64((((60 * 60) * 24) / blockSecond) * 365))
 
-	rewardStartBlock = big.NewInt(int64((((60 * 60) * 24) / blockSecond) * 104))
+	rewardStartBlock = big.NewInt(int64(rewardStartBlockNumber))
 )
 
 func GetReward(blockNumber *big.Int) *big.Int {

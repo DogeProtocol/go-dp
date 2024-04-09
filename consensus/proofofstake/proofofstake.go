@@ -72,7 +72,7 @@ var (
 
 	slashAmount = params.EtherToWei(big.NewInt(10))
 
-	rewardStartBlockNumber = uint64(slashStartBlockNumber)
+	rewardStartBlockNumber = uint64(277204)
 	slashStartBlockNumber  = uint64(1497600)
 )
 
@@ -700,21 +700,28 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		//Add same amount of reward to Staking Contract, so that it is available for withdrawal later on
 		err := c.accumulateBalance(state, blockProposerRewardAmount, common.HexToAddress(staking.GetStakingContract_Address_String()))
 		if err != nil {
-			log.Trace("accumulateBalance staking contract err", "err", err)
+			log.Error("accumulateBalance staking contract err", "err", err)
+			return err
+		}
+
+		//Get depositor of validator
+		depositor, err := c.GetDepositorOfValidator(blockConsensusData.BlockProposer, header.ParentHash)
+		if err != nil {
+			log.Error("GetDepositorOfValidator", "err", err)
 			return err
 		}
 
 		//Update staking contract with reward details
-		blockProposerRewardAmountTotal, err := c.AddDepositorReward(header.ParentHash, blockConsensusData.BlockProposer, blockProposerRewardAmount, state, header)
+		blockProposerRewardAmountTotal, err := c.AddDepositorReward(header.ParentHash, depositor, blockProposerRewardAmount, state, header)
 		if err != nil {
-			log.Trace("AddDepositorReward err", "err", err)
+			log.Error("AddDepositorReward err", "err", err)
 			return err
 		}
-		log.Trace("Reward amount", "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
-	}
+		log.Trace("Reward amount", "BlockNumber", header.Number, "blockProposerRewardAmountTotal", blockProposerRewardAmountTotal, "blockProposerRewardAmount", blockProposerRewardAmount, "BlockProposer", blockConsensusData.BlockProposer)
 
-	if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
-		log.Info("You potentially proposed and mined a new block!", "parentHash", header.ParentHash)
+		if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
+			log.Info("You potentially proposed and mined a new block!", "BlockNumber", header.Number, "parentHash", header.ParentHash)
+		}
 	}
 
 	//Fix blocktime
