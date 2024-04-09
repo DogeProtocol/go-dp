@@ -2028,6 +2028,7 @@ func (cph *ConsensusHandler) DoesPreviousHashMatch(parentHash common.Hash) (bool
 
 	b, err := ioutil.ReadFile(hashFilePath)
 	if err != nil {
+		log.Warn("DoesPreviousHashMatch", "err", err, "hashFilePath", hashFilePath)
 		return false, err
 	}
 	hash := common.HexToHash(string(b))
