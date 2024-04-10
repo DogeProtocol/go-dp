@@ -49,7 +49,7 @@ jobs:
          rm ${{ github.workspace }}/build/dp-release/connect.cmd
          rm ${{ github.workspace }}/build/dp-release/connectvalidator.cmd         
          cd ${{ github.workspace }}/build/dp-release && tar -czf ${{ github.workspace }}/build/dp-release-ubuntu-${{  github.ref_name }}.tar.gz .
-         sha256sum ${{ github.workspace }}/build/dp-release-ubuntu.tar.gz >${{ github.workspace }}/build/releasehash-ubuntu-${{  github.ref_name }}.txt
+         sha256sum ${{ github.workspace }}/build/dp-release-ubuntu-${{  github.ref_name }}.tar.gz >${{ github.workspace }}/build/releasehash-ubuntu-${{  github.ref_name }}.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
