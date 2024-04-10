@@ -48,8 +48,8 @@ jobs:
          cp ${{ github.workspace }}/resources/*.* ${{ github.workspace }}/build/dp-release/
          rm ${{ github.workspace }}/build/dp-release/connect.cmd
          rm ${{ github.workspace }}/build/dp-release/connectvalidator.cmd         
-         cd ${{ github.workspace }}/build/dp-release && tar -czf ${{ github.workspace }}/build/dp-release-mac.tar.gz .
-         sha256sum ${{ github.workspace }}/build/dp-release-mac.tar.gz >${{ github.workspace }}/build/releasehash-mac.txt
+         cd ${{ github.workspace }}/build/dp-release && tar -czf ${{ github.workspace }}/build/dp-release-mac-${{  github.ref_name }}.tar.gz .
+         sha256sum ${{ github.workspace }}/build/dp-release-mac.tar.gz >${{ github.workspace }}/build/releasehash-mac-${{  github.ref_name }}.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
