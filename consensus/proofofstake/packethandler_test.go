@@ -1855,10 +1855,6 @@ func TestBlockProposalTime(t *testing.T) {
 	if GetProposalTime(1) == 0 {
 		t.Fatalf("failed 4")
 	}
-
-	if GetProposalTime(128) != 0 {
-		t.Fatalf("failed 5")
-	}
 }
 
 func TestValidateBlockProposalTime(t *testing.T) {

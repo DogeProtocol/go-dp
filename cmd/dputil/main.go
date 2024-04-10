@@ -57,7 +57,13 @@ func printHelp() {
 	fmt.Println("===========")
 	fmt.Println("dputil stakingbalance DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
-	fmt.Println("           DP_RAW_URL, DP_RAW_URL")
+	fmt.Println("           DP_RAW_URL")
+	fmt.Println("dputil listvalidators")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
+	fmt.Println("dputil blockrewards DEPOSITOR_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
 	fmt.Println("===========")
 }
 
@@ -117,6 +123,16 @@ func main() {
 		}
 	} else if os.Args[1] == "stakingbalance" {
 		err := DepositorBalance()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "listvalidators" {
+		err := listValidators()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "blockrewards" {
+		err := DepositorBlockRewards()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
@@ -788,6 +804,27 @@ func DepositorBalance() error {
 	if len(rawURL) == 0 {
 		return errors.New("DP_RAW_URL environment variable not specified")
 	} else {
-		return getBalanceOfDepositor(depositorAddr)
+		_, err := getBalanceOfDepositor(depositorAddr)
+		return err
+	}
+}
+
+func DepositorBlockRewards() error {
+	if len(os.Args) < 3 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	depositorAddr := os.Args[2]
+
+	if common.IsHexAddress(depositorAddr) == false {
+		return errors.New("invalid depositor address " + depositorAddr)
+	}
+
+	if len(rawURL) == 0 {
+		return errors.New("DP_RAW_URL environment variable not specified")
+	} else {
+		_, err := getDepositorBlockRewards(depositorAddr)
+		return err
 	}
 }
