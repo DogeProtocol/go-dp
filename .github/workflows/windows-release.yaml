@@ -59,7 +59,7 @@ jobs:
          del ${{ github.workspace }}\build\dp\connect.sh
          del ${{ github.workspace }}\build\dp\connectvalidator.sh         
          powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows-${{  github.ref_name }}.zip
-         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows-${{  github.ref_name }}.txt
+         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows-${{  github.ref_name }}.zip > ${{ github.workspace }}\build\releasehash-windows-${{  github.ref_name }}.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
