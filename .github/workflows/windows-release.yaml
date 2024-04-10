@@ -33,16 +33,6 @@ jobs:
          echo "${{ github.workspace }}\templibs\hybrid-pqc" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\pkg-config\bin" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\mingw\mingw64\bin" >> $GITHUB_PATH
-
-    - name: Setup Release Version
-      id: vars
-      run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-    - name: Check output
-      env:
-        RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
-      run: |
-        echo %RELEASE_VERSION%
-        echo ${{ steps.vars.outputs.tag }}
           
     - name: Build
       env:
