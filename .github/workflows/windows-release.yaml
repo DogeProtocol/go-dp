@@ -33,7 +33,7 @@ jobs:
          echo "${{ github.workspace }}\templibs\hybrid-pqc" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\pkg-config\bin" >> $GITHUB_PATH
          echo "${{ github.workspace }}\templibs\mingw\mingw64\bin" >> $GITHUB_PATH
-         
+          
     - name: Build
       env:
         PKG_CONFIG_PATH: ${{ github.workspace }}\templibs\pkg-config
@@ -48,6 +48,7 @@ jobs:
         PKG_CONFIG_PATH: ${{ github.workspace }}\templibs\pkg-config
       
       run: |
+         echo ${{  github.ref_name }}
          mkdir ${{ github.workspace }}\build\dp
          copy ${{ github.workspace }}\build\dp.exe ${{ github.workspace }}\build\dp\dp.exe
          copy ${{ github.workspace }}\build\dputil.exe ${{ github.workspace }}\build\dp\dputil.exe
@@ -57,8 +58,8 @@ jobs:
          copy ${{ github.workspace }}\resources\*.* ${{ github.workspace }}\build\dp\
          del ${{ github.workspace }}\build\dp\connect.sh
          del ${{ github.workspace }}\build\dp\connectvalidator.sh         
-         powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows.zip
-         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows.zip > ${{ github.workspace }}\build\releasehash-windows.txt
+         powershell Compress-Archive ${{ github.workspace }}\build\dp ${{ github.workspace }}\build\dp-release-windows-${{  github.ref_name }}.zip
+         powershell Get-FileHash ${{ github.workspace }}\build\dp-release-windows-${{  github.ref_name }}.zip > ${{ github.workspace }}\build\releasehash-windows-${{  github.ref_name }}.txt
          
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3

@@ -56,6 +56,9 @@ type ConsensusHandler struct {
 	packetHashLastSentMap        map[common.Hash]time.Time
 	lastRequestConsensusDataTime time.Time
 
+	lastBlockNumber           uint64
+	lastBlockNumberChangeTime time.Time
+
 	packetStats PacketStats
 }
 
@@ -91,6 +94,7 @@ var STARTUP_DELAY_MS = int64(120000)
 var BLOCK_PERIOD_TIME_CHANGE = uint64(64) //propose timeChanges every N blocks
 var ALLOWED_TIME_SKEW_MINUTES = 3.0
 var SKIP_HASH_CHECK = false
+var STALE_BLOCK_WARN_TIME = int64(1800 * 1000)
 
 type BlockRoundState byte
 type VoteType byte
@@ -2024,6 +2028,7 @@ func (cph *ConsensusHandler) DoesPreviousHashMatch(parentHash common.Hash) (bool
 
 	b, err := ioutil.ReadFile(hashFilePath)
 	if err != nil {
+		log.Warn("DoesPreviousHashMatch", "err", err, "hashFilePath", hashFilePath)
 		return false, err
 	}
 	hash := common.HexToHash(string(b))
@@ -2100,6 +2105,15 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 
 		log.Info("Starting up...")
 		return errors.New("starting up")
+	}
+
+	if cph.lastBlockNumber == blockNumber {
+		if Elapsed(cph.lastBlockNumberChangeTime) >= STALE_BLOCK_WARN_TIME {
+			log.Warn("Stale Block. Please check your connection.", "blockNumber", blockNumber, "lastBlockChangeTime", cph.lastBlockNumberChangeTime)
+		}
+	} else {
+		cph.lastBlockNumber = blockNumber
+		cph.lastBlockNumberChangeTime = time.Now()
 	}
 
 	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
