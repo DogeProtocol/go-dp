@@ -2,14 +2,15 @@ package main
 
 import "C"
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/params"
-	ks "github.com/DogeProtocol/dp/wasm/accounts/keystore"
+	abi "github.com/DogeProtocol/dp/wasm/accounts/abi"
 	wasm "github.com/DogeProtocol/dp/wasm/core/types"
-	"github.com/google/uuid"
+	"golang.org/x/crypto/scrypt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -34,6 +35,22 @@ func main() {
 
 }
 
+//export Scrypt
+func Scrypt(skKey_str, salt_str *C.char, sk_count int) (*C.char, *C.char) {
+	secret := C.GoBytes(unsafe.Pointer(skKey_str), C.int(sk_count))
+
+	salt, err := base64.StdEncoding.DecodeString(C.GoString(salt_str))
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
+
+	derivedKey, err := scrypt.Key(secret, salt, 262144, 8, 1, 32)
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
+	return C.CString(base64.StdEncoding.EncodeToString(derivedKey)), nil
+}
+
 //export PublicKeyToAddress
 func PublicKeyToAddress(pKey_str *C.char, pk_count int) (*C.char, *C.char) {
 	pubBytes := C.GoBytes(unsafe.Pointer(pKey_str), C.int(pk_count))
@@ -41,14 +58,25 @@ func PublicKeyToAddress(pKey_str *C.char, pk_count int) (*C.char, *C.char) {
 	return C.CString(address), nil
 }
 
-//export TxMessage
-func TxMessage(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C.char, *C.char) {
-	ts := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
+//export IsValidAddress
+func IsValidAddress(address_str *C.char) (*C.char, *C.char) {
+	address := C.GoString(address_str)
+	return C.CString(common.IsHexAddress(address)), nil
+}
+
+//export TxnSigningHash
+func TxnSigningHash(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C.char, *C.char) {
+	ts, err := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
 		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
 
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
+	if err != nil {
+		fmt.Println("TxnSigningHash err", err)
+		return nil, C.CString(err.Error())
+	}
+
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -62,19 +90,23 @@ func TxMessage(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C.char
 		sh := signerHash[i]
 		message.WriteString(string(sh))
 	}
-
 	return C.CString(message.String()), nil
 }
 
 //export TxHash
 func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
-	ts := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
-		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
 
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
+	ts, err := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
+		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
+	if err != nil {
+		fmt.Println("TxHash err", err)
+		return nil, C.CString(err.Error())
+	}
+
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -93,12 +125,16 @@ func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 func TxData(from, nonce, to, value, gasLimit, data, chainId,
 	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
 
-	ts := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
+	ts, err := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
 		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
+	if err != nil {
+		fmt.Println("TxHash err", err)
+		return nil, C.CString(err.Error())
+	}
 
-	tx := wasm.NewTransaction(ts.Transaction[0].Nonce,
-		ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
-		ts.Transaction[0].GasLimit, ts.Transaction[0].Data)
+	tx := wasm.NewDefaultFeeTransaction(ts.Transaction[0].ChainId, ts.Transaction[0].Nonce,
+		&ts.Transaction[0].ToAddress, ts.Transaction[0].Value,
+		ts.Transaction[0].GasLimit, wasm.GAS_TIER_DEFAULT, ts.Transaction[0].Data)
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
@@ -119,78 +155,39 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 	return C.CString(signTxEncode), nil
 }
 
-//export ExportKey
-func ExportKey(skKeyStr, pkKeyStr, authentication *C.char, skCount int, pkCount int) (*C.char, *C.char) {
+//export ContractData
+func ContractData(args []*C.char) (*C.char, *C.char) {
+	method := C.GoString(args[0])
 
-	privateBytes := C.GoBytes(unsafe.Pointer(skKeyStr), C.int(skCount))
-	publicBytes := C.GoBytes(unsafe.Pointer(pkKeyStr), C.int(pkCount))
+	abiData, err := abi.JSON(strings.NewReader(C.GoString(args[1])))
 
-	auth := C.GoString(authentication)
-
-	var pubKeyAddress = common.BytesToAddress(crypto.Keccak256(publicBytes[:])[common.AddressTruncateBytes:])
-
-	id, err := uuid.NewRandom()
-	if err != nil {
-		panic(fmt.Sprintf("Could not create random uuid: %v", err))
-	}
-
-	publicKey := ks.PublicKey{
-		PubData: publicBytes,
-	}
-
-	privateKey := &ks.PrivateKey{
-		PublicKey: publicKey,
-		PriData:   privateBytes,
-	}
-
-	key := &ks.Key{
-		Id:         id,
-		Address:    pubKeyAddress,
-		PrivateKey: privateKey,
-	}
-
-	keyJson, err := ks.EncryptKey(key, pubKeyAddress.Bytes(), auth, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
 
-	return C.CString(string(keyJson)), nil
-}
+	arguments := make([]interface{}, 0, len(args)-2)
+	for _, i := range args[2:] {
+		arguments = append(arguments, C.GoString(i))
+	}
 
-//export ImportKey
-func ImportKey(skKeyStr, authentication *C.char, skCount int) (*C.char, *C.char) {
-
-	keyJson := C.GoBytes(unsafe.Pointer(skKeyStr), C.int(skCount))
-
-	auth := C.GoString(authentication)
-
-	key, err := ks.DecryptKey(keyJson, auth)
+	data, err := abiData.Pack(method, arguments...)
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
-	return C.CString(string(key.PrivateKey.PriData)), nil
-}
 
-//export DogeProtocolToWei
-func DogeProtocolToWei(quantity *C.char) (*C.char, *C.char) {
-	dp := new(big.Float)
-	_, err := fmt.Sscan(C.GoString(quantity), dp)
-	if err != nil {
-		return nil, C.CString(err.Error())
+	var d strings.Builder
+	for i := 0; i < len(data); i++ {
+		sh := data[i]
+		d.WriteString(string(sh))
 	}
-	truncInt, _ := dp.Int(nil)
-	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-	fracStr := strings.Split(fmt.Sprintf("%.18f", dp), ".")[1]
-	fracStr += strings.Repeat("0", 18-len(fracStr))
-	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-	wei := new(big.Int).Add(truncInt, fracInt)
-	return C.CString(wei.String()), nil
+
+	return C.CString(d), nil
 }
 
 //export ParseBigFloat
-func ParseBigFloat(quantity *C.char) (*C.char, *C.char) {
+func ParseBigFloat(args []*C.char) (*C.char, *C.char) {
 	var value string
-	value = C.GoString(quantity)
+	value = C.GoString(args[0])
 	f := new(big.Float)
 	f.SetPrec(236)
 	f.SetMode(big.ToNearestEven)
@@ -198,49 +195,65 @@ func ParseBigFloat(quantity *C.char) (*C.char, *C.char) {
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
-	return C.CString(f.String()), nil
+	return C.CString(f), nil
 }
 
-//export WeiToDogeProtocol
-func WeiToDogeProtocol(quantity *C.char) (*C.char, *C.char) {
-	wei := new(big.Int)
-	_, err := fmt.Sscan(C.GoString(quantity), wei)
-	if err != nil {
-		return nil, C.CString(err.Error())
-	}
+//export ParseBigFloatInner
+func ParseBigFloatInner(value *C.char) (*C.char, *C.char) {
 	f := new(big.Float)
-	f.SetPrec(236)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)
-	fWei := new(big.Float)
-	fWei.SetPrec(236)
-	fWei.SetMode(big.ToNearestEven)
-	dp := f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
-	return C.CString(dp.String()), nil
+	_, err := fmt.Sscan(C.GoString(value), f)
+	return C.CString(f), C.CString(err.Error())
 }
 
-func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transaction Transaction) {
+func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transaction Transaction, e error) {
 
 	var fromAddress = common.HexToAddress(args0)
 	n, _ := strconv.Atoi(args1)
 	var nonce = uint64(n)
 	var toAddress = common.HexToAddress(args2)
-	var value, _ = new(big.Int).SetString(args3, 0)
+
+	ethVal, err := ParseBigFloatInner(C.CString(args3))
+	if err != nil {
+		fmt.Println("ParseBigFloatInner", args3, "err", err)
+		return transaction, C.GoString(err)
+	}
+	weiVal := etherToWeiFloat(ethVal)
+
 	g, _ := strconv.Atoi(args4)
 	var gasLimit = uint64(g)
-	var data []byte //args5.String()
-	var chainId, _ = new(big.Int).SetString(args6, 0)
+
+	var chainId, _ = new(big.Int).SetString(args5, 0)
+
+	//var data []byte //args6.String()
+	data := C.GoBytes(unsafe.Pointer(C.CString(args6)), C.int(len(args6)))
 
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
-		Value: value, Data: data, ChainId: chainId}
+		Value: weiVal, Data: data, ChainId: chainId}
 
 	var t Transaction
 	t.Transaction = append(t.Transaction, transactionDetails)
 
-	return t
+	return t, nil
 }
 
 func signTxHash(tx *wasm.Transaction, signer wasm.Signer, pubBytes, sigBytes []byte) (*wasm.Transaction, error) {
 	sig := common.CombineTwoParts(sigBytes, pubBytes)
 	return tx.WithSignature(signer, sig)
+}
+
+func weiToEther(val *big.Int) *big.Int {
+	return new(big.Int).Div(val, big.NewInt(params.Ether))
+}
+
+func etherToWeiFloat(eth *big.Float) *big.Int {
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+	fracStr += strings.Repeat("0", 18-len(fracStr))
+	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+	wei := new(big.Int).Add(truncInt, fracInt)
+	return wei
 }
