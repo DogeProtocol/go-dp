@@ -41,8 +41,8 @@ web3._extend({
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getTotalDepositedBalance',
-			call: 'proofofstake_getTotalDepositedBalance',
+			name: 'getStakingDetails',
+			call: 'proofofstake_getStakingDetails',
 			params: 0
 		}),
 		new web3._extend.Method({

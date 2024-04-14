@@ -73,8 +73,13 @@ func (api *API) ListValidators() ([]*ValidatorDetails, error) {
 	return validators, nil
 }
 
-// GetTotalDepositedBalance retrieves the total deposited quantity.
-func (api *API) GetTotalDepositedBalance() (*big.Int, error) {
+type StakingData struct {
+	TotalDepositedBalance *big.Int            `json:"totalDepositedBalance"     gencodec:"required"`
+	Validators            []*ValidatorDetails `json:"validators"     gencodec:"required"`
+}
+
+// GetStakingDetails retrieves the total deposited quantity.
+func (api *API) GetStakingDetails() (*StakingData, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.CurrentHeader()
 	if header == nil {
@@ -84,7 +89,16 @@ func (api *API) GetTotalDepositedBalance() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return balance, nil
+
+	validators, err := api.proofofstake.ListValidators(header.ParentHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &StakingData{
+		TotalDepositedBalance: balance,
+		Validators:            validators,
+	}, nil
 }
 
 type ConsensusData struct {
