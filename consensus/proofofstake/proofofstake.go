@@ -859,7 +859,7 @@ func (c *ProofOfStake) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 		Namespace: "proofofstake",
 		Version:   "1.0",
 		Service:   &API{chain: chain, proofofstake: c},
-		Public:    false,
+		Public:    true,
 	}}
 }
 

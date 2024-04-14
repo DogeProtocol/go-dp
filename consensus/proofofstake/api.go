@@ -17,11 +17,17 @@
 package proofofstake
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/log"
+	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
+	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"math/big"
 )
 
@@ -53,16 +59,242 @@ func (sb *blockNumberOrHashOrRLP) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetValidators retrieves the list of authorized signers at the specified block.
-func (api *API) GetValidators() (map[common.Address]*big.Int, error) {
+// ListValidators retrieves the list of authorized signers at the specified block.
+func (api *API) ListValidators() ([]*ValidatorDetails, error) {
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.CurrentHeader()
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	validators, err := api.proofofstake.GetValidators(header.ParentHash)
+	validators, err := api.proofofstake.ListValidators(header.ParentHash)
 	if err != nil {
 		return nil, err
 	}
 	return validators, nil
+}
+
+// GetTotalDepositedBalance retrieves the total deposited quantity.
+func (api *API) GetTotalDepositedBalance() (*big.Int, error) {
+	// Retrieve the requested block number (or current if none requested)
+	var header = api.chain.CurrentHeader()
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+	balance, err := api.proofofstake.GetTotalDepositedBalance(header.ParentHash)
+	if err != nil {
+		return nil, err
+	}
+	return balance, nil
+}
+
+type ConsensusData struct {
+	Data           *BlockConsensusData           `json:"data"     gencodec:"required"`
+	AdditionalData *BlockAdditionalConsensusData `json:"additionalData"     gencodec:"required"`
+}
+
+// GetBlockConsensusData retrieves proofofstake consensus data of the block.
+func (api *API) GetBlockConsensusData(blockNumber uint64) (*ConsensusData, error) {
+	blockConsensusData := &BlockConsensusData{}
+	header := api.chain.GetHeaderByNumber(blockNumber)
+
+	err := rlp.DecodeBytes(header.ConsensusData, &blockConsensusData)
+	if err != nil {
+		return nil, err
+	}
+
+	blockAdditionalConsensusData := &BlockAdditionalConsensusData{}
+	err = rlp.DecodeBytes(header.UnhashedConsensusData, blockAdditionalConsensusData)
+	if err != nil {
+		return nil, err
+	}
+
+	consensusData := &ConsensusData{
+		Data:           blockConsensusData,
+		AdditionalData: blockAdditionalConsensusData,
+	}
+
+	return consensusData, err
+}
+
+type ConversionDetails struct {
+	EthAddress     common.Address `json:"ethAddress"     gencodec:"required"`
+	QuantumAddress common.Address `json:"quantumAddress"     gencodec:"required"`
+	IsConverted    bool           `json:"isConverted"     gencodec:"required"`
+	Coins          *big.Int       `json:"coins"     gencodec:"required"`
+}
+
+// GetConversionDetails returns whether the ethereum address is converted or not and details on the conversion
+func (api *API) GetConversionDetails(ethAddressHex string) (*ConversionDetails, error) {
+	var header = api.chain.CurrentHeader()
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+
+	ethAddress := common.HexToAddress(ethAddressHex)
+	isConverted, err := api.getConversionStatus(ethAddress, header.ParentHash)
+	if err != nil {
+		return nil, err
+	}
+
+	coins, err := api.GetCoinsForEthereumAddress(ethAddress, header.ParentHash)
+	if err != nil {
+		return nil, err
+	}
+
+	var quantumAddress common.Address
+	if isConverted {
+		quantumAddress, err = api.getConversionQuantumAddress(ethAddress, header.ParentHash)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		quantumAddress = ZERO_ADDRESS
+	}
+
+	conversionDetails := &ConversionDetails{
+		EthAddress:     ethAddress,
+		IsConverted:    isConverted,
+		QuantumAddress: quantumAddress,
+		Coins:          coins,
+	}
+
+	return conversionDetails, nil
+}
+
+func (api *API) getConversionStatus(ethAddress common.Address, blockHash common.Hash) (bool, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := conversion.GetContract_Method_getConversionStatus()
+
+	abiData, err := conversion.GetConversionContract_ABI()
+	if err != nil {
+		log.Error("getConversionStatus abi error", "err", err)
+		return false, err
+	}
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	// call
+	data, err := abiData.Pack(method, ethAddress)
+	if err != nil {
+		log.Error("Unable to pack tx for getConversionStatus", "error", err)
+		return false, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := api.proofofstake.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		log.Error("Call", "err", err)
+		return false, err
+	}
+	if len(result) == 0 {
+		return false, errors.New("getConversionStatus result is 0")
+	}
+
+	var out bool
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Debug("UnpackIntoInterface", "err", err, "ethAddress", ethAddress)
+		return false, err
+	}
+
+	return out, nil
+}
+
+func (api *API) getConversionQuantumAddress(ethAddress common.Address, blockHash common.Hash) (common.Address, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := conversion.GetContract_Method_getQuantumAddress()
+
+	abiData, err := conversion.GetConversionContract_ABI()
+	if err != nil {
+		log.Error("getConversionQuantumAddress abi error", "err", err)
+		return ZERO_ADDRESS, err
+	}
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	// call
+	data, err := abiData.Pack(method, ethAddress)
+	if err != nil {
+		log.Error("Unable to pack tx for getConversionQuantumAddress", "error", err)
+		return ZERO_ADDRESS, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := api.proofofstake.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		log.Error("Call", "err", err)
+		return ZERO_ADDRESS, err
+	}
+	if len(result) == 0 {
+		return ZERO_ADDRESS, errors.New("getConversionQuantumAddress result is 0")
+	}
+
+	var (
+		ret0 = new(common.Address)
+	)
+	out := ret0
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Debug("UnpackIntoInterface", "err", err, "ethAddress", ethAddress)
+		return ZERO_ADDRESS, err
+	}
+
+	return *out, nil
+}
+
+func (api *API) GetCoinsForEthereumAddress(ethAddress common.Address, blockHash common.Hash) (*big.Int, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := conversion.GetContract_Method_getAmount()
+
+	abiData, err := conversion.GetConversionContract_ABI()
+	if err != nil {
+		log.Error("GetCoinsForEthereumAddress abi error", "err", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(conversion.CONVERSION_CONTRACT)
+
+	// call
+	data, err := abiData.Pack(method, ethAddress)
+	if err != nil {
+		log.Error("Unable to pack tx for GetCoinsForEthereumAddress", "error", err)
+		return nil, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := api.proofofstake.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		log.Error("Call", "err", err)
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, errors.New("GetCoinsForEthereumAddress result is 0")
+	}
+
+	var out *big.Int
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Debug("UnpackIntoInterface", "err", err, "ethAddress", ethAddress)
+		return nil, err
+	}
+
+	return out, nil
 }

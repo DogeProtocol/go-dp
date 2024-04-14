@@ -1119,6 +1119,7 @@ func listValidators() error {
 
 		ValidatorDetailsList[i] = &ValidatorDetails{
 			depositor:    depositor,
+			validator:    validatorList[i],
 			balance:      balanceVal,
 			netBalance:   netBalance,
 			blockRewards: blockrewards,
