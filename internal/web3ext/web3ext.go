@@ -18,42 +18,42 @@
 package web3ext
 
 var Modules = map[string]string{
-	"admin":    AdminJs,
-	"ethash":   EthashJs,
-	"debug":    DebugJs,
-	"eth":      EthJs,
-	"miner":    MinerJs,
-	"net":      NetJs,
-	"personal": PersonalJs,
-	"rpc":      RpcJs,
-	"txpool":   TxpoolJs,
-	"les":      LESJs,
-	"vflux":    VfluxJs,
+	"admin":        AdminJs,
+	"proofofstake": ProofOfStakeJs,
+	"debug":        DebugJs,
+	"eth":          EthJs,
+	"miner":        MinerJs,
+	"net":          NetJs,
+	"personal":     PersonalJs,
+	"rpc":          RpcJs,
+	"txpool":       TxpoolJs,
+	"les":          LESJs,
+	"vflux":        VfluxJs,
 }
 
-const EthashJs = `
+const ProofOfStakeJs = `
 web3._extend({
-	property: 'ethash',
+	property: 'proofofstake',
 	methods: [
 		new web3._extend.Method({
-			name: 'getWork',
-			call: 'ethash_getWork',
+			name: 'listValidators',
+			call: 'proofofstake_listValidators',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'getHashrate',
-			call: 'ethash_getHashrate',
+			name: 'getTotalDepositedBalance',
+			call: 'proofofstake_getTotalDepositedBalance',
 			params: 0
 		}),
 		new web3._extend.Method({
-			name: 'submitWork',
-			call: 'ethash_submitWork',
-			params: 3,
+			name: 'getBlockConsensusData',
+			call: 'proofofstake_getBlockConsensusData',
+			params: 1
 		}),
 		new web3._extend.Method({
-			name: 'submitHashrate',
-			call: 'ethash_submitHashrate',
-			params: 2,
+			name: 'getConversionDetails',
+			call: 'proofofstake_getConversionDetails',
+			params: 1
 		}),
 	]
 });
