@@ -3,6 +3,7 @@ package main
 import "C"
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
@@ -217,13 +218,13 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	ethVal, err := ParseBigFloatInner(C.CString(args3))
 	if err != nil {
 		fmt.Println("ParseBigFloatInner", args3, "err", err)
-		return C.GoString(nil), C.GoString(err)
+		return t, errors.New(C.GoString(err))
 	}
 
 	wei, err := etherToWeiFloat(ethVal)
 	if err != nil {
 		fmt.Println("etherToWeiFloat", ethVal, "err", err)
-		return C.GoString(nil), C.GoString(err)
+		return t, errors.New(C.GoString(err))
 	}
 
 	weiVal, _ := new(big.Int).SetString(C.GoString(wei), 10)
