@@ -61,7 +61,7 @@ func PublicKeyToAddress(pKey_str *C.char, pk_count int) (*C.char, *C.char) {
 //export IsValidAddress
 func IsValidAddress(address_str *C.char) (*C.char, *C.char) {
 	address := C.GoString(address_str)
-	return C.CString(common.IsHexAddress(address)), nil
+	return C.CString(strconv.FormatBool(common.IsHexAddress(address))), nil
 }
 
 //export TxnSigningHash
@@ -181,7 +181,7 @@ func ContractData(args []*C.char) (*C.char, *C.char) {
 		d.WriteString(string(sh))
 	}
 
-	return C.CString(d), nil
+	return C.CString(d.String()), nil
 }
 
 //export ParseBigFloat
@@ -195,7 +195,7 @@ func ParseBigFloat(args []*C.char) (*C.char, *C.char) {
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
-	return C.CString(f), nil
+	return C.CString(f.String()), nil
 }
 
 //export ParseBigFloatInner
@@ -204,11 +204,11 @@ func ParseBigFloatInner(value *C.char) (*C.char, *C.char) {
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)
 	_, err := fmt.Sscan(C.GoString(value), f)
-	return C.CString(f), C.CString(err.Error())
+	return C.CString(f.String()), C.CString(err.Error())
 }
 
 func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transaction Transaction, e error) {
-
+	var t Transaction
 	var fromAddress = common.HexToAddress(args0)
 	n, _ := strconv.Atoi(args1)
 	var nonce = uint64(n)
@@ -217,9 +217,16 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	ethVal, err := ParseBigFloatInner(C.CString(args3))
 	if err != nil {
 		fmt.Println("ParseBigFloatInner", args3, "err", err)
-		return transaction, C.GoString(err)
+		return t, C.GoString(err)
 	}
-	weiVal := etherToWeiFloat(ethVal)
+
+	wei, err := etherToWeiFloat(ethVal)
+	if err != nil {
+		fmt.Println("etherToWeiFloat", ethVal, "err", err)
+		return t, C.GoString(err)
+	}
+
+	weiVal, _ := new(big.Int).SetString(C.GoString(wei), 10)
 
 	g, _ := strconv.Atoi(args4)
 	var gasLimit = uint64(g)
@@ -233,7 +240,6 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
 		Value: weiVal, Data: data, ChainId: chainId}
 
-	var t Transaction
 	t.Transaction = append(t.Transaction, transactionDetails)
 
 	return t, nil
@@ -244,16 +250,20 @@ func signTxHash(tx *wasm.Transaction, signer wasm.Signer, pubBytes, sigBytes []b
 	return tx.WithSignature(signer, sig)
 }
 
-func weiToEther(val *big.Int) *big.Int {
-	return new(big.Int).Div(val, big.NewInt(params.Ether))
-}
-
-func etherToWeiFloat(eth *big.Float) *big.Int {
+func etherToWeiFloat(ethVal *C.char) (*C.char, *C.char) {
+	val := C.GoString(ethVal)
+	eth := new(big.Float)
+	eth.SetPrec(236)
+	eth.SetMode(big.ToNearestEven)
+	_, err := fmt.Sscan(val, eth)
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
 	truncInt, _ := eth.Int(nil)
 	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
 	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
 	fracStr += strings.Repeat("0", 18-len(fracStr))
 	fracInt, _ := new(big.Int).SetString(fracStr, 10)
 	wei := new(big.Int).Add(truncInt, fracInt)
-	return wei
+	return C.CString(wei.String()), nil
 }
