@@ -208,6 +208,31 @@ func ParseBigFloatInner(value *C.char) (*C.char, *C.char) {
 	return C.CString(f.String()), C.CString(err.Error())
 }
 
+//export WeiToEther
+func WeiToEther(wei *C.char) (*C.char, *C.char) {
+	val, _ := new(big.Int).SetString(C.GoString(wei), 10)
+	return C.CString(new(big.Int).Div(val, big.NewInt(params.Ether)).String()), nil
+}
+
+//export EtherToWeiFloat
+func EtherToWeiFloat(ethVal *C.char) (*C.char, *C.char) {
+	val := C.GoString(ethVal)
+	eth := new(big.Float)
+	eth.SetPrec(236)
+	eth.SetMode(big.ToNearestEven)
+	_, err := fmt.Sscan(val, eth)
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+	fracStr += strings.Repeat("0", 18-len(fracStr))
+	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+	wei := new(big.Int).Add(truncInt, fracInt)
+	return C.CString(wei.String()), nil
+}
+
 func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transaction Transaction, e error) {
 	var t Transaction
 	var fromAddress = common.HexToAddress(args0)
@@ -221,9 +246,9 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 		return t, errors.New(C.GoString(err))
 	}
 
-	wei, err := etherToWeiFloat(ethVal)
+	wei, err := EtherToWeiFloat(ethVal)
 	if err != nil {
-		fmt.Println("etherToWeiFloat", ethVal, "err", err)
+		fmt.Println("EtherToWeiFloat", ethVal, "err", err)
 		return t, errors.New(C.GoString(err))
 	}
 
@@ -249,22 +274,4 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 func signTxHash(tx *wasm.Transaction, signer wasm.Signer, pubBytes, sigBytes []byte) (*wasm.Transaction, error) {
 	sig := common.CombineTwoParts(sigBytes, pubBytes)
 	return tx.WithSignature(signer, sig)
-}
-
-func etherToWeiFloat(ethVal *C.char) (*C.char, *C.char) {
-	val := C.GoString(ethVal)
-	eth := new(big.Float)
-	eth.SetPrec(236)
-	eth.SetMode(big.ToNearestEven)
-	_, err := fmt.Sscan(val, eth)
-	if err != nil {
-		return nil, C.CString(err.Error())
-	}
-	truncInt, _ := eth.Int(nil)
-	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
-	fracStr += strings.Repeat("0", 18-len(fracStr))
-	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-	wei := new(big.Int).Add(truncInt, fracInt)
-	return C.CString(wei.String()), nil
 }
