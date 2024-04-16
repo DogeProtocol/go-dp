@@ -217,13 +217,13 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	ethVal, err := ParseBigFloatInner(C.CString(args3))
 	if err != nil {
 		fmt.Println("ParseBigFloatInner", args3, "err", err)
-		return t, C.GoString(err)
+		return C.GoString(nil), C.GoString(err)
 	}
 
 	wei, err := etherToWeiFloat(ethVal)
 	if err != nil {
 		fmt.Println("etherToWeiFloat", ethVal, "err", err)
-		return t, C.GoString(err)
+		return C.GoString(nil), C.GoString(err)
 	}
 
 	weiVal, _ := new(big.Int).SetString(C.GoString(wei), 10)
