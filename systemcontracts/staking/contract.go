@@ -83,6 +83,7 @@ var (
 			GetDepositorSlashings:    "getDepositorSlashings",
 			DoesDepositorExist:       "doesDepositorExist",
 			DidDepositorEverExist:    "didDepositorEverExist",
+			GetWithdrawalBlock:       "getWithdrawalBlock",
 		},
 		Validators: &Validator{
 			GetBalanceOfDepositor:    "getBalanceOfDepositor",
@@ -219,6 +220,18 @@ func GetContract_Method_AddDepositorSlashing() string {
 
 func GetContract_Method_AddDepositorReward() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorReward
+}
+
+func GetContract_Method_GetDepositorRewards() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetDepositorRewards
+}
+
+func GetContract_Method_GetDepositorSlashings() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetDepositorSlashings
+}
+
+func GetContract_Method_GetWithdrawalBlock() string {
+	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetWithdrawalBlock
 }
 
 func IsStakingContractCreated(currentBlockNumber uint64) bool {
