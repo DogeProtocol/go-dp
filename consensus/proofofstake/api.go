@@ -60,9 +60,19 @@ func (sb *blockNumberOrHashOrRLP) UnmarshalJSON(data []byte) error {
 }
 
 // ListValidators retrieves the list of authorized signers at the specified block.
-func (api *API) ListValidators() ([]*ValidatorDetails, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
+func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -79,9 +89,20 @@ type StakingData struct {
 }
 
 // GetStakingDetails retrieves the total deposited quantity.
-func (api *API) GetStakingDetails() (*StakingData, error) {
+func (api *API) GetStakingDetails(blockNumberHex string) (*StakingData, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
+	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -110,6 +131,9 @@ type ConsensusData struct {
 func (api *API) GetBlockConsensusData(blockNumber uint64) (*ConsensusData, error) {
 	blockConsensusData := &BlockConsensusData{}
 	header := api.chain.GetHeaderByNumber(blockNumber)
+	if header == nil {
+		return nil, errUnknownBlock
+	}
 
 	err := rlp.DecodeBytes(header.ConsensusData, &blockConsensusData)
 	if err != nil {
