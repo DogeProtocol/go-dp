@@ -37,10 +37,10 @@ func main() {
 }
 
 //export Scrypt
-func Scrypt(skKey_str, salt_str *C.char, sk_count int) (*C.char, *C.char) {
-	secret := C.GoBytes(unsafe.Pointer(skKey_str), C.int(sk_count))
+func Scrypt(skKeyStr, saltStr *C.char, skCount int) (*C.char, *C.char) {
+	secret := C.GoBytes(unsafe.Pointer(skKeyStr), C.int(skCount))
 
-	salt, err := base64.StdEncoding.DecodeString(C.GoString(salt_str))
+	salt, err := base64.StdEncoding.DecodeString(C.GoString(saltStr))
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
@@ -53,15 +53,15 @@ func Scrypt(skKey_str, salt_str *C.char, sk_count int) (*C.char, *C.char) {
 }
 
 //export PublicKeyToAddress
-func PublicKeyToAddress(pKey_str *C.char, pk_count int) (*C.char, *C.char) {
-	pubBytes := C.GoBytes(unsafe.Pointer(pKey_str), C.int(pk_count))
+func PublicKeyToAddress(pKeyStr *C.char, pkCount int) (*C.char, *C.char) {
+	pubBytes := C.GoBytes(unsafe.Pointer(pKeyStr), C.int(pkCount))
 	address := common.BytesToAddress(crypto.Keccak256(pubBytes[:])[common.AddressTruncateBytes:]).String()
 	return C.CString(address), nil
 }
 
 //export IsValidAddress
-func IsValidAddress(address_str *C.char) (*C.char, *C.char) {
-	address := C.GoString(address_str)
+func IsValidAddress(addressStr *C.char) (*C.char, *C.char) {
+	address := C.GoString(addressStr)
 	return C.CString(strconv.FormatBool(common.IsHexAddress(address))), nil
 }
 
@@ -96,7 +96,7 @@ func TxnSigningHash(from, nonce, to, value, gasLimit, data, chainId *C.char) (*C
 
 //export TxHash
 func TxHash(from, nonce, to, value, gasLimit, data, chainId,
-	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
+	pKeyStr, sigStr *C.char, pkCount int, sigCount int) (*C.char, *C.char) {
 
 	ts, err := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
 		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
@@ -111,8 +111,8 @@ func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
-	pubBytes := C.GoBytes(unsafe.Pointer(pKey_str), C.int(pk_count))
-	sigBytes := C.GoBytes(unsafe.Pointer(sig_str), C.int(sig_count))
+	pubBytes := C.GoBytes(unsafe.Pointer(pKeyStr), C.int(pkCount))
+	sigBytes := C.GoBytes(unsafe.Pointer(sigStr), C.int(sigCount))
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
@@ -124,7 +124,7 @@ func TxHash(from, nonce, to, value, gasLimit, data, chainId,
 
 //export TxData
 func TxData(from, nonce, to, value, gasLimit, data, chainId,
-	pKey_str, sig_str *C.char, pk_count int, sig_count int) (*C.char, *C.char) {
+	pKeyStr, sigStr *C.char, pkCount int, sigCount int) (*C.char, *C.char) {
 
 	ts, err := transaction(C.GoString(from), C.GoString(nonce), C.GoString(to),
 		C.GoString(value), C.GoString(gasLimit), C.GoString(data), C.GoString(chainId))
@@ -139,8 +139,8 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 
 	signer := wasm.NewLondonSigner(ts.Transaction[0].ChainId)
 
-	pubBytes := C.GoBytes(unsafe.Pointer(pKey_str), C.int(pk_count))
-	sigBytes := C.GoBytes(unsafe.Pointer(sig_str), C.int(sig_count))
+	pubBytes := C.GoBytes(unsafe.Pointer(pKeyStr), C.int(pkCount))
+	sigBytes := C.GoBytes(unsafe.Pointer(sigStr), C.int(sigCount))
 
 	signTx, err := signTxHash(tx, signer, pubBytes, sigBytes)
 	if err != nil {
@@ -157,7 +157,14 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 }
 
 //export ContractData
-func ContractData(args []*C.char) (*C.char, *C.char) {
+func ContractData(argv **C.char, argvLength int) (*C.char, *C.char) {
+	length := argvLength
+	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(argv))[:length:length]
+	args := make([]string, length)
+	for i, cString := range cStrings {
+		args[i] = C.GoString(cString)
+	}
+
 	method := C.GoString(args[0])
 
 	abiData, err := abi.JSON(strings.NewReader(C.GoString(args[1])))
@@ -186,13 +193,11 @@ func ContractData(args []*C.char) (*C.char, *C.char) {
 }
 
 //export ParseBigFloat
-func ParseBigFloat(args []*C.char) (*C.char, *C.char) {
-	var value string
-	value = C.GoString(args[0])
+func ParseBigFloat(value *C.char) (*C.char, *C.char) {
 	f := new(big.Float)
 	f.SetPrec(236)
 	f.SetMode(big.ToNearestEven)
-	_, err := fmt.Sscan(value, f)
+	_, err := fmt.Sscan(C.GoString(value), f)
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
