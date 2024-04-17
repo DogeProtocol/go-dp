@@ -74,7 +74,7 @@ func (api *API) ListValidators() ([]*ValidatorDetails, error) {
 }
 
 type StakingData struct {
-	TotalDepositedBalance *big.Int            `json:"totalDepositedBalance"     gencodec:"required"`
+	TotalDepositedBalance string              `json:"totalDepositedBalance"     gencodec:"required"`
 	Validators            []*ValidatorDetails `json:"validators"     gencodec:"required"`
 }
 
@@ -96,7 +96,7 @@ func (api *API) GetStakingDetails() (*StakingData, error) {
 	}
 
 	return &StakingData{
-		TotalDepositedBalance: balance,
+		TotalDepositedBalance: hexutil.EncodeBig(balance),
 		Validators:            validators,
 	}, nil
 }

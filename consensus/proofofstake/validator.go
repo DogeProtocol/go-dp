@@ -19,12 +19,12 @@ import (
 type ValidatorDetails struct {
 	Depositor          common.Address `json:"depositor"     gencodec:"required"`
 	Validator          common.Address `json:"validator"     gencodec:"required"`
-	Balance            *big.Int       `json:"balance"       gencodec:"required"`
-	NetBalance         *big.Int       `json:"netBalance"    gencodec:"required"`
-	BlockRewards       *big.Int       `json:"blockRewards"  gencodec:"required"`
-	Slashings          *big.Int       `json:"slashings"  	gencodec:"required"`
+	Balance            string         `json:"balance"       gencodec:"required"`
+	NetBalance         string         `json:"netBalance"    gencodec:"required"`
+	BlockRewards       string         `json:"blockRewards"  gencodec:"required"`
+	Slashings          string         `json:"slashings"  	gencodec:"required"`
 	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
-	WithdrawalBlock    *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
+	WithdrawalBlock    string         `json:"withdrawalBlock"  gencodec:"required"`
 }
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
@@ -1066,12 +1066,12 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash) ([]*ValidatorDetail
 		validatorDetails := &ValidatorDetails{
 			Validator:          val,
 			Depositor:          depositor,
-			Balance:            balance,
-			NetBalance:         netBalance,
-			BlockRewards:       depositorRewards,
-			Slashings:          depositorSlashings,
+			Balance:            hexutil.EncodeBig(balance),
+			NetBalance:         hexutil.EncodeBig(netBalance),
+			BlockRewards:       hexutil.EncodeBig(depositorRewards),
+			Slashings:          hexutil.EncodeBig(depositorSlashings),
 			IsValidationPaused: isPaused,
-			WithdrawalBlock:    withdrawalBlock,
+			WithdrawalBlock:    hexutil.EncodeBig(withdrawalBlock),
 		}
 
 		validatorList = append(validatorList, validatorDetails)
