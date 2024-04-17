@@ -165,9 +165,9 @@ func ContractData(argv **C.char, argvLength int) (*C.char, *C.char) {
 		args[i] = C.GoString(cString)
 	}
 
-	method := C.GoString(args[0])
+	method := args[0]
 
-	abiData, err := abi.JSON(strings.NewReader(C.GoString(args[1])))
+	abiData, err := abi.JSON(strings.NewReader(args[1]))
 
 	if err != nil {
 		return nil, C.CString(err.Error())
@@ -175,7 +175,7 @@ func ContractData(argv **C.char, argvLength int) (*C.char, *C.char) {
 
 	arguments := make([]interface{}, 0, len(args)-2)
 	for _, i := range args[2:] {
-		arguments = append(arguments, C.GoString(i))
+		arguments = append(arguments, i)
 	}
 
 	data, err := abiData.Pack(method, arguments...)
