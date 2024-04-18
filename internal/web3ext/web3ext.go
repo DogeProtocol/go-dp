@@ -38,12 +38,12 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'listValidators',
 			call: 'proofofstake_listValidators',
-			params: 0
+			params: 1
 		}),
 		new web3._extend.Method({
-			name: 'getTotalDepositedBalance',
-			call: 'proofofstake_getTotalDepositedBalance',
-			params: 0
+			name: 'getStakingDetails',
+			call: 'proofofstake_getStakingDetails',
+			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getBlockConsensusData',

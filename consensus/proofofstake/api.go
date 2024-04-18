@@ -60,9 +60,19 @@ func (sb *blockNumberOrHashOrRLP) UnmarshalJSON(data []byte) error {
 }
 
 // ListValidators retrieves the list of authorized signers at the specified block.
-func (api *API) ListValidators() ([]*ValidatorDetails, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
+func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -73,10 +83,26 @@ func (api *API) ListValidators() ([]*ValidatorDetails, error) {
 	return validators, nil
 }
 
-// GetTotalDepositedBalance retrieves the total deposited quantity.
-func (api *API) GetTotalDepositedBalance() (*big.Int, error) {
+type StakingData struct {
+	TotalDepositedBalance string              `json:"totalDepositedBalance"     gencodec:"required"`
+	Validators            []*ValidatorDetails `json:"validators"     gencodec:"required"`
+}
+
+// GetStakingDetails retrieves the total deposited quantity.
+func (api *API) GetStakingDetails(blockNumberHex string) (*StakingData, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Retrieve the requested block number (or current if none requested)
-	var header = api.chain.CurrentHeader()
+	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
@@ -84,20 +110,50 @@ func (api *API) GetTotalDepositedBalance() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return balance, nil
+
+	validators, err := api.proofofstake.ListValidators(header.ParentHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &StakingData{
+		TotalDepositedBalance: hexutil.EncodeBig(balance),
+		Validators:            validators,
+	}, nil
+}
+
+type ExtendedConsensusPacket struct {
+	Signer     common.Address `json:"signer"     gencodec:"required"`
+	PacketType byte           `json:"packetType" gencodec:"required"`
+	Round      byte           `json:"round"      gencodec:"required"`
 }
 
 type ConsensusData struct {
-	Data           *BlockConsensusData           `json:"data"     gencodec:"required"`
-	AdditionalData *BlockAdditionalConsensusData `json:"additionalData"     gencodec:"required"`
+	Data                     *BlockConsensusData           `json:"data"     gencodec:"required"`
+	AdditionalData           *BlockAdditionalConsensusData `json:"additionalData"     gencodec:"required"`
+	ExtendedConsensusPackets []*ExtendedConsensusPacket    `json:"extendedConsensusPackets"     gencodec:"required"`
 }
 
 // GetBlockConsensusData retrieves proofofstake consensus data of the block.
-func (api *API) GetBlockConsensusData(blockNumber uint64) (*ConsensusData, error) {
+func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	blockConsensusData := &BlockConsensusData{}
 	header := api.chain.GetHeaderByNumber(blockNumber)
+	if header == nil {
+		return nil, errUnknownBlock
+	}
 
-	err := rlp.DecodeBytes(header.ConsensusData, &blockConsensusData)
+	err = rlp.DecodeBytes(header.ConsensusData, &blockConsensusData)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +167,23 @@ func (api *API) GetBlockConsensusData(blockNumber uint64) (*ConsensusData, error
 	consensusData := &ConsensusData{
 		Data:           blockConsensusData,
 		AdditionalData: blockAdditionalConsensusData,
+	}
+
+	consensusData.ExtendedConsensusPackets = make([]*ExtendedConsensusPacket, 0)
+	for i := 0; i < len(blockAdditionalConsensusData.ConsensusPackets); i++ {
+		packet := blockAdditionalConsensusData.ConsensusPackets[i]
+		round, signer, err := parsePacket(&packet)
+		if err != nil {
+			consensusData.ExtendedConsensusPackets = append(consensusData.ExtendedConsensusPackets, &ExtendedConsensusPacket{})
+			continue
+		}
+		ePacket := ExtendedConsensusPacket{
+			PacketType: packet.ConsensusData[0],
+			Round:      round,
+		}
+		ePacket.Signer.CopyFrom(signer)
+
+		consensusData.ExtendedConsensusPackets = append(consensusData.ExtendedConsensusPackets, &ePacket)
 	}
 
 	return consensusData, err
