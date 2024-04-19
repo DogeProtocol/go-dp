@@ -1216,7 +1216,7 @@ func (cph *ConsensusHandler) shouldMoveToNextRoundProposalAcks(parentHash common
 		return false, nil
 	}
 
-	//If there are votes in greater rounds, so currentRound can never get that much deposit
+	//If there are votes in greater rounds
 	balanceDepositVotesRequiredCurrentRound := common.SafeSubBigInt(blockStateDetails.blockMinWeightedProposalsRequired, currentRoundDepositSoFar)
 	log.Trace("shouldMoveToNextRoundProposalAcks",
 		"blockMinWeightedProposalsRequired", blockStateDetails.blockMinWeightedProposalsRequired,
@@ -1261,8 +1261,7 @@ func (cph *ConsensusHandler) shouldMoveToNextRoundPrecommit(parentHash common.Ha
 				}
 				packetType := getPacketType(pkt.Packet)
 				if round == blockStateDetails.currentRound && packetType == CONSENSUS_PACKET_TYPE_COMMIT_BLOCK { //todo: check commitHash
-					valCommitMap[validator] = true
-					continue
+					return false, nil //todo: verify percentage
 				}
 				if round <= blockStateDetails.currentRound {
 					continue
@@ -1728,29 +1727,30 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 		blockRoundDetails.blockVoteType = VOTE_TYPE_NIL
 		blockRoundDetails.precommitHash.CopyFrom(getNilVotePreCommitHash(parentHash, blockStateDetails.currentRound))
 	} else {
-		if totalVotesDepositCount.Cmp(blockStateDetails.totalBlockDepositValue) >= 0 ||
-			totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 && HasExceededTimeThreshold(blockRoundDetails.initTime,
-				int64(ACK_BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round))) {
-			blockStateDetails.blockRoundMap[blockStateDetails.currentRound] = blockRoundDetails
-			cph.blockStateDetailsMap[parentHash] = blockStateDetails
-			err := cph.initializeNewBlockRound(NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_TIMEOUT)
-			if err != nil {
-				return err
-			}
-			return nil
-		} else {
-			ok, err := cph.shouldMoveToNextRoundProposalAcks(parentHash)
-			if err != nil {
-				return err
-			}
-			if ok == true {
+		if HasExceededTimeThreshold(blockRoundDetails.initTime, int64(ACK_BLOCK_TIMEOUT_MS*int(blockRoundDetails.Round))) {
+			if totalVotesDepositCount.Cmp(blockStateDetails.totalBlockDepositValue) >= 0 ||
+				totalVotesDepositCount.Cmp(blockStateDetails.blockMinWeightedProposalsRequired) >= 0 {
 				blockStateDetails.blockRoundMap[blockStateDetails.currentRound] = blockRoundDetails
 				cph.blockStateDetailsMap[parentHash] = blockStateDetails
-				err := cph.initializeNewBlockRound(NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_HIGHER_ROUND)
+				err := cph.initializeNewBlockRound(NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_TIMEOUT)
 				if err != nil {
 					return err
 				}
 				return nil
+			} else {
+				ok, err := cph.shouldMoveToNextRoundProposalAcks(parentHash)
+				if err != nil {
+					return err
+				}
+				if ok == true {
+					blockStateDetails.blockRoundMap[blockStateDetails.currentRound] = blockRoundDetails
+					cph.blockStateDetailsMap[parentHash] = blockStateDetails
+					err := cph.initializeNewBlockRound(NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_HIGHER_ROUND)
+					if err != nil {
+						return err
+					}
+					return nil
+				}
 			}
 		}
 	}
