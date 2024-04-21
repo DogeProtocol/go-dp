@@ -1017,65 +1017,74 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash) ([]*ValidatorDetail
 	}
 
 	for _, val := range *out {
-		isPaused, err := p.IsValidatorPaused(val, blockHash)
+		validatorDetails, err := p.GetStakingDetailsByValidatorAddress(val, blockHash)
 		if err != nil {
-			log.Debug("IsValidatorPaused failed", "err", err)
 			return nil, err
-		}
-
-		depositor, err := p.GetDepositorOfValidator(val, blockHash)
-		if err != nil {
-			log.Debug("GetDepositorOfValidator failed", "err", err)
-			continue
-		}
-
-		if depositor.IsEqualTo(ZERO_ADDRESS) {
-			return nil, errors.New("invalid depositor")
-		}
-
-		balance, err := p.GetBalanceOfDepositor(depositor, blockHash)
-		if err != nil {
-			log.Debug("GetBalanceOfDepositor failed", "err", err)
-			continue
-		}
-
-		netBalance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
-		if err != nil {
-			log.Debug("GetNetBalanceOfDepositor failed", "err", err)
-			continue
-		}
-
-		depositorRewards, err := p.GetDepositorRewards(depositor, blockHash)
-		if err != nil {
-			log.Debug("GetDepositorRewards failed", "err", err)
-			continue
-		}
-
-		depositorSlashings, err := p.GetDepositorSlashings(depositor, blockHash)
-		if err != nil {
-			log.Debug("GetDepositorSlashings failed", "err", err)
-			continue
-		}
-
-		withdrawalBlock, err := p.GetWithdrawalBlock(depositor, blockHash)
-		if err != nil {
-			log.Debug("GetWithdrawalBlock failed", "err", err)
-			continue
-		}
-
-		validatorDetails := &ValidatorDetails{
-			Validator:          val,
-			Depositor:          depositor,
-			Balance:            hexutil.EncodeBig(balance),
-			NetBalance:         hexutil.EncodeBig(netBalance),
-			BlockRewards:       hexutil.EncodeBig(depositorRewards),
-			Slashings:          hexutil.EncodeBig(depositorSlashings),
-			IsValidationPaused: isPaused,
-			WithdrawalBlock:    hexutil.EncodeBig(withdrawalBlock),
 		}
 
 		validatorList = append(validatorList, validatorDetails)
 	}
 
 	return validatorList, nil
+}
+
+func (p *ProofOfStake) GetStakingDetailsByValidatorAddress(val common.Address, blockHash common.Hash) (*ValidatorDetails, error) {
+	isPaused, err := p.IsValidatorPaused(val, blockHash)
+	if err != nil {
+		log.Debug("IsValidatorPaused failed", "err", err)
+		return nil, err
+	}
+
+	depositor, err := p.GetDepositorOfValidator(val, blockHash)
+	if err != nil {
+		log.Debug("GetDepositorOfValidator failed", "err", err)
+		return nil, err
+	}
+
+	if depositor.IsEqualTo(ZERO_ADDRESS) {
+		return nil, errors.New("invalid depositor")
+	}
+
+	balance, err := p.GetBalanceOfDepositor(depositor, blockHash)
+	if err != nil {
+		log.Debug("GetBalanceOfDepositor failed", "err", err)
+		return nil, err
+	}
+
+	netBalance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
+	if err != nil {
+		log.Debug("GetNetBalanceOfDepositor failed", "err", err)
+		return nil, err
+	}
+
+	depositorRewards, err := p.GetDepositorRewards(depositor, blockHash)
+	if err != nil {
+		log.Debug("GetDepositorRewards failed", "err", err)
+		return nil, err
+	}
+
+	depositorSlashings, err := p.GetDepositorSlashings(depositor, blockHash)
+	if err != nil {
+		log.Debug("GetDepositorSlashings failed", "err", err)
+		return nil, err
+	}
+
+	withdrawalBlock, err := p.GetWithdrawalBlock(depositor, blockHash)
+	if err != nil {
+		log.Debug("GetWithdrawalBlock failed", "err", err)
+		return nil, err
+	}
+
+	validatorDetails := &ValidatorDetails{
+		Validator:          val,
+		Depositor:          depositor,
+		Balance:            hexutil.EncodeBig(balance),
+		NetBalance:         hexutil.EncodeBig(netBalance),
+		BlockRewards:       hexutil.EncodeBig(depositorRewards),
+		Slashings:          hexutil.EncodeBig(depositorSlashings),
+		IsValidationPaused: isPaused,
+		WithdrawalBlock:    hexutil.EncodeBig(withdrawalBlock),
+	}
+
+	return validatorDetails, nil
 }

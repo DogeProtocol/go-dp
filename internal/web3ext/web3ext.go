@@ -55,6 +55,16 @@ web3._extend({
 			call: 'proofofstake_getConversionDetails',
 			params: 1
 		}),
+		new web3._extend.Method({
+			name: 'getStakingDetailsByValidatorAddress',
+			call: 'proofofstake_getStakingDetailsByValidatorAddress',
+			params: 2
+		}),
+		new web3._extend.Method({
+			name: 'getStakingDetailsByDepositorAddress',
+			call: 'proofofstake_getStakingDetailsByDepositorAddress',
+			params: 2
+		}),
 	]
 });
 `
