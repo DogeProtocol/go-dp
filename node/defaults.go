@@ -40,7 +40,7 @@ const (
 var DefaultConfig = Config{
 	DataDir:             DefaultDataDir(),
 	HTTPPort:            DefaultHTTPPort,
-	HTTPModules:         []string{"net", "web3"},
+	HTTPModules:         []string{"net", "web3", "proofofstake"},
 	HTTPVirtualHosts:    []string{"localhost"},
 	HTTPTimeouts:        rpc.DefaultHTTPTimeouts,
 	WSPort:              DefaultWSPort,

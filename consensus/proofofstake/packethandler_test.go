@@ -27,13 +27,13 @@ var waitMap map[common.Address]bool
 var packetDropCount int32
 var packetSentCount int32
 
-type ValidatorDetails struct {
+type ValidatorDetailsTest struct {
 	balance *big.Int
 	key     *signaturealgorithm.PrivateKey
 }
 
 type ValidatorManager struct {
-	valMap map[common.Address]*ValidatorDetails
+	valMap map[common.Address]*ValidatorDetailsTest
 }
 
 type MockP2PManager struct {
@@ -56,7 +56,7 @@ type MockP2PHandler struct {
 	validator        common.Address
 	validatorTxns    []common.Hash
 	consensusHandler *ConsensusHandler
-	validatorDetails *ValidatorDetails
+	validatorDetails *ValidatorDetailsTest
 	networkDetails   MockNetworkDetails
 }
 
@@ -284,12 +284,12 @@ func (p *MockP2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPa
 
 func NewValidatorManager(numKeys int) *ValidatorManager {
 	valManager := &ValidatorManager{}
-	valManager.valMap = make(map[common.Address]*ValidatorDetails)
+	valManager.valMap = make(map[common.Address]*ValidatorDetailsTest)
 
 	for i := 0; i < numKeys; i++ {
 		valKey, _ := cryptobase.SigAlg.GenerateKey()
 		valAddress, _ := cryptobase.SigAlg.PublicKeyToAddress(&valKey.PublicKey)
-		valManager.valMap[valAddress] = &ValidatorDetails{
+		valManager.valMap[valAddress] = &ValidatorDetailsTest{
 			key:     valKey,
 			balance: params.EtherToWei(big.NewInt(500000000000)),
 		}
