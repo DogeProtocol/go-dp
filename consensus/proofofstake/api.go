@@ -179,6 +179,7 @@ type ConsensusData struct {
 	Data                     *BlockConsensusData           `json:"data"     gencodec:"required"`
 	AdditionalData           *BlockAdditionalConsensusData `json:"additionalData"     gencodec:"required"`
 	ExtendedConsensusPackets []*ExtendedConsensusPacket    `json:"extendedConsensusPackets"     gencodec:"required"`
+	BlockProposerRewards     string                        `json:"blockProposerRewards"     gencodec:"required"`
 }
 
 // GetBlockConsensusData retrieves proofofstake consensus data of the block.
@@ -231,6 +232,13 @@ func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, er
 		ePacket.Signer.CopyFrom(signer)
 
 		consensusData.ExtendedConsensusPackets = append(consensusData.ExtendedConsensusPackets, &ePacket)
+	}
+
+	if blockConsensusData.VoteType == VOTE_TYPE_OK {
+		blockRewards := GetReward(header.Number)
+		consensusData.BlockProposerRewards = hexutil.EncodeBig(blockRewards)
+	} else {
+		consensusData.BlockProposerRewards = hexutil.EncodeUint64(0)
 	}
 
 	return consensusData, err
