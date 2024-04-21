@@ -76,7 +76,7 @@ func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, erro
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	validators, err := api.proofofstake.ListValidators(header.ParentHash)
+	validators, err := api.proofofstake.ListValidators(header.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +86,53 @@ func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, erro
 type StakingData struct {
 	TotalDepositedBalance string              `json:"totalDepositedBalance"     gencodec:"required"`
 	Validators            []*ValidatorDetails `json:"validators"     gencodec:"required"`
+}
+
+func (api *API) GetStakingDetailsByValidatorAddress(validator common.Address, blockNumberHex string) (*ValidatorDetails, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Retrieve the requested block number (or current if none requested)
+	var header = api.chain.GetHeaderByNumber(blockNumber)
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+
+	return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
+}
+
+func (api *API) GetStakingDetailsByDepositorAddress(depositor common.Address, blockNumberHex string) (*ValidatorDetails, error) {
+	var blockNumber uint64
+	var err error
+	if blockNumberHex == "" || len(blockNumberHex) == 0 {
+		blockNumber = api.chain.CurrentHeader().Number.Uint64()
+	} else {
+		blockNumber, err = hexutil.DecodeUint64(blockNumberHex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Retrieve the requested block number (or current if none requested)
+	var header = api.chain.GetHeaderByNumber(blockNumber)
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+
+	validator, err := api.proofofstake.GetValidatorOfDepositor(depositor, header.Hash())
+	if err != nil {
+		return nil, err
+	}
+
+	return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
 }
 
 // GetStakingDetails retrieves the total deposited quantity.
@@ -106,12 +153,12 @@ func (api *API) GetStakingDetails(blockNumberHex string) (*StakingData, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	balance, err := api.proofofstake.GetTotalDepositedBalance(header.ParentHash)
+	balance, err := api.proofofstake.GetTotalDepositedBalance(header.Hash())
 	if err != nil {
 		return nil, err
 	}
 
-	validators, err := api.proofofstake.ListValidators(header.ParentHash)
+	validators, err := api.proofofstake.ListValidators(header.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -204,19 +251,19 @@ func (api *API) GetConversionDetails(ethAddressHex string) (*ConversionDetails, 
 	}
 
 	ethAddress := common.HexToAddress(ethAddressHex)
-	isConverted, err := api.getConversionStatus(ethAddress, header.ParentHash)
+	isConverted, err := api.getConversionStatus(ethAddress, header.Hash())
 	if err != nil {
 		return nil, err
 	}
 
-	coins, err := api.GetCoinsForEthereumAddress(ethAddress, header.ParentHash)
+	coins, err := api.GetCoinsForEthereumAddress(ethAddress, header.Hash())
 	if err != nil {
 		return nil, err
 	}
 
 	var quantumAddress common.Address
 	if isConverted {
-		quantumAddress, err = api.getConversionQuantumAddress(ethAddress, header.ParentHash)
+		quantumAddress, err = api.getConversionQuantumAddress(ethAddress, header.Hash())
 		if err != nil {
 			return nil, err
 		}
