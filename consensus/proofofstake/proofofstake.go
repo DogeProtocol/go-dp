@@ -152,6 +152,7 @@ var (
 
 // SignerFn hashes and signs the data to be signed by a backing account.
 type SignerFn func(signer accounts.Account, mimeType string, message []byte) ([]byte, error)
+type SignerFnWithContext func(signer accounts.Account, mimeType string, message []byte, context []byte) ([]byte, error)
 type SignerTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
 
 // ProofOfStake is the proof-of-authority consensus engine proposed to support the
@@ -167,10 +168,11 @@ type ProofOfStake struct {
 
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
-	signer    types.Signer
-	validator common.Address
-	signFn    SignerFn // Signer function to authorize hashes with
-	signTxFn  SignerTxFn
+	signer            types.Signer
+	validator         common.Address
+	signFn            SignerFn // Signer function to authorize hashes with
+	signFnWithContext SignerFnWithContext
+	signTxFn          SignerTxFn
 
 	ethAPI *ethapi.PublicBlockChainAPI
 
@@ -799,15 +801,17 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
-func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signTxFn SignerTxFn, account accounts.Account) {
+func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signFnWithContext SignerFnWithContext, signTxFn SignerTxFn, account accounts.Account) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	c.validator = validator
 	c.signFn = signFn
 	c.signTxFn = signTxFn
+	c.signFnWithContext = signFnWithContext
 
 	c.consensusHandler.signFn = signFn
+	c.consensusHandler.signFnWithContext = signFnWithContext
 	c.consensusHandler.account = account
 }
 

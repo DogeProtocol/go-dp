@@ -3,6 +3,7 @@ package hybrideds
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto/hybridedsfull"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"testing"
 )
@@ -24,6 +25,70 @@ func TestHybridedsSig_Basic(t *testing.T) {
 
 	fmt.Println("NativeGolangVerify true test")
 	testHybridedsSigBasic(t, true)
+}
+
+func testCompactFull(t *testing.T, nativeGolandVerify bool) {
+	var sigCompact signaturealgorithm.SignatureAlgorithm
+	var sigFull signaturealgorithm.SignatureAlgorithm
+
+	sigCompact = CreateHybridedsSig(nativeGolandVerify)
+	sigFull = hybridedsfull.CreateHybridedsfullSig()
+
+	keyCompact1, err := sigCompact.GenerateKey()
+	if err != nil {
+		t.Fatal("GenerateKey failed")
+	}
+
+	digestHash1 := []byte(testmsg1)
+	signatureCompact, err := sigCompact.Sign(digestHash1, keyCompact1)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("Sign compact failed")
+	}
+
+	if sigCompact.Verify(keyCompact1.PubData, digestHash1, signatureCompact) != true {
+		t.Fatal("Verify failed 1")
+	}
+
+	signatureFull, err := sigFull.Sign(digestHash1, keyCompact1)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("Sign full failed")
+	}
+
+	if sigCompact.Verify(keyCompact1.PubData, digestHash1, signatureFull) != true {
+		t.Fatal("Verify failed 2")
+	}
+
+	if sigFull.Verify(keyCompact1.PubData, digestHash1, signatureFull) != true {
+		t.Fatal("Verify failed 3")
+	}
+
+	//Negative tests
+	keyCompact2, err := sigCompact.GenerateKey()
+	if err != nil {
+		t.Fatal("GenerateKey failed")
+	}
+
+	signatureFull2, err := sigFull.Sign(digestHash1, keyCompact2)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("Sign full failed")
+	}
+
+	if sigFull.Verify(keyCompact1.PubData, digestHash1, signatureFull2) == true {
+		t.Fatal("Verify passed unexpectedly 1")
+	}
+
+	digestHash2 := []byte(testmsg2)
+	if sigFull.Verify(keyCompact1.PubData, digestHash2, signatureFull) == true {
+		t.Fatal("Verify passed unexpectedly 2")
+	}
+}
+
+func TestHybridedsSig_Compact_Full(t *testing.T) {
+	testCompactFull(t, true)
+	testCompactFull(t, false)
 }
 
 func testBase64(t *testing.T, NativeGolangVerify bool) {

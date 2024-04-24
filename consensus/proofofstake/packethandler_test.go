@@ -178,6 +178,7 @@ func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) err
 			}
 			signer, err := getSigner(packet)
 			if err != nil {
+				fmt.Println(err)
 				panic("unexpected")
 			}
 			if p.mockP2pManager.IsValidatorPacketsBlocked(signer) {
@@ -309,6 +310,17 @@ func (vm *ValidatorManager) SignData(account accounts.Account, mimeType string, 
 	return cryptobase.SigAlg.Sign(hash, val.key)
 }
 
+func (vm *ValidatorManager) SignDataWithContext(account accounts.Account, mimeType string, data []byte, context []byte) ([]byte, error) {
+	val, ok := vm.valMap[account.Address]
+	// If the key exists
+	if ok == false {
+		return nil, errors.New("validator does not exist " + account.Address.String())
+	}
+
+	hash := crypto.Keccak256(data)
+	return cryptobase.SigAlg.SignWithContext(hash, val.key, context)
+}
+
 func (vm *ValidatorManager) GetValidatorsFn(blockHash common.Hash) (map[common.Address]*big.Int, error) {
 	valBalanceMap := make(map[common.Address]*big.Int)
 	for addr, val := range vm.valMap {
@@ -349,6 +361,7 @@ func Initialize(numKeys int) (vm *ValidatorManager, mockp2pManager *MockP2PManag
 			Address: addr,
 		}
 		consensusHandler.signFn = vm.SignData
+		consensusHandler.signFnWithContext = vm.SignDataWithContext
 		consensusHandler.account = account
 		p2pHandler := &MockP2PHandler{
 			mockP2pManager:   mockp2pManager,

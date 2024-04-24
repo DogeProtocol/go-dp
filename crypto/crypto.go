@@ -22,6 +22,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+const DILITHIUM_ED25519_SPHINCS_COMPACT_ID = 1
+
+const DILITHIUM_ED25519_SPHINCS_FULL_ID = 2
+
 func Sha256(data ...[]byte) []byte {
 	h1 := sha3.NewLegacyKeccak256()
 	for _, b := range data {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/crypto/hybridedsfull"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"golang.org/x/crypto/sha3"
 	"io"
@@ -38,9 +39,12 @@ type HybridedsSig struct {
 	signatureLength              int
 	signatureWithPublicKeyLength int
 	NativeGolangVerify           bool
+	fullSigAlg                   *hybridedsfull.HybridedsfullSig
 }
 
 func CreateHybridedsSig(mativeGolangVerify bool) HybridedsSig {
+	fullSigAlg := hybridedsfull.CreateHybridedsfullSig()
+
 	return HybridedsSig{sigName: SIG_NAME,
 		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
@@ -48,6 +52,7 @@ func CreateHybridedsSig(mativeGolangVerify bool) HybridedsSig {
 		signatureLength:              CRYPTO_SIGNATURE_BYTES,
 		signatureWithPublicKeyLength: CRYPTO_PUBLICKEY_BYTES + CRYPTO_SIGNATURE_BYTES + common.LengthByteSize + common.LengthByteSize,
 		NativeGolangVerify:           mativeGolangVerify,
+		fullSigAlg:                   &fullSigAlg,
 	}
 }
 
@@ -256,6 +261,18 @@ func (s HybridedsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey
 	return combinedSignature, nil
 }
 
+func (s HybridedsSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	if context == nil || len(context) != 1 {
+		return nil, errors.New("SignWithContext failed context")
+	}
+
+	if context[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		return s.fullSigAlg.Sign(digestHash, prv)
+	}
+
+	return nil, errors.New("SignWithContext failed invalid context")
+}
+
 func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	if s.NativeGolangVerify {
 		return s.VerifyNative(pubKey, digestHash, signature)
@@ -268,6 +285,10 @@ func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte)
 
 	if !bytes.Equal(pubKey, pubKeyBytes) {
 		return false
+	}
+
+	if sigBytes[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		return s.fullSigAlg.Verify(pubKey, digestHash, signature)
 	}
 
 	err = Verify(digestHash, sigBytes, pubKey)
@@ -294,6 +315,10 @@ func (s HybridedsSig) VerifyNative(pubKey []byte, digestHash []byte, signature [
 
 	if !bytes.Equal(pubKey, pubKeyBytes) {
 		return false
+	}
+
+	if sigBytes[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		return s.fullSigAlg.Verify(pubKey, digestHash, signature)
 	}
 
 	msgLen := len(digestHash)

@@ -251,6 +251,10 @@ func (s HybridedsfullSig) Sign(digestHash []byte, prv *signaturealgorithm.Privat
 	return combinedSignature, nil
 }
 
+func (s HybridedsfullSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s HybridedsfullSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {

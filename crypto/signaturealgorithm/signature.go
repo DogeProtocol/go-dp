@@ -50,6 +50,7 @@ type SignatureAlgorithm interface {
 
 	Sign(digestHash []byte, prv *PrivateKey) (sig []byte, err error)
 	Verify(pubKey []byte, digestHash []byte, signature []byte) bool
+	SignWithContext(digestHash []byte, prv *PrivateKey, context []byte) (sig []byte, err error)
 
 	Zeroize(prv *PrivateKey)
 

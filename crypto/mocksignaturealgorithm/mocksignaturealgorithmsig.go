@@ -259,6 +259,10 @@ func (s MockSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (si
 	return common.CombineTwoParts(sigBytes, pubBytes), nil
 }
 
+func (s MockSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s MockSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {

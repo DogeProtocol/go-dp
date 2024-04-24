@@ -242,6 +242,10 @@ func (s OqsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (sig
 	return common.CombineTwoParts(sigBytes, pubBytes), nil
 }
 
+func (s OqsSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s OqsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {

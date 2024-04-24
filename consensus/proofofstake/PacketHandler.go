@@ -34,6 +34,7 @@ type OutOfOrderPacket struct {
 type ConsensusHandler struct {
 	account                         accounts.Account
 	signFn                          SignerFn
+	signFnWithContext               SignerFnWithContext
 	p2pHandler                      P2PHandler
 	blockStateDetailsMap            map[common.Hash]*BlockStateDetails
 	outOfOrderPacketsMap            map[common.Hash][]*OutOfOrderPacket
@@ -141,6 +142,11 @@ const (
 	NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_TIMEOUT      NewRoundReason = 2
 	NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_HIGHER_ROUND NewRoundReason = 3
 	NEW_ROUND_REASON_WAIT_PRECOMMIT_TIMEOUT               NewRoundReason = 4
+)
+
+var (
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = 10
+	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = 4096
 )
 
 var (
@@ -1623,7 +1629,7 @@ func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK)}, data...)
 
-	packet, err = cph.createConsensusPacket(parentHash, dataToSend)
+	packet, err = cph.createConsensusPacket(parentHash, dataToSend, false)
 	if err != nil {
 		return err
 	}
@@ -1673,7 +1679,7 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 		}
 
 		dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_ACK_BLOCK_PROPOSAL)}, data...)
-		packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+		packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 		if err != nil {
 			return err
 		}
@@ -1850,7 +1856,7 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 		}
 
 		dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_ACK_BLOCK_PROPOSAL)}, data...)
-		packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+		packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 		if err != nil {
 			return err
 		}
@@ -1977,7 +1983,7 @@ func (cph *ConsensusHandler) precommitBlock(parentHash common.Hash) error {
 	}
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_PRECOMMIT_BLOCK)}, data...)
-	packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+	packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 	if err != nil {
 		return err
 	}
@@ -2024,7 +2030,7 @@ func (cph *ConsensusHandler) commitBlock(parentHash common.Hash) error {
 	}
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_COMMIT_BLOCK)}, data...)
-	packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+	packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 	if err != nil {
 		return err
 	}
@@ -2227,12 +2233,18 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	return err
 }
 
-func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data []byte) (*eth.ConsensusPacket, error) {
+func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data []byte, fullSign bool) (*eth.ConsensusPacket, error) {
 	if cph.signFn == nil {
 		return nil, errors.New("signFn is not set")
 	}
 	dataToSign := append(parentHash.Bytes(), data...)
-	signature, err := cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
+	var signature []byte
+	var err error
+	if fullSign {
+		signature, err = cph.signFnWithContext(cph.account, accounts.MimetypeProofOfStake, dataToSign, []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID})
+	} else {
+		signature, err = cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
+	}
 	if err != nil {
 		log.Trace("createConsensusPacket signAndSend failed", "err", err)
 		return nil, err
