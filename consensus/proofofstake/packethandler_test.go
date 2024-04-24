@@ -26,6 +26,7 @@ var waitLock sync.Mutex
 var waitMap map[common.Address]bool
 var packetDropCount int32
 var packetSentCount int32
+var TEST_CONSENSUS_BLOCK_NUMBER = uint64(1)
 
 type ValidatorDetailsTest struct {
 	balance *big.Int
@@ -144,20 +145,39 @@ func (m *MockP2PManager) IsValidatorPacketsBlocked(val common.Address) bool {
 func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToVerify)
-	pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
-	if err != nil {
-		return ZERO_ADDRESS, InvalidPacketErr
-	}
-	if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-		return ZERO_ADDRESS, InvalidPacketErr
-	}
 
-	validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
-	if err != nil {
-		return ZERO_ADDRESS, InvalidPacketErr
-	}
+	packetType := ConsensusPacketType(packet.ConsensusData[0])
+	if shouldSignFull(TEST_CONSENSUS_BLOCK_NUMBER) && packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
+		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
+		if err != nil {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
+		if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, FULL_SIGN_CONTEXT) == false {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
 
-	return validator, nil
+		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
+		if err != nil {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
+
+		return validator, nil
+	} else {
+		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
+		if err != nil {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
+		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
+
+		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
+		if err != nil {
+			return ZERO_ADDRESS, InvalidPacketErr
+		}
+
+		return validator, nil
+	}
 }
 
 func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {
@@ -392,7 +412,7 @@ func WaitBlockCommit(parentHash common.Hash, mockp2pHandler *MockP2PHandler, t *
 
 	for {
 		txns := mockp2pHandler.GetValidatorTransactions()
-		err := mockp2pHandler.consensusHandler.HandleConsensus(parentHash, txns, 1)
+		err := mockp2pHandler.consensusHandler.HandleConsensus(parentHash, txns, TEST_CONSENSUS_BLOCK_NUMBER)
 		if err != nil {
 			//fmt.Println("HandleTransactions err", err)
 		}
@@ -2069,4 +2089,33 @@ func Test_requestconsensuspacket_negative(t *testing.T) {
 			t.Fatalf("failed3")
 		}
 	}
+}
+
+func Test_shouldSignFull(t *testing.T) {
+	for i := uint64(0); i < FULL_SIGN_PROPOSAL_CUTOFF_BLOCK; i++ {
+		if shouldSignFull(uint64(i)) == true {
+			t.Fatalf("failed 1")
+		}
+	}
+
+	for i := FULL_SIGN_PROPOSAL_CUTOFF_BLOCK; i < FULL_SIGN_PROPOSAL_CUTOFF_BLOCK*100; i += FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS {
+		if shouldSignFull(uint64(i)) == false {
+			t.Fatalf("failed 2")
+		}
+	}
+
+	for i := FULL_SIGN_PROPOSAL_CUTOFF_BLOCK + 1; i < FULL_SIGN_PROPOSAL_CUTOFF_BLOCK+FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS-1; i++ {
+		if shouldSignFull(uint64(i)) == true {
+			t.Fatalf("failed 3")
+		}
+	}
+}
+
+func TestPacketHandler_basic_fullsign(t *testing.T) {
+	TEST_CONSENSUS_BLOCK_NUMBER = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
+	for i := 1; i <= TEST_ITERATIONS; i++ {
+		fmt.Println("iteration", i)
+		testPacketHandler_basic(4, t)
+	}
+	TEST_CONSENSUS_BLOCK_NUMBER = uint64(1)
 }

@@ -1,8 +1,10 @@
 package hybrideds
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/hybridedsfull"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"testing"
@@ -56,15 +58,44 @@ func testCompactFull(t *testing.T, nativeGolandVerify bool) {
 		t.Fatal("Sign full failed")
 	}
 
-	if sigCompact.Verify(keyCompact1.PubData, digestHash1, signatureFull) != true {
+	if sigFull.Verify(keyCompact1.PubData, digestHash1, signatureFull) != true {
 		t.Fatal("Verify failed 2")
 	}
 
-	if sigFull.Verify(keyCompact1.PubData, digestHash1, signatureFull) != true {
-		t.Fatal("Verify failed 3")
+	context := []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}
+
+	//The actual test
+	signatureContext, err := sigCompact.SignWithContext(digestHash1, keyCompact1, context)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("Sign full failed")
+	}
+
+	pubKey, err := sigCompact.PublicKeyFromSignatureWithContext(digestHash1, signatureContext, context)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("PublicKeyFromSignatureWithContext failed")
+	}
+
+	if bytes.Compare(pubKey.PubData, keyCompact1.PubData) != 0 {
+		t.Fatal("PublicKeyFromSignatureWithContext failed check")
+	}
+
+	if sigCompact.VerifyWithContext(keyCompact1.PubData, digestHash1, signatureContext, context) != true {
+		t.Fatal("Verify failed 2")
 	}
 
 	//Negative tests
+	_, err = sigFull.SignWithContext(digestHash1, keyCompact1, context)
+	if err != nil {
+		fmt.Println(err)
+		t.Fatal("Sign full failed unexpectedly")
+	}
+
+	if sigCompact.VerifyWithContext(keyCompact1.PubData, digestHash1, signatureFull, context) == true {
+		t.Fatal("Verify passed unexpectedly 1")
+	}
+
 	keyCompact2, err := sigCompact.GenerateKey()
 	if err != nil {
 		t.Fatal("GenerateKey failed")
@@ -76,13 +107,17 @@ func testCompactFull(t *testing.T, nativeGolandVerify bool) {
 		t.Fatal("Sign full failed")
 	}
 
-	if sigFull.Verify(keyCompact1.PubData, digestHash1, signatureFull2) == true {
-		t.Fatal("Verify passed unexpectedly 1")
+	if sigCompact.VerifyWithContext(keyCompact1.PubData, digestHash1, signatureFull, []byte{crypto.DILITHIUM_ED25519_SPHINCS_COMPACT_ID}) == true {
+		t.Fatal("Verify passed unexpectedly 2")
+	}
+
+	if sigFull.VerifyWithContext(keyCompact1.PubData, digestHash1, signatureFull2, context) == true {
+		t.Fatal("Verify passed unexpectedly 3")
 	}
 
 	digestHash2 := []byte(testmsg2)
-	if sigFull.Verify(keyCompact1.PubData, digestHash2, signatureFull) == true {
-		t.Fatal("Verify passed unexpectedly 2")
+	if sigFull.VerifyWithContext(keyCompact1.PubData, digestHash2, signatureFull, context) == true {
+		t.Fatal("Verify passed unexpectedly 4")
 	}
 }
 

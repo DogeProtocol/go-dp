@@ -252,7 +252,16 @@ func (s HybridedsfullSig) Sign(digestHash []byte, prv *signaturealgorithm.Privat
 }
 
 func (s HybridedsfullSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
-	return nil, errors.New("not implemented")
+	if context == nil || len(context) < 1 {
+		return nil, errors.New("SignWithContext failed context")
+	}
+
+	if context[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		newDigestHash := crypto.Keccak256(digestHash, context)
+		return s.Sign(newDigestHash, prv)
+	}
+
+	return nil, errors.New("SignWithContext failed invalid context")
 }
 
 func (s HybridedsfullSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
@@ -278,6 +287,19 @@ func (s HybridedsfullSig) Verify(pubKey []byte, digestHash []byte, signature []b
 	}
 
 	return true
+}
+
+func (s HybridedsfullSig) VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool {
+	if context == nil || len(context) < 1 {
+		return false
+	}
+
+	if context[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		newDigestHash := crypto.Keccak256(digestHash, context)
+		return s.Verify(pubKey, newDigestHash, signature)
+	}
+
+	return false
 }
 
 func (s HybridedsfullSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error) {
@@ -327,6 +349,25 @@ func (s HybridedsfullSig) PublicKeyFromSignature(digestHash []byte, sig []byte) 
 		return nil, err
 	}
 	return s.DeserializePublicKey(b)
+}
+
+func (s HybridedsfullSig) PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*signaturealgorithm.PublicKey, error) {
+	if context[0] != crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
+		return nil, errors.New("invalid context")
+	}
+
+	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(sig)
+	if err != nil {
+		return nil, err
+	}
+
+	newDigestHash := crypto.Keccak256(digestHash, context)
+	err = Verify(newDigestHash, sigBytes, pubKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.DeserializePublicKey(pubKeyBytes)
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with

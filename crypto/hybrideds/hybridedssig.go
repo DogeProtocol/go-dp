@@ -262,18 +262,15 @@ func (s HybridedsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey
 }
 
 func (s HybridedsSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
-	if context == nil || len(context) != 1 {
-		return nil, errors.New("SignWithContext failed context")
-	}
+	return s.fullSigAlg.SignWithContext(digestHash, prv, context)
+}
 
-	if context[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
-		return s.fullSigAlg.Sign(digestHash, prv)
-	}
-
-	return nil, errors.New("SignWithContext failed invalid context")
+func (s HybridedsSig) VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool {
+	return s.fullSigAlg.VerifyWithContext(pubKey, digestHash, signature, context)
 }
 
 func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
+
 	if s.NativeGolangVerify {
 		return s.VerifyNative(pubKey, digestHash, signature)
 	}
@@ -285,10 +282,6 @@ func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte)
 
 	if !bytes.Equal(pubKey, pubKeyBytes) {
 		return false
-	}
-
-	if sigBytes[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
-		return s.fullSigAlg.Verify(pubKey, digestHash, signature)
 	}
 
 	err = Verify(digestHash, sigBytes, pubKey)
@@ -315,10 +308,6 @@ func (s HybridedsSig) VerifyNative(pubKey []byte, digestHash []byte, signature [
 
 	if !bytes.Equal(pubKey, pubKeyBytes) {
 		return false
-	}
-
-	if sigBytes[0] == crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID {
-		return s.fullSigAlg.Verify(pubKey, digestHash, signature)
 	}
 
 	msgLen := len(digestHash)
@@ -427,6 +416,10 @@ func (s HybridedsSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*si
 		return nil, err
 	}
 	return s.DeserializePublicKey(b)
+}
+
+func (s HybridedsSig) PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*signaturealgorithm.PublicKey, error) {
+	return s.fullSigAlg.PublicKeyFromSignatureWithContext(digestHash, sig, context)
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with

@@ -8,6 +8,8 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hybrideds"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/node"
@@ -144,9 +146,16 @@ const (
 	NEW_ROUND_REASON_WAIT_PRECOMMIT_TIMEOUT               NewRoundReason = 4
 )
 
+const (
+	GENESIS_BLOCK_HASH = "0x2c8127f13d50434052128a88c9c9f79a27d44a1145e51f6fd250b6e247369e99"
+)
+
 var (
-	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = 10
-	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = 4096
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
+	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
+	//Use genesis block as context, so that cryptographic state-proof using full-signature-mode can be verified using the genesis file itself (if signatures from proposal blocks of genesis validators are available as well).
+	//Eventually when 70% (staked coins) of genesis proposers have full-signed proposal blocks that also contain genesis hash as part of the message, it means that the first state-proof is achieved for the chain.
+	FULL_SIGN_CONTEXT = append(common.Hex2Bytes(GENESIS_BLOCK_HASH), []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}...)
 )
 
 var (
@@ -586,19 +595,42 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	return err
 }
 
+func shouldSignFull(blockNumber uint64) bool {
+	if blockNumber >= FULL_SIGN_PROPOSAL_CUTOFF_BLOCK && blockNumber%FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS == 0 {
+		return true
+	}
+	return false
+}
+
 func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
-	if packet == nil {
-		debug.PrintStack()
+	if packet == nil || packet.ConsensusData == nil || len(packet.ConsensusData) < 1 || packet.Signature == nil || len(packet.Signature) < hybrideds.CRYPTO_SIGNATURE_BYTES {
 		return errors.New("nil packet")
 	}
+	packetType := ConsensusPacketType(packet.ConsensusData[0])
+
 	dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToVerify)
-	pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
-	if err != nil {
-		return InvalidPacketErr
-	}
-	if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-		return InvalidPacketErr
+	var pubKey *signaturealgorithm.PublicKey
+	var err error
+
+	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
+		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
+		if err != nil {
+			return InvalidPacketErr
+		}
+
+		if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, FULL_SIGN_CONTEXT) == false {
+			return InvalidPacketErr
+		}
+	} else {
+		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
+		if err != nil {
+			return InvalidPacketErr
+		}
+
+		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			return InvalidPacketErr
+		}
 	}
 
 	validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
@@ -606,7 +638,6 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 		return InvalidPacketErr
 	}
 
-	packetType := ConsensusPacketType(packet.ConsensusData[0])
 	log.Trace("processPacket", "validator", validator, "packetType", packetType)
 	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
 		return cph.handleProposeBlockPacket(validator, packet, false)
@@ -1629,7 +1660,8 @@ func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK)}, data...)
 
-	packet, err = cph.createConsensusPacket(parentHash, dataToSend, false)
+	fullSignNeeded := shouldSignFull(blockNumber)
+	packet, err = cph.createConsensusPacket(parentHash, dataToSend, fullSignNeeded)
 	if err != nil {
 		return err
 	}
@@ -2240,8 +2272,9 @@ func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data 
 	dataToSign := append(parentHash.Bytes(), data...)
 	var signature []byte
 	var err error
+	log.Info("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
 	if fullSign {
-		signature, err = cph.signFnWithContext(cph.account, accounts.MimetypeProofOfStake, dataToSign, []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID})
+		signature, err = cph.signFnWithContext(cph.account, accounts.MimetypeProofOfStake, dataToSign, FULL_SIGN_CONTEXT)
 	} else {
 		signature, err = cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
@@ -36,12 +37,27 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 
 		dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 		digestHash := crypto.Keccak256(dataToVerify)
-		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
-		if err != nil {
-			return nil, err
-		}
-		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-			return nil, InvalidPacketErr
+		var pubKey *signaturealgorithm.PublicKey
+		var err error
+
+		packetType := ConsensusPacketType(packet.ConsensusData[0])
+		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
+			pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
+			if err != nil {
+				return nil, InvalidPacketErr
+			}
+
+			if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}) == false {
+				return nil, InvalidPacketErr
+			}
+		} else {
+			pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
+			if err != nil {
+				return nil, err
+			}
+			if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+				return nil, InvalidPacketErr
+			}
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
@@ -55,7 +71,6 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			return nil, errors.New("validator not part of block")
 		}
 
-		packetType := ConsensusPacketType(packet.ConsensusData[0])
 		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
 			details := ProposalDetails{}
 
