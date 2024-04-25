@@ -87,6 +87,7 @@ type BlockAdditionalConsensusData struct {
 
 // todo: use mono clock
 var BLOCK_TIMEOUT_MS = int64(60000)
+var FULL_BLOCK_TIMEOUT_MS = int64(90000)
 var ACK_BLOCK_TIMEOUT_MS = 300000 //relative to start of block locally
 var BLOCK_CLEANUP_TIME_MS = int64(900000)
 var MAX_ROUND = byte(2)
@@ -2227,7 +2228,13 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		if shouldPropose {
 			cph.proposeBlock(parentHash, txns, blockNumber)
 		} else {
-			if HasExceededTimeThreshold(blockRoundDetails.initTime, BLOCK_TIMEOUT_MS*int64(blockRoundDetails.Round)) {
+			var timeoutMs int64
+			if shouldSignFull(blockNumber) {
+				timeoutMs = FULL_BLOCK_TIMEOUT_MS
+			} else {
+				timeoutMs = BLOCK_TIMEOUT_MS
+			}
+			if HasExceededTimeThreshold(blockRoundDetails.initTime, timeoutMs*int64(blockRoundDetails.Round)) {
 				cph.ackBlockProposalTimeout(parentHash)
 			} else {
 				cph.requestConsensusData(blockStateDetails)
