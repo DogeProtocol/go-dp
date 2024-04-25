@@ -1,0 +1,41 @@
+name: Build and Test on Ubuntu
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: true
+
+      matrix:
+        os: [ubuntu-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+       go-version: '^1.21.1'
+
+    - name: Install Dependencies
+      run: cd ${{ github.workspace }} && ./install-ubuntu.sh
+        
+    - name: Build
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/templibs/pkg-config
+      run: |
+         ls ${{ github.workspace }}/templibs/pkg-config
+         echo $PKG_CONFIG_PATH
+         mkdir ${{ github.workspace }}/build && go build -o ${{ github.workspace }}/build ./...
+         
+    - name: Test
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/templibs/pkg-config
+      run: |
+         ls ${{ github.workspace }}/templibs/pkg-config
+         echo $PKG_CONFIG_PATH
+         cd ${{ github.workspace }}/crypto && go test ./...
