@@ -14,6 +14,8 @@ import (
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
 	"math/rand"
+	"runtime/debug"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -147,33 +149,39 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	digestHash := crypto.Keccak256(dataToVerify)
 
 	packetType := ConsensusPacketType(packet.ConsensusData[0])
-	if shouldSignFull(TEST_CONSENSUS_BLOCK_NUMBER) && packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
+	if shouldSignFull(TEST_CONSENSUS_BLOCK_NUMBER) && packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packet.ParentHash.IsEqualTo(getTestParentHash(TEST_CONSENSUS_BLOCK_NUMBER)) {
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 		if err != nil {
-			return ZERO_ADDRESS, InvalidPacketErr
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
+			return ZERO_ADDRESS, err
 		}
 		if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, FULL_SIGN_CONTEXT) == false {
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, InvalidPacketErr
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 		if err != nil {
-			return ZERO_ADDRESS, InvalidPacketErr
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
+			return ZERO_ADDRESS, err
 		}
 
 		return validator, nil
 	} else {
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
 		if err != nil {
-			return ZERO_ADDRESS, InvalidPacketErr
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
+			return ZERO_ADDRESS, err
 		}
 		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, InvalidPacketErr
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 		if err != nil {
-			return ZERO_ADDRESS, InvalidPacketErr
+			fmt.Println("getSigner ParentHash", packet.ParentHash)
+			return ZERO_ADDRESS, err
 		}
 
 		return validator, nil
@@ -199,6 +207,7 @@ func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) err
 			signer, err := getSigner(packet)
 			if err != nil {
 				fmt.Println(err)
+				debug.PrintStack()
 				panic("unexpected")
 			}
 			if p.mockP2pManager.IsValidatorPacketsBlocked(signer) {
@@ -534,10 +543,14 @@ func ValidateTest(validatorMap *map[common.Address]*big.Int, startTime int64, pa
 	}
 }
 
+func getTestParentHash(blockNumber uint64) common.Hash {
+	return common.BytesToHash([]byte(strconv.FormatUint(TEST_CONSENSUS_BLOCK_NUMBER, 10)))
+}
+
 func testPacketHandler_basic(numKeys int, t *testing.T) {
 	_, p2p, valMap := Initialize(numKeys)
 
-	parentHash := common.BytesToHash([]byte{1})
+	parentHash := getTestParentHash(TEST_CONSENSUS_BLOCK_NUMBER)
 
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
 	for _, handler := range p2p.mockP2pHandlers {
@@ -2112,10 +2125,12 @@ func Test_shouldSignFull(t *testing.T) {
 }
 
 func TestPacketHandler_basic_fullsign(t *testing.T) {
+	fmt.Println("TestPacketHandler_basic_fullsign starting")
 	TEST_CONSENSUS_BLOCK_NUMBER = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
 	for i := 1; i <= TEST_ITERATIONS; i++ {
 		fmt.Println("iteration", i)
 		testPacketHandler_basic(4, t)
 	}
 	TEST_CONSENSUS_BLOCK_NUMBER = uint64(1)
+	fmt.Println("TestPacketHandler_basic_fullsign done")
 }

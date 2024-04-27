@@ -2279,10 +2279,11 @@ func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data 
 	dataToSign := append(parentHash.Bytes(), data...)
 	var signature []byte
 	var err error
-	log.Info("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
 	if fullSign {
+		log.Debug("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
 		signature, err = cph.signFnWithContext(cph.account, accounts.MimetypeProofOfStake, dataToSign, FULL_SIGN_CONTEXT)
 	} else {
+		log.Trace("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
 		signature, err = cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
 	}
 	if err != nil {
