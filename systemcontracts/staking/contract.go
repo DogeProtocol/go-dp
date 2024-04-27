@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv1"
 	"strings"
 )
 
 // Steps after Contract is modified
-// 1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking
-// 2) abigen --bin=c:\github\go-dp\systemcontracts\staking\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\staking.go
-// 3) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field
+// 1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking\stakingv2
+// 2) abigen --bin=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\stakingv2\staking.go
+// 3) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field (only required for genesis)
 const STAKING_CONTRACT = "0x0000000000000000000000000000000000000000000000000000000000001000"
 
 var STAKING_CONTRACT_ADDRESS = common.HexToAddress(STAKING_CONTRACT)
@@ -19,7 +20,6 @@ const PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER = 1
 
 var (
 	stakingContract = STAKING_CONTRACT
-	//stakingContractABI = STAKING_ABI
 
 	systemContracts      []string
 	SystemContractsData  = make(map[string]*Contracts)
@@ -148,7 +148,7 @@ func GetStakingContract_Address() common.Address {
 }
 
 func GetStakingContract_ABI() (abi.ABI, error) {
-	s := StakingMetaData.ABI
+	s := stakingv1.StakingMetaData.ABI
 	abi, err := abi.JSON(strings.NewReader(s))
 	return abi, err
 }

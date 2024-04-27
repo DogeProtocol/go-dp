@@ -18,6 +18,7 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv1"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -570,7 +571,7 @@ func newDeposit(validatorAddress string, depositAmount string, key *signaturealg
 	val, _ := ParseBigFloat(depositAmount)
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := staking.NewStaking(contractAddress, client)
+	contract, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return err
 	}
@@ -708,7 +709,7 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := staking.NewStaking(contractAddress, client)
+	contract, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return err
 	}
@@ -847,7 +848,7 @@ func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := staking.NewStaking(contractAddress, client)
+	contract, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return err
 	}
@@ -962,7 +963,7 @@ func getBalanceOfDepositor(dep string) (*big.Int, error) {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := staking.NewStaking(contractAddress, client)
+	instance, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return nil, err
 	}
@@ -989,7 +990,7 @@ func getNetBalanceOfDepositor(dep string) (*big.Int, error) {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := staking.NewStaking(contractAddress, client)
+	instance, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return nil, err
 	}
@@ -1017,7 +1018,7 @@ func getDepositorOfValidator(val string) (common.Address, error) {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := staking.NewStaking(contractAddress, client)
+	instance, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return common.ZERO_ADDRESS, err
 	}
@@ -1045,7 +1046,7 @@ func getDepositorBlockRewards(dep string) (*big.Int, error) {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := staking.NewStaking(contractAddress, client)
+	instance, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return nil, err
 	}
@@ -1084,7 +1085,7 @@ func listValidators() error {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := staking.NewStaking(contractAddress, client)
+	instance, err := stakingv1.NewStaking(contractAddress, client)
 	if err != nil {
 		return err
 	}
