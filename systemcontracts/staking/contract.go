@@ -253,3 +253,27 @@ func shouldCreateContract(currentBlockNumber uint64, contractAddress string) boo
 func (sf Contract) Address() common.Address {
 	return sf.CallerAddress
 }
+
+func GetContract_Method_ChangeValidator() string {
+	return "changeValidator"
+}
+
+func GetContract_Method_ChangeDepositor() string {
+	return "changeDepositor"
+}
+
+func GetContract_Method_IncreaseDeposit() string {
+	return "increaseDeposit"
+}
+
+func GetContract_Method_InitiateWithdrawalRewards() string {
+	return "initiateWithdrawalRewards"
+}
+
+func GetContract_Method_CompleteWithdrawalRewards() string {
+	return "completeWithdrawalRewards"
+}
+
+func GetContract_Method_GetRewardsWithdrawalDetails() string {
+	return "getRewardsWithdrawalDetails"
+}
