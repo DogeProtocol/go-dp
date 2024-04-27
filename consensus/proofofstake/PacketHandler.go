@@ -152,8 +152,6 @@ const (
 )
 
 var (
-	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
-	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
 	//Use genesis block as context, so that cryptographic state-proof using full-signature-mode can be verified using the genesis file itself (if signatures from proposal blocks of genesis validators are available as well).
 	//Eventually when 70% (staked coins) of genesis proposers have full-signed proposal blocks that also contain genesis hash as part of the message, it means that the first state-proof is achieved for the chain.
 	FULL_SIGN_CONTEXT = append(common.Hex2Bytes(GENESIS_BLOCK_HASH), []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}...)

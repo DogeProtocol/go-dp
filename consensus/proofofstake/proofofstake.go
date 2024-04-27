@@ -47,6 +47,7 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -74,6 +75,11 @@ var (
 
 	rewardStartBlockNumber = uint64(277204)
 	slashStartBlockNumber  = uint64(1497600)
+
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
+	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
+
+	stakingV2StartBlockNumber = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -724,6 +730,13 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
 			log.Info("You potentially proposed and mined a new block!", "BlockNumber", header.Number, "parentHash", header.ParentHash)
 		}
+	}
+
+	//Staking V2
+	if header.Number.Uint64() == stakingV2StartBlockNumber {
+		log.Info("Setting stakingv2 contract code", "blockNumber", stakingV2StartBlockNumber)
+		stakingContractCode := common.FromHex(string(stakingv2.STAKING_RUNTIME_BIN))
+		state.SetCode(staking.STAKING_CONTRACT_ADDRESS, stakingContractCode)
 	}
 
 	//Fix blocktime
