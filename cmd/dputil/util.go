@@ -654,15 +654,8 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 			return err
 		}
 	} else {
-		contract, err := stakingv2.NewStaking(contractAddress, client)
-		if err != nil {
-			return err
-		}
-
-		tx, err = contract.InitiateWithdrawal(txnOpts)
-		if err != nil {
-			return err
-		}
+		fmt.Println("Operation not supported. Use partial withdraw instead")
+		return nil
 	}
 
 	fmt.Println("Your request to initiate withdrawal has been added to the queue for processing.")
@@ -1008,7 +1001,7 @@ func listValidators() error {
 	return nil
 }
 
-func initiateRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
+func initiatePartialWithdrawal(key *signaturealgorithm.PrivateKey, amount string) error {
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return err
@@ -1043,7 +1036,13 @@ func initiateRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
 		return err
 	}
 
-	tx, err := contract.InitiateWithdrawalRewards(txnOpts)
+	amountFlt, err := ParseBigFloat(amount)
+	if err != nil {
+		return err
+	}
+	amountWei := etherToWeiFloat(amountFlt)
+
+	tx, err := contract.InitiatePartialWithdrawal(txnOpts, amountWei)
 	if err != nil {
 		return err
 	}
@@ -1057,7 +1056,7 @@ func initiateRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	return nil
 }
 
-func completeRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
+func completePartialWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
@@ -1095,7 +1094,7 @@ func completeRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
 		return err
 	}
 
-	tx, err = contract.CompleteWithdrawalRewards(txnOpts)
+	tx, err = contract.CompletePartialWithdrawal(txnOpts)
 	if err != nil {
 		return err
 	}

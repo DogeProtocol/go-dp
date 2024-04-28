@@ -46,7 +46,6 @@ interface IStakingContract {
     function resumeValidation() external;
 
     //Withdraw
-    function initiateWithdrawal() external returns (uint256);
     function completeWithdrawal() external returns (uint256);
 
     //Rewards and Slashing
@@ -80,10 +79,9 @@ interface IStakingContract {
         uint256 NetBalance;
         uint256 BlockRewards;
         uint256 Slashings;
-        bool    IsValidationPasued;
+        bool    IsValidationPaused;
         uint256 WithdrawalBlock;
-        uint256 RewardsWithdrawalBlock;
-        uint256 RewardsWithdrawalAmount;
+        uint256 WithdrawalAmount;
     }
 
     //Rotate
@@ -94,8 +92,8 @@ interface IStakingContract {
     function increaseDeposit() external payable;
 
     //Withdrawal
-    function initiateWithdrawalRewards() external returns (uint256);
-    function completeWithdrawalRewards() external returns (uint256);
+    function initiatePartialWithdrawal(uint256 amount) external returns (uint256);
+    function completePartialWithdrawal() external returns (uint256);
 
     function getStakingDetails(address validatorAddress) external view returns (StakingDetails calldata);
 
@@ -117,10 +115,6 @@ interface IStakingContract {
         address validatorAddress
     );
 
-    event OnInitiateWithdrawal(
-        address depositorAddress
-    );
-
     event OnCompleteWithdrawal(
         address depositorAddress,
         uint256 netBalance
@@ -138,15 +132,15 @@ interface IStakingContract {
 
     event OnIncreaseDeposit(address indexed depositorAddress, uint256 oldBalance, uint256 newBalance);
 
-    event OnInitiateWithdrawalRewards(address indexed depositorAddress, uint256 withdrawalBlock, uint256 withdrawalQuantity);
-    event OnCompleteWithdrawalRewards(address indexed depositorAddress, uint256 withdrawalQuantity);
+    event OnInitiatePartialWithdrawal(address indexed depositorAddress, uint256 withdrawalBlock, uint256 withdrawalQuantity);
+    event OnCompletePartialWithdrawal(address indexed depositorAddress, uint256 withdrawalQuantity);
 }
 
 contract StakingContract is IStakingContract {
     using SafeMath for uint256;
 
     uint256 constant MINIMUM_DEPOSIT = 5000000000000000000000000; //5000000
-    uint256 constant WITHDRAWAL_BLOCK_DELAY = 32000;
+    uint256 constant WITHDRAWAL_BLOCK_DELAY = 10;
 
     address[] private _validatorList;
 
@@ -185,8 +179,8 @@ contract StakingContract is IStakingContract {
     //StakingV2 variables
 
     //Withdrawal Request, depositor to withdrawalBlock
-    mapping (address => uint256) private _depositorRewardsWithdrawalRequestsMapping;
-    mapping (address => uint256) private _depositorRewardsWithdrawalAmountMapping;
+    mapping (address => uint256) private _depositorPartialWithdrawalBlockMapping;
+    mapping (address => uint256) private _depositorPartialWithdrawalAmountMapping;
 
     function newDeposit(address validatorAddress) override external payable {
         address depositorAddress = msg.sender;
@@ -254,28 +248,10 @@ contract StakingContract is IStakingContract {
         emit OnResumeValidation(depositorAddress, validatorAddress);
     }
 
-    function initiateWithdrawal() override external returns (uint256) {
-        address depositorAddress = msg.sender;
-        require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
-        require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
-        require(_depositorBalances[depositorAddress] > 0, "Depositor balance is zero");
-        require(_depositorRewardsWithdrawalRequestsMapping[depositorAddress] == 0, "Depositor rewards withdrawal request exists");
-
-        uint256 netBalance = this.getNetBalanceOfDepositor(depositorAddress);
-        require(netBalance > 0, "Depositor net balance is zero");
-
-        _depositorWithdrawalRequests[depositorAddress] = block.number + WITHDRAWAL_BLOCK_DELAY;
-        _depositorExists[depositorAddress] = false;
-
-        emit OnInitiateWithdrawal(depositorAddress);
-
-        return netBalance;
-    }
-
+    //Legacy function, will be removed in staking v3
     function completeWithdrawal() override external returns (uint256) {
         address depositorAddress = msg.sender;
         require(_depositorWithdrawalRequests[depositorAddress] > 0, "Depositor withdrawal request does not exist");
-        require(block.number >= _depositorWithdrawalRequests[depositorAddress] || (_depositorWithdrawalRequests[depositorAddress] - block.number) > WITHDRAWAL_BLOCK_DELAY, "Depositor withdrawal request cutoff block not reached");
 
         uint256 balance = _depositorBalances[depositorAddress].add(_depositorRewards[depositorAddress]);
         require(balance > _depositorSlashings[depositorAddress], "balance is negative");
@@ -472,14 +448,14 @@ contract StakingContract is IStakingContract {
             _depositorWithdrawalRequests[newDepositorAddress] = depositorWithdrawalBlock;
         }
 
-        if(_depositorRewardsWithdrawalRequestsMapping[oldDepositorAddress] > 0) {
-            uint256 depositorRewardsWithdrawalBlock = _depositorRewardsWithdrawalRequestsMapping[oldDepositorAddress];
-            delete(_depositorRewardsWithdrawalRequestsMapping[oldDepositorAddress]);
-            _depositorRewardsWithdrawalRequestsMapping[newDepositorAddress] = depositorRewardsWithdrawalBlock;
+        if(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress] > 0) {
+            uint256 depositorRewardsWithdrawalBlock = _depositorPartialWithdrawalBlockMapping[oldDepositorAddress];
+            delete(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress]);
+            _depositorPartialWithdrawalBlockMapping[newDepositorAddress] = depositorRewardsWithdrawalBlock;
 
-            uint256 depositorRewardsWithdrawalAmount = _depositorRewardsWithdrawalAmountMapping[oldDepositorAddress];
-            delete(_depositorRewardsWithdrawalAmountMapping[oldDepositorAddress]);
-            _depositorRewardsWithdrawalAmountMapping[newDepositorAddress] = depositorRewardsWithdrawalAmount;
+            uint256 depositorRewardsWithdrawalAmount = _depositorPartialWithdrawalBlockMapping[oldDepositorAddress];
+            delete(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress]);
+            _depositorPartialWithdrawalBlockMapping[newDepositorAddress] = depositorRewardsWithdrawalAmount;
         }
 
         emit OnChangeDepositor(oldDepositorAddress, newDepositorAddress);
@@ -501,42 +477,50 @@ contract StakingContract is IStakingContract {
         emit OnIncreaseDeposit(depositorAddress, oldBalance, newBalance);
     }
 
-    function initiateWithdrawalRewards() override external returns (uint256) {
+    function initiatePartialWithdrawal(uint256 amount) override external returns (uint256) {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
         require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
-        require(_depositorBalances[depositorAddress] > 0, "Depositor balance is zero");
-        require(_depositorRewardsWithdrawalRequestsMapping[depositorAddress] == 0, "Depositor rewards withdrawal request exists");
+        require(_depositorPartialWithdrawalBlockMapping[depositorAddress] == 0, "Depositor partial withdrawal request exists");
 
-        uint256 rewards = _depositorRewards[depositorAddress];
-        require(rewards > 0, "Depositor rewards is zero");
-        delete(_depositorRewards[depositorAddress]);
+        uint256 netBalance = this.getNetBalanceOfDepositor(depositorAddress);
+        require(netBalance >= amount, "Depositor net balance is low");
 
-        _depositorRewardsWithdrawalRequestsMapping[depositorAddress] = block.number + WITHDRAWAL_BLOCK_DELAY;
-        _depositorRewardsWithdrawalAmountMapping[depositorAddress] = rewards;
+        //First withdraw from rewards and then from balance
+        uint256 rewardsAmount = _depositorRewards[depositorAddress];
+        if(rewardsAmount >= amount) {
+            _depositorRewards[depositorAddress] = rewardsAmount.sub(amount);
+        } else {
+            delete _depositorRewards[depositorAddress];
+            _depositorBalances[depositorAddress] = _depositorBalances[depositorAddress].sub(amount.sub(rewardsAmount));
+        }
 
-        emit OnInitiateWithdrawalRewards(depositorAddress, block.number + WITHDRAWAL_BLOCK_DELAY, rewards);
+        _depositorPartialWithdrawalBlockMapping[depositorAddress] = block.number;
+        _depositorPartialWithdrawalAmountMapping[depositorAddress] = amount;
 
-        return rewards;
+        emit OnInitiatePartialWithdrawal(depositorAddress, block.number + WITHDRAWAL_BLOCK_DELAY, amount);
+
+        return amount;
     }
 
-    function completeWithdrawalRewards() override external returns (uint256) {
+    function completePartialWithdrawal() override external returns (uint256) {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
-        require(_depositorRewardsWithdrawalRequestsMapping[depositorAddress] > 0, "Depositor rewards withdrawal request does not exist");
-        require(block.number >= _depositorRewardsWithdrawalRequestsMapping[depositorAddress], "Depositor rewards withdrawal request cutoff block not reached");
+        require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
+        require(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0, "Depositor partial withdrawal request does not exist");
+        require(_depositorPartialWithdrawalBlockMapping[depositorAddress] + WITHDRAWAL_BLOCK_DELAY >= block.number, "Depositor partial withdrawal request cutoff block not reached");
 
-        uint256 rewards = _depositorRewardsWithdrawalAmountMapping[depositorAddress];
-        delete _depositorRewardsWithdrawalRequestsMapping[depositorAddress];
-        delete _depositorRewardsWithdrawalAmountMapping[depositorAddress];
+        uint256 amount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
+        delete _depositorPartialWithdrawalBlockMapping[depositorAddress];
+        delete _depositorPartialWithdrawalAmountMapping[depositorAddress];
 
-        (bool success, ) = depositorAddress.call{value:rewards}("");
+        (bool success, ) = depositorAddress.call{value:amount}("");
         // success should be true
-        require(success,"Withdraw rewards failed");
+        require(success,"Withdraw failed");
 
-        emit OnCompleteWithdrawalRewards(depositorAddress, rewards);
+        emit OnCompletePartialWithdrawal(depositorAddress, amount);
 
-        return rewards;
+        return amount;
     }
 
     function getStakingDetails(address validatorAddress) override external view returns (StakingDetails memory) {
@@ -546,7 +530,18 @@ contract StakingContract is IStakingContract {
 
         StakingDetails memory stakingDetails;
 
-        stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress], _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], _depositorWithdrawalRequests[validatorAddress], _depositorRewardsWithdrawalRequestsMapping[depositorAddress], _depositorRewardsWithdrawalAmountMapping[depositorAddress]);
+        uint256 withdrawalBlock = 0;
+        uint256 withdrawalAmount = 0;
+        if(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0) {
+            withdrawalBlock = _depositorPartialWithdrawalBlockMapping[depositorAddress];
+            withdrawalAmount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
+        } else if(_depositorWithdrawalRequests[depositorAddress] > 0) {
+            withdrawalBlock = _depositorWithdrawalRequests[depositorAddress];
+            withdrawalAmount = this.getNetBalanceOfDepositor(depositorAddress);
+        }
+
+        stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress],
+            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount);
 
         return stakingDetails;
     }

@@ -25,22 +25,19 @@ type ValidatorDetails struct {
 	Slashings          string         `json:"slashings"  	gencodec:"required"`
 	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
 	WithdrawalBlock    string         `json:"withdrawalBlock"  gencodec:"required"`
-
-	RewardsWithdrawalBlock  string `json:"rewardsWithdrawalBlock"`
-	RewardsWithdrawalAmount string `json:"rewardsWithdrawalAmount"`
+	WithdrawalAmount   string         `json:"withdrawalAmount"  gencodec:"required"`
 }
 
 type ValidatorDetailsV2 struct {
-	Depositor               common.Address `json:"depositor"     gencodec:"required"`
-	Validator               common.Address `json:"validator"     gencodec:"required"`
-	Balance                 *big.Int       `json:"balance"       gencodec:"required"`
-	NetBalance              *big.Int       `json:"netBalance"    gencodec:"required"`
-	BlockRewards            *big.Int       `json:"blockRewards"  gencodec:"required"`
-	Slashings               *big.Int       `json:"slashings"  	gencodec:"required"`
-	IsValidationPaused      bool           `json:"isValidationPaused"  gencodec:"required"`
-	WithdrawalBlock         *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
-	RewardsWithdrawalBlock  *big.Int       `json:"rewardsWithdrawalBlock" gencodec:"required"`
-	RewardsWithdrawalAmount *big.Int       `json:"rewardsWithdrawalAmount" gencodec:"required"`
+	Depositor          common.Address `json:"depositor"     gencodec:"required"`
+	Validator          common.Address `json:"validator"     gencodec:"required"`
+	Balance            *big.Int       `json:"balance"       gencodec:"required"`
+	NetBalance         *big.Int       `json:"netBalance"    gencodec:"required"`
+	BlockRewards       *big.Int       `json:"blockRewards"  gencodec:"required"`
+	Slashings          *big.Int       `json:"slashings"  	gencodec:"required"`
+	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
+	WithdrawalBlock    *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
+	WithdrawalAmount   *big.Int       `json:"withdrawalAmount" gencodec:"required"`
 }
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
@@ -1052,16 +1049,15 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash, blockNumber uint64)
 				return nil, err
 			}
 			validatorDetails = &ValidatorDetails{
-				Depositor:               validatorDetailsV2.Depositor,
-				Validator:               validatorDetailsV2.Validator,
-				Balance:                 hexutil.EncodeBig(validatorDetailsV2.Balance),
-				NetBalance:              hexutil.EncodeBig(validatorDetailsV2.NetBalance),
-				BlockRewards:            hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
-				Slashings:               hexutil.EncodeBig(validatorDetailsV2.Slashings),
-				IsValidationPaused:      validatorDetailsV2.IsValidationPaused,
-				WithdrawalBlock:         hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
-				RewardsWithdrawalBlock:  hexutil.EncodeBig(validatorDetailsV2.RewardsWithdrawalBlock),
-				RewardsWithdrawalAmount: hexutil.EncodeBig(validatorDetailsV2.RewardsWithdrawalAmount),
+				Depositor:          validatorDetailsV2.Depositor,
+				Validator:          validatorDetailsV2.Validator,
+				Balance:            hexutil.EncodeBig(validatorDetailsV2.Balance),
+				NetBalance:         hexutil.EncodeBig(validatorDetailsV2.NetBalance),
+				BlockRewards:       hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
+				Slashings:          hexutil.EncodeBig(validatorDetailsV2.Slashings),
+				IsValidationPaused: validatorDetailsV2.IsValidationPaused,
+				WithdrawalBlock:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
+				WithdrawalAmount:   hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
 			}
 		}
 
@@ -1127,6 +1123,10 @@ func (p *ProofOfStake) GetStakingDetailsByValidatorAddress(val common.Address, b
 		Slashings:          hexutil.EncodeBig(depositorSlashings),
 		IsValidationPaused: isPaused,
 		WithdrawalBlock:    hexutil.EncodeBig(withdrawalBlock),
+	}
+
+	if withdrawalBlock.Cmp(big.NewInt(0)) > 0 {
+		validatorDetails.WithdrawalAmount = validatorDetails.NetBalance //legacy
 	}
 
 	return validatorDetails, nil

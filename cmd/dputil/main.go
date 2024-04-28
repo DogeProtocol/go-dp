@@ -151,13 +151,13 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "initiaterewardswithdrawal" {
-		err := InitiateRewardsWithdrawal()
+	} else if os.Args[1] == "initiatepartialithdrawal" {
+		err := InitiatePartialWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "completerewardswithdrawal" {
-		err := CompleteRewardsWithdrawal()
+	} else if os.Args[1] == "completepartialwithdrawal" {
+		err := CompletePartialWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
@@ -859,8 +859,8 @@ func DepositorBlockRewards() error {
 	}
 }
 
-func InitiateRewardsWithdrawal() error {
-	if len(os.Args) < 3 {
+func InitiatePartialWithdrawal() error {
+	if len(os.Args) < 4 {
 		printHelp()
 		return errors.New("incorrect usage")
 	}
@@ -870,6 +870,7 @@ func InitiateRewardsWithdrawal() error {
 	}
 
 	depositorAddr := os.Args[2]
+	amount := os.Args[3]
 
 	if common.IsHexAddress(depositorAddr) == false {
 		return errors.New("invalid depositor address " + depositorAddr)
@@ -914,10 +915,10 @@ func InitiateRewardsWithdrawal() error {
 		return errors.New("depositor key address check failed " + err.Error())
 	}
 
-	return initiateWithdrawal(depKey)
+	return initiatePartialWithdrawal(depKey, amount)
 }
 
-func CompleteRewardsWithdrawal() error {
+func CompletePartialWithdrawal() error {
 	if len(os.Args) < 3 {
 		printHelp()
 		return errors.New("incorrect usage")
@@ -972,7 +973,7 @@ func CompleteRewardsWithdrawal() error {
 		return errors.New("depositor key address check failed " + err.Error())
 	}
 
-	return completeRewardsWithdrawal(depKey)
+	return completePartialWithdrawal(depKey)
 }
 
 func IncreaseDeposit() error {
