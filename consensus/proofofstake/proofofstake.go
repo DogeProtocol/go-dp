@@ -735,7 +735,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	//Staking V2
 	if header.Number.Uint64() == STAKING_CONTRACT_V2_CUTOFF_BLOCK {
 		log.Info("Setting stakingv2 contract code", "blockNumber", STAKING_CONTRACT_V2_CUTOFF_BLOCK)
-		stakingContractCode := common.FromHex(string(stakingv2.STAKING_RUNTIME_BIN))
+		stakingContractCode := common.FromHex(stakingv2.STAKING_RUNTIME_BIN)
 		state.SetCode(staking.STAKING_CONTRACT_ADDRESS, stakingContractCode)
 	}
 

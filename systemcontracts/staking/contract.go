@@ -5,6 +5,7 @@ import (
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv1"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	"strings"
 )
 
@@ -153,6 +154,12 @@ func GetStakingContract_ABI() (abi.ABI, error) {
 	return abi, err
 }
 
+func GetStakingContractV2_ABI() (abi.ABI, error) {
+	s := stakingv2.StakingMetaData.ABI
+	abi, err := abi.JSON(strings.NewReader(s))
+	return abi, err
+}
+
 func GetContract_Method_NewDeposit() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.NewDeposit
 }
@@ -274,6 +281,6 @@ func GetContract_Method_CompleteWithdrawalRewards() string {
 	return "completeWithdrawalRewards"
 }
 
-func GetContract_Method_GetRewardsWithdrawalDetails() string {
-	return "getRewardsWithdrawalDetails"
+func GetContract_Method_GetStakingDetails() string {
+	return "getStakingDetails"
 }

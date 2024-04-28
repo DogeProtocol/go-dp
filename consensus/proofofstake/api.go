@@ -76,7 +76,7 @@ func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, erro
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	validators, err := api.proofofstake.ListValidators(header.Hash())
+	validators, err := api.proofofstake.ListValidators(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -147,18 +147,16 @@ func (api *API) GetStakingDetails(blockNumberHex string) (*StakingData, error) {
 			return nil, err
 		}
 	}
-
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	balance, err := api.proofofstake.GetTotalDepositedBalance(header.Hash())
+	balance, err := api.proofofstake.GetTotalDepositedBalance(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
-
-	validators, err := api.proofofstake.ListValidators(header.Hash())
+	validators, err := api.proofofstake.ListValidators(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}

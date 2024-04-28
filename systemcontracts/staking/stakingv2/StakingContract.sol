@@ -73,6 +73,19 @@ interface IStakingContract {
 
     //Staking V2 functions
 
+    struct StakingDetails {
+        address Depositor;
+        address Validator;
+        uint256 Balance;
+        uint256 NetBalance;
+        uint256 BlockRewards;
+        uint256 Slashings;
+        bool    IsValidationPasued;
+        uint256 WithdrawalBlock;
+        uint256 RewardsWithdrawalBlock;
+        uint256 RewardsWithdrawalAmount;
+    }
+
     //Rotate
     function changeValidator(address newValidatorAddress) external;
     function changeDepositor(address newDepositorAddress) external;
@@ -83,7 +96,8 @@ interface IStakingContract {
     //Withdrawal
     function initiateWithdrawalRewards() external returns (uint256);
     function completeWithdrawalRewards() external returns (uint256);
-    function getRewardsWithdrawalDetails(address depositorAddress) external view returns (uint256,uint256);
+
+    function getStakingDetails(address validatorAddress) external view returns (StakingDetails calldata);
 
     event OnNewDeposit(
         address indexed depositorAddress,
@@ -525,7 +539,15 @@ contract StakingContract is IStakingContract {
         return rewards;
     }
 
-    function getRewardsWithdrawalDetails(address depositorAddress) override external view returns (uint256,uint256) {
-        return (_depositorRewardsWithdrawalRequestsMapping[depositorAddress], _depositorRewardsWithdrawalAmountMapping[depositorAddress]);
+    function getStakingDetails(address validatorAddress) override external view returns (StakingDetails memory) {
+        require(_validatorExists[validatorAddress] == true, "Validator does not exist");
+
+        address depositorAddress = _validatorToDepositorMapping[validatorAddress];
+
+        StakingDetails memory stakingDetails;
+
+        stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress], _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], _depositorWithdrawalRequests[validatorAddress], _depositorRewardsWithdrawalRequestsMapping[depositorAddress], _depositorRewardsWithdrawalAmountMapping[depositorAddress]);
+
+        return stakingDetails;
     }
 }
