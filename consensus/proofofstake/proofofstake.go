@@ -79,7 +79,7 @@ var (
 	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
 	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
 
-	stakingV2StartBlockNumber = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
+	STAKING_CONTRACT_V2_CUTOFF_BLOCK = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -733,8 +733,8 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	//Staking V2
-	if header.Number.Uint64() == stakingV2StartBlockNumber {
-		log.Info("Setting stakingv2 contract code", "blockNumber", stakingV2StartBlockNumber)
+	if header.Number.Uint64() == STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		log.Info("Setting stakingv2 contract code", "blockNumber", STAKING_CONTRACT_V2_CUTOFF_BLOCK)
 		stakingContractCode := common.FromHex(string(stakingv2.STAKING_RUNTIME_BIN))
 		state.SetCode(staking.STAKING_CONTRACT_ADDRESS, stakingContractCode)
 	}

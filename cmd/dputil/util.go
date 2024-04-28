@@ -11,6 +11,7 @@ import (
 	"github.com/DogeProtocol/dp/accounts/keystore"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
+	"github.com/DogeProtocol/dp/consensus/proofofstake"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
@@ -19,6 +20,7 @@ import (
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv1"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -571,103 +573,33 @@ func newDeposit(validatorAddress string, depositAmount string, key *signaturealg
 	val, _ := ParseBigFloat(depositAmount)
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := stakingv1.NewStaking(contractAddress, client)
+	blockNumber, err := client.BlockNumber(context.Background())
 	if err != nil {
 		return err
 	}
 
-	tx, err := contract.NewDeposit(txnOpts, common.HexToAddress(validatorAddress))
-	if err != nil {
-		return err
+	var tx *types.Transaction
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contract, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.NewDeposit(txnOpts, common.HexToAddress(validatorAddress))
+		if err != nil {
+			return err
+		}
+	} else {
+		contract, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.NewDeposit(txnOpts, common.HexToAddress(validatorAddress))
+		if err != nil {
+			return err
+		}
 	}
-
-	fmt.Println("Your request to deposit has been added to the queue for processing. Please check your account balance after 10 minutes.")
-	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
-	fmt.Println()
-
-	time.Sleep(1000 * time.Millisecond)
-
-	return nil
-}
-
-func requestNewDeposit(validatorAddress string, depositAmount string, key *signaturealgorithm.PrivateKey) error {
-
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-
-	if err != nil {
-		return err
-	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
-	if err != nil {
-		return err
-	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
-
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
-
-	if err != nil {
-		return err
-	}
-
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(250000)
-
-	val, _ := ParseBigFloat(depositAmount)
-	txnOpts.Value = etherToWeiFloat(val)
-
-	method := staking.GetContract_Method_NewDeposit()
-	abiData, err := staking.GetStakingContract_ABI()
-	if err != nil {
-		return err
-	}
-
-	input, err := abiData.Pack(method, common.HexToAddress(validatorAddress))
-	if err != nil {
-		return err
-	}
-
-	baseTx := types.NewDefaultFeeTransactionSimple(nonce, &contractAddress, txnOpts.Value,
-		txnOpts.GasLimit, input)
-
-	var rawTx *types.Transaction
-	rawTx = types.NewTx(baseTx)
-
-	if txnOpts.Signer == nil {
-		return errors.New("no signer to authorize the transaction with")
-	}
-
-	signTx, err := txnOpts.Signer(txnOpts.From, rawTx)
-	if err != nil {
-		return err
-	}
-
-	signTxBinary, err := signTx.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	tx := signTx
-	txData := hexutil.Encode(signTxBinary)
-
-	var jsonStr = []byte(`{"txnData" : "` + txData + `"}`)
-
-	request, err := http.NewRequest("POST", WRITE_API_URL+"/api/transactions", bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	httpClient := &http.Client{}
-	response, err := httpClient.Do(request)
-	if err != nil {
-		return err
-	}
-
-	defer response.Body.Close()
 
 	fmt.Println("Your request to deposit has been added to the queue for processing. Please check your account balance after 10 minutes.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
@@ -709,105 +641,31 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return err
+	var tx *types.Transaction
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contract, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.InitiateWithdrawal(txnOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		contract, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.InitiateWithdrawal(txnOpts)
+		if err != nil {
+			return err
+		}
 	}
 
-	tx, err := contract.InitiateWithdrawal(txnOpts)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Your request to initial withdrawal has been added to the queue for processing.")
-	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
-	fmt.Println()
-
-	time.Sleep(1000 * time.Millisecond)
-
-	return nil
-}
-
-func requestInitiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
-
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-
-	if err != nil {
-		return err
-	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
-	if err != nil {
-		return err
-	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
-
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
-
-	if err != nil {
-		return err
-	}
-
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
-
-	val, _ := ParseBigFloat("0")
-	txnOpts.Value = etherToWeiFloat(val)
-
-	method := staking.GetContract_Method_InitiateWithdrawal()
-	abiData, err := staking.GetStakingContract_ABI()
-	if err != nil {
-		return err
-	}
-
-	input, err := abiData.Pack(method)
-	if err != nil {
-		return err
-	}
-
-	baseTx := types.NewDefaultFeeTransactionSimple(nonce, &contractAddress, txnOpts.Value,
-		txnOpts.GasLimit, input)
-
-	var rawTx *types.Transaction
-	rawTx = types.NewTx(baseTx)
-
-	if txnOpts.Signer == nil {
-		return errors.New("no signer to authorize the transaction with")
-	}
-
-	signTx, err := txnOpts.Signer(txnOpts.From, rawTx)
-	if err != nil {
-		return err
-	}
-
-	signTxBinary, err := signTx.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	tx := signTx
-	txData := hexutil.Encode(signTxBinary)
-
-	var jsonStr = []byte(`{"txnData" : "` + txData + `"}`)
-
-	request, err := http.NewRequest("POST", WRITE_API_URL+"/api/transactions", bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	httpClient := &http.Client{}
-	response, err := httpClient.Do(request)
-	if err != nil {
-		return err
-	}
-
-	defer response.Body.Close()
-
-	fmt.Println("Your request to initial withdrawal has been added to the queue for processing.")
+	fmt.Println("Your request to initiate withdrawal has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 
@@ -848,103 +706,29 @@ func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
 
-	contract, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return err
+	var tx *types.Transaction
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contract, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.CompleteWithdrawal(txnOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		contract, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.CompleteWithdrawal(txnOpts)
+		if err != nil {
+			return err
+		}
 	}
-
-	tx, err := contract.CompleteWithdrawal(txnOpts)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
-	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
-	fmt.Println()
-
-	time.Sleep(1000 * time.Millisecond)
-
-	return nil
-}
-
-func requestCompleteWithdrawal(key *signaturealgorithm.PrivateKey) error {
-
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-
-	if err != nil {
-		return err
-	}
-	_, _, n, err := requestGetBalance(fromAddress.String())
-	if err != nil {
-		return err
-	}
-
-	var nonce uint64
-	fmt.Sscan(n, &nonce)
-
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
-
-	if err != nil {
-		return err
-	}
-
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
-
-	val, _ := ParseBigFloat("0")
-	txnOpts.Value = etherToWeiFloat(val)
-
-	method := staking.GetContract_Method_CompleteWithdrawal()
-	abiData, err := staking.GetStakingContract_ABI()
-	if err != nil {
-		return err
-	}
-
-	input, err := abiData.Pack(method)
-	if err != nil {
-		return err
-	}
-
-	baseTx := types.NewDefaultFeeTransactionSimple(nonce, &contractAddress, txnOpts.Value,
-		txnOpts.GasLimit, input)
-
-	var rawTx *types.Transaction
-	rawTx = types.NewTx(baseTx)
-
-	if txnOpts.Signer == nil {
-		return errors.New("no signer to authorize the transaction with")
-	}
-
-	signTx, err := txnOpts.Signer(txnOpts.From, rawTx)
-	if err != nil {
-		return err
-	}
-
-	signTxBinary, err := signTx.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	tx := signTx
-	txData := hexutil.Encode(signTxBinary)
-
-	var jsonStr = []byte(`{"txnData" : "` + txData + `"}`)
-
-	request, err := http.NewRequest("POST", WRITE_API_URL+"/api/transactions", bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	httpClient := &http.Client{}
-	response, err := httpClient.Do(request)
-	if err != nil {
-		return err
-	}
-
-	defer response.Body.Close()
 
 	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
@@ -956,22 +740,38 @@ func requestCompleteWithdrawal(key *signaturealgorithm.PrivateKey) error {
 }
 
 func getBalanceOfDepositor(dep string) (*big.Int, error) {
-
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return nil, err
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return nil, err
-	}
 
-	depositor := common.HexToAddress(dep)
-	depositorBalance, err := instance.GetBalanceOfDepositor(nil, depositor)
-	if err != nil {
-		log.Fatal(err)
+	var depositorBalance *big.Int
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetBalanceOfDepositor(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetBalanceOfDepositor(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Println("StakingBalance", "Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
@@ -989,16 +789,32 @@ func getNetBalanceOfDepositor(dep string) (*big.Int, error) {
 		return nil, err
 	}
 
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return nil, err
-	}
+	var depositorBalance *big.Int
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
 
-	depositor := common.HexToAddress(dep)
-	depositorBalance, err := instance.GetNetBalanceOfDepositor(nil, depositor)
-	if err != nil {
-		log.Fatal(err)
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetNetBalanceOfDepositor(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetNetBalanceOfDepositor(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Println("StakingNetBalance", "Address", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
@@ -1011,26 +827,41 @@ func getNetBalanceOfDepositor(dep string) (*big.Int, error) {
 }
 
 func getDepositorOfValidator(val string) (common.Address, error) {
-
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return common.ZERO_ADDRESS, err
 	}
 
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return common.ZERO_ADDRESS, err
-	}
+	var depositor common.Address
+	var validator common.Address
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return common.ZERO_ADDRESS, err
+		}
 
-	validator := common.HexToAddress(val)
-	depositor, err := instance.GetDepositorOfValidator(nil, validator)
-	if err != nil {
-		log.Fatal(err)
+		validator = common.HexToAddress(val)
+		depositor, err = instance.GetDepositorOfValidator(nil, validator)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return common.ZERO_ADDRESS, err
+		}
+
+		validator = common.HexToAddress(val)
+		depositor, err = instance.GetDepositorOfValidator(nil, validator)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Println("Depositor", depositor, "validator", validator)
-
 	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)
@@ -1039,26 +870,40 @@ func getDepositorOfValidator(val string) (common.Address, error) {
 }
 
 func getDepositorBlockRewards(dep string) (*big.Int, error) {
-
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return nil, err
 	}
 
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := stakingv1.NewStaking(contractAddress, client)
-	if err != nil {
-		return nil, err
-	}
+	var depositorBalance *big.Int
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
 
-	depositor := common.HexToAddress(dep)
-	depositorBalance, err := instance.GetDepositorRewards(nil, depositor)
-	if err != nil {
-		log.Fatal(err)
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetDepositorRewards(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorBalance, err = instance.GetDepositorRewards(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Println("BlockRewards", "Depositor", dep, "coins", weiToEther(depositorBalance).String(), "wei", depositorBalance)
-
 	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)
@@ -1085,14 +930,33 @@ func listValidators() error {
 	}
 
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	instance, err := stakingv1.NewStaking(contractAddress, client)
+	var validatorList []common.Address
+
+	blockNumber, err := client.BlockNumber(context.Background())
 	if err != nil {
 		return err
 	}
 
-	validatorList, err := instance.ListValidators(nil)
-	if err != nil {
-		log.Fatal(err)
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		validatorList, err = instance.ListValidators(nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		validatorList, err = instance.ListValidators(nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	totalDepositedBalance := big.NewInt(int64(0))
@@ -1137,6 +1001,254 @@ func listValidators() error {
 
 	fmt.Println("Total validators", len(validatorList), "totalDepositedBalance", weiToEther(totalDepositedBalance).String())
 
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func initiateRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.InitiateWithdrawalRewards(txnOpts)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to initiate rewards withdrawal has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func completeRewardsWithdrawal(key *signaturealgorithm.PrivateKey) error {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	var tx *types.Transaction
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err = contract.CompleteWithdrawalRewards(txnOpts)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to complete rewards withdrawal has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func increaseDeposit(key *signaturealgorithm.PrivateKey, additionalAmount string) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat(additionalAmount)
+	txnOpts.Value = etherToWeiFloat(val)
+
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.IncreaseDeposit(txnOpts)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to initiate rewards withdrawal has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func changeValidator(key *signaturealgorithm.PrivateKey, newValidatorAddress common.Address) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.ChangeValidator(txnOpts, newValidatorAddress)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to change the validator has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func changeDepositor(key *signaturealgorithm.PrivateKey, newDepositorAddress common.Address) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.ChangeDepositor(txnOpts, newDepositorAddress)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to change the depositor has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)
