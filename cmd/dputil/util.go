@@ -1206,7 +1206,7 @@ func changeValidator(key *signaturealgorithm.PrivateKey, newValidatorAddress com
 	return nil
 }
 
-func changeDepositor(key *signaturealgorithm.PrivateKey, newDepositorAddress common.Address) error {
+func initiateChangeDepositor(key *signaturealgorithm.PrivateKey, newDepositorAddress common.Address) error {
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return err
@@ -1241,12 +1241,61 @@ func changeDepositor(key *signaturealgorithm.PrivateKey, newDepositorAddress com
 		return err
 	}
 
-	tx, err := contract.ChangeDepositor(txnOpts, newDepositorAddress)
+	tx, err := contract.InitiateChangeDepositor(txnOpts, newDepositorAddress)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Your request to change the depositor has been added to the queue for processing.")
+	fmt.Println("Your request to initiate changing the depositor has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func completeChangeDepositor(key *signaturealgorithm.PrivateKey, oldDepositorAddress common.Address) error {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(210000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	contract, err := stakingv2.NewStaking(contractAddress, client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := contract.CompleteChangeDepositor(txnOpts, oldDepositorAddress)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Your request to complete changing the depositor has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 

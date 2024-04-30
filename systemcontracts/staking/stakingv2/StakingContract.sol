@@ -82,11 +82,13 @@ interface IStakingContract {
         bool    IsValidationPaused;
         uint256 WithdrawalBlock;
         uint256 WithdrawalAmount;
+        address NewDepositorAddress; //will be zero address if none found
     }
 
     //Rotate
     function changeValidator(address newValidatorAddress) external;
-    function changeDepositor(address newDepositorAddress) external;
+    function initiateChangeDepositor(address newDepositorAddress) external; //to be called by current depositor
+    function completeChangeDepositor(address oldDepositorAddress) external; //to be called by new depositor
 
     //Deposit
     function increaseDeposit() external payable;
@@ -128,7 +130,8 @@ interface IStakingContract {
 
     //Staking V2 events
     event OnChangeValidator(address indexed depositorAddress, address indexed oldValidatorAddress, address indexed newValidatorAddress);
-    event OnChangeDepositor(address indexed oldDepositorAddress, address indexed newDepositorAddress);
+    event OnInitiateChangeDepositor(address indexed oldDepositorAddress, address indexed newDepositorAddress);
+    event OnCompleteChangeDepositor(address indexed oldDepositorAddress, address indexed newDepositorAddress);
 
     event OnIncreaseDeposit(address indexed depositorAddress, uint256 oldBalance, uint256 newBalance);
 
@@ -181,6 +184,9 @@ contract StakingContract is IStakingContract {
     //Withdrawal Request, depositor to withdrawalBlock
     mapping (address => uint256) private _depositorPartialWithdrawalBlockMapping;
     mapping (address => uint256) private _depositorPartialWithdrawalAmountMapping;
+
+    //Depositor Change Mapping
+    mapping (address => address) private _oldDepositorNewDepositorMapping;
 
     function newDeposit(address validatorAddress) override external payable {
         address depositorAddress = msg.sender;
@@ -402,15 +408,33 @@ contract StakingContract is IStakingContract {
         emit OnChangeValidator(depositorAddress, oldValidatorAddress, newValidatorAddress);
     }
 
-    function changeDepositor(address newDepositorAddress) override external {
+    function initiateChangeDepositor(address newDepositorAddress) override external {
         address oldDepositorAddress = msg.sender;
 
         require(_depositorExists[oldDepositorAddress] == true, "Depositor does not exist");
-        require(_depositorExists[newDepositorAddress] == false, "newDepositorAddress already exists");
+        require(_depositorExists[newDepositorAddress] == false, "Depositor already exists");
         require(_depositorEverExisted[newDepositorAddress] == false, "newDepositorAddress existed once");
-        require(_depositorBalances[oldDepositorAddress] > 0, "Depositor balance is zero");
         require(_validatorExists[newDepositorAddress] == false, "Validator already exists as newDepositorAddress");
         require(_validatorEverExisted[newDepositorAddress] == false, "Validator already existed as newDepositorAddress");
+
+        _oldDepositorNewDepositorMapping[oldDepositorAddress] = newDepositorAddress;
+        emit OnInitiateChangeDepositor(oldDepositorAddress, newDepositorAddress);
+    }
+
+    function completeChangeDepositor(address oldDepositorAddress) override external {
+        address newDepositorAddress = msg.sender;
+
+        require(_oldDepositorNewDepositorMapping[oldDepositorAddress] == newDepositorAddress, "initiateChangeDepositor not called yet");
+        require(_depositorExists[oldDepositorAddress] == true, "Depositor does not exist");
+        require(_depositorBalances[oldDepositorAddress] > 0, "Depositor balance is zero");
+
+        require(_depositorExists[newDepositorAddress] == false, "newDepositorAddress already exists");
+        require(_depositorEverExisted[newDepositorAddress] == false, "newDepositorAddress existed once");
+        require(_validatorExists[newDepositorAddress] == false, "Validator already exists as newDepositorAddress");
+        require(_validatorEverExisted[newDepositorAddress] == false, "Validator already existed as newDepositorAddress");
+
+        //Delete old to new mapping
+        delete _oldDepositorNewDepositorMapping[oldDepositorAddress];
 
         //Update balance
         uint256 depositorBalance = _depositorBalances[oldDepositorAddress];
@@ -458,7 +482,7 @@ contract StakingContract is IStakingContract {
             _depositorPartialWithdrawalBlockMapping[newDepositorAddress] = depositorRewardsWithdrawalAmount;
         }
 
-        emit OnChangeDepositor(oldDepositorAddress, newDepositorAddress);
+        emit OnCompleteChangeDepositor(oldDepositorAddress, newDepositorAddress);
     }
 
     function increaseDeposit() override external payable {
@@ -541,7 +565,7 @@ contract StakingContract is IStakingContract {
         }
 
         stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress],
-            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount);
+            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount, _oldDepositorNewDepositorMapping[depositorAddress]);
 
         return stakingDetails;
     }
