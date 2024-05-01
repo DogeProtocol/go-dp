@@ -1,7 +1,6 @@
-package stakingv2
+package proofofstake
 
 import (
-	"crypto/rand"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
@@ -13,6 +12,7 @@ import (
 	"github.com/DogeProtocol/dp/core/vm"
 	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	"math"
 	"math/big"
 	"strconv"
@@ -20,7 +20,6 @@ import (
 )
 
 const STAKING_CONTRACT_V2 = "0x0000000000000000000000000000000000000000000000000000000000001000"
-const GENESIS_BLOCK_HASH = "0x2c8127f13d50434052128a88c9c9f79a27d44a1145e51f6fd250b6e247369e99"
 
 var (
 	ContractAddress = common.HexToAddress(STAKING_CONTRACT_V2)
@@ -28,15 +27,6 @@ var (
 
 type TestChainContext struct {
 	Eng consensus.Engine
-}
-
-// largeNumber returns a very large big.Int.
-func largeNumber(megabytes int) *big.Int {
-	buf := make([]byte, megabytes*1024*1024)
-	rand.Read(buf)
-	bigint := new(big.Int)
-	bigint.SetBytes(buf)
-	return bigint
 }
 
 func (tcc *TestChainContext) Engine() consensus.Engine {
@@ -105,7 +95,7 @@ func getNoGasEVM(data []byte, from common.Address, state *state.StateDB, header 
 func setupTest() {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	statedb.CreateAccount(ContractAddress)
-	statedb.SetCode(ContractAddress, common.FromHex(STAKING_RUNTIME_BIN))
+	statedb.SetCode(ContractAddress, common.FromHex(stakingv2.STAKING_RUNTIME_BIN))
 
 	statedb.Finalise(true) // Push the state into the "original" slot
 

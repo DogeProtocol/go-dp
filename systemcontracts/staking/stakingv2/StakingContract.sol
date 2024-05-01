@@ -493,6 +493,8 @@ contract StakingContract is IStakingContract {
         uint256 depositAmount = msg.value;
         require(depositAmount > 0, "Deposit amount is zero");
 
+        _totalDepositedBalance = _totalDepositedBalance.add(depositAmount);
+
         uint256 oldBalance = _depositorBalances[depositorAddress];
         uint256 newBalance = oldBalance.add(depositAmount);
 
@@ -516,7 +518,9 @@ contract StakingContract is IStakingContract {
             _depositorRewards[depositorAddress] = rewardsAmount.sub(amount);
         } else {
             delete _depositorRewards[depositorAddress];
-            _depositorBalances[depositorAddress] = _depositorBalances[depositorAddress].sub(amount.sub(rewardsAmount));
+            uint256 remaining = amount.sub(rewardsAmount);
+            _totalDepositedBalance = _totalDepositedBalance.sub(remaining);
+            _depositorBalances[depositorAddress] = _depositorBalances[depositorAddress].sub(remaining);
         }
 
         _depositorPartialWithdrawalBlockMapping[depositorAddress] = block.number;
