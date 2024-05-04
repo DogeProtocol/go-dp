@@ -48,4 +48,4 @@ jobs:
          cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestStaking*"
          cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestReward*"
          cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestBlock*"
-        cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestPos*"
+         cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestPos*"
