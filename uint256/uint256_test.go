@@ -1200,7 +1200,7 @@ func (a *gethAddress) setBytes(b []byte) {
 	if len(b) > len(a) {
 		b = b[len(b)-28:]
 	}
-	copy(a[28-len(b):], b)
+	copy(a[32-len(b):], b)
 }
 
 // BytesToAddress returns Address with value b.
