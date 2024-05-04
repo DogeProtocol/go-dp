@@ -58,27 +58,39 @@ func printHelp() {
 	fmt.Println("dputil stakingbalance DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
+	fmt.Println("===========")
 	fmt.Println("dputil listvalidators")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
+	fmt.Println("===========")
 	fmt.Println("dputil blockrewards DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
-	fmt.Println("dputil initiaterewardswithdrawal DEPOSITOR_ADDRESS")
+	fmt.Println("===========")
+	fmt.Println("dputil completewithdrawal DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
-	fmt.Println("dputil completerewardswithdrawal DEPOSITOR_ADDRESS")
+	fmt.Println("===========")
+	fmt.Println("dputil initiatepartialwithdrawal DEPOSITOR_ADDRESS amount")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
+	fmt.Println("===========")
+	fmt.Println("dputil completepartialwithdrawal DEPOSITOR_ADDRESS amount")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
+	fmt.Println("===========")
 	fmt.Println("dputil increasedeposit DEPOSITOR_ADDRESS ADDITIONAL_DEPOSIT_AMOUNT")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
+	fmt.Println("===========")
 	fmt.Println("dputil changevalidator DEPOSITOR_ADDRESS NEW_VALIDATOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
+	fmt.Println("===========")
 	fmt.Println("dputil initiatechangedepositor OLD_DEPOSITOR_ADDRESS NEW_DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
+	fmt.Println("===========")
 	fmt.Println("dputil completechangedepositor OLD_DEPOSITOR_ADDRESS NEW_DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
@@ -129,12 +141,12 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "initiatestakingwithdrawal" {
+	} else if os.Args[1] == "initiatewithdrawal" {
 		err := InitiateWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "completestakingwithdrawal" {
+	} else if os.Args[1] == "completewithdrawal" {
 		err := CompleteWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
