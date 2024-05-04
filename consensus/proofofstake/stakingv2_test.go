@@ -88,8 +88,6 @@ func execute(tcc *TestChainContext, data []byte, from common.Address, state *sta
 		Value: (*hexutil.Big)(value),
 	}
 
-	fmt.Println("value", value)
-
 	msg, err := args.ToMessage(math.MaxUint64)
 	if err != nil {
 		return nil, err
@@ -183,7 +181,7 @@ func GetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*big
 	// call
 	data, err := encodeCall(&abiData, method, depositor)
 	if err != nil {
-		log.Error("Unable to pack AddDeposit", "error", err)
+		log.Error("Unable to pack GetBalanceOfDepositor", "error", err)
 		return nil, err
 	}
 
@@ -208,7 +206,77 @@ func GetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*big
 	return out, nil
 }
 
-func Test_AddDeposit_Basic(t *testing.T) {
+func GetNetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*big.Int, error) {
+	method := staking.GetContract_Method_GetNetBalanceOfDepositor()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetNetBalanceOfDepositor abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack GetNetBalanceOfDepositor", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetNetBalanceOfDepositor result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func GetTotalDepositedBalance(state *state.StateDB) (*big.Int, error) {
+	method := staking.GetContract_Method_GetTotalDepositedBalance()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetTotalDepositedBalance abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack GetTotalDepositedBalance", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetTotalDepositedBalance result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func TestStaking_Basic(t *testing.T) {
 	depositor := common.RandomAddress()
 	validator := common.RandomAddress()
 	state := newStakingStateDb()
@@ -232,7 +300,25 @@ func Test_AddDeposit_Basic(t *testing.T) {
 		t.Fatalf("balanace compare failed")
 	}
 
-	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance)
+	stakingNetBalance, err := GetNetBalanceOfDepositor(state, depositor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if stakingNetBalance.Cmp(depositAmount) != 0 {
+		t.Fatalf("net balanace compare failed")
+	}
+
+	totalDepositedBalance, err := GetTotalDepositedBalance(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if totalDepositedBalance.Cmp(depositAmount) != 0 {
+		t.Fatalf("totalDepositedBalance compare failed")
+	}
+
+	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance, "stakingNetBalance", stakingNetBalance, "totalDepositedBalance", totalDepositedBalance)
 }
 
 func Test_GetBalance(t *testing.T) {

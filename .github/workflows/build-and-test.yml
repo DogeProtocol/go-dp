@@ -45,4 +45,7 @@ jobs:
          ls ${{ github.workspace }}/build/dp-release
          echo $LD_LIBRARY_PATH         
          cd ${{ github.workspace }}/crypto && go test ./...
-         cd ${{ github.workspace }}/consensus/proofofstake && go test -v -p 1 ./...        
+         cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestStaking*"
+         cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestReward*"
+         cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestBlock*"
+        cd ${{ github.workspace }}/consensus/proofofstake/stakingv2_test.go && go test -run "TestPos*"

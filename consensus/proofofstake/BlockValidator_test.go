@@ -34,7 +34,7 @@ func largeNumber(megabytes int) *big.Int {
 	return bigint
 }
 
-func TestNilNegative(t *testing.T) {
+func TestBlock_NilNegative(t *testing.T) {
 
 	//Case 1
 	BlockNilTest(nil, nil, t, "ValidateBlockConsensusData nil")

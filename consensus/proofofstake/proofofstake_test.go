@@ -29,7 +29,7 @@ import (
 	"testing"
 )
 
-func TestFlattenTxnMap(t *testing.T) {
+func TestPos_FlattenTxnMap(t *testing.T) {
 	txnList, txnAddressMap := flattenTxnMap(nil)
 	if txnList != nil && txnAddressMap != nil {
 		t.Fatalf("failed")
@@ -156,7 +156,7 @@ func encCallOuter(abi *abi.ABI, method string, args ...interface{}) ([]byte, err
 	return encCall(abi, method, args...)
 }
 
-func TestPack(t *testing.T) {
+func TestPos_Pack(t *testing.T) {
 	method := staking.GetContract_Method_AddDepositorSlashing()
 	abiData, err := staking.GetStakingContract_ABI()
 	if err != nil {
@@ -173,7 +173,7 @@ func TestPack(t *testing.T) {
 	}
 }
 
-func TestPackAddress(t *testing.T) {
+func TestPos_PackAddress(t *testing.T) {
 	fmt.Println(ZERO_ADDRESS)
 	method := conversion.GetContract_Method_setConverted()
 	abiData, err := conversion.GetConversionContract_ABI()
