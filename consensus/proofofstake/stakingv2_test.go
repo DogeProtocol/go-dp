@@ -61,11 +61,17 @@ func (tcc *TestChainContext) GetHeader(lastKnownHash common.Hash, lastKnownNumbe
 }
 
 var chainConfig = &params.ChainConfig{
-	ChainID:        big.NewInt(1),
-	HomesteadBlock: new(big.Int),
-	EIP155Block:    new(big.Int),
-	EIP150Block:    new(big.Int),
-	EIP158Block:    big.NewInt(2),
+	ChainID:             big.NewInt(1),
+	HomesteadBlock:      new(big.Int),
+	EIP155Block:         new(big.Int),
+	EIP150Block:         new(big.Int),
+	EIP158Block:         new(big.Int),
+	ByzantiumBlock:      new(big.Int),
+	ConstantinopleBlock: new(big.Int),
+	PetersburgBlock:     new(big.Int),
+	IstanbulBlock:       new(big.Int),
+	BerlinBlock:         new(big.Int),
+	LondonBlock:         new(big.Int),
 }
 
 var engine = mockconsensus.New(chainConfig, nil, common.HexToHash(GENESIS_BLOCK_HASH))
@@ -159,27 +165,47 @@ func AddDeposit(state *state.StateDB, depositor common.Address, validator common
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, depositor, state, header, amount)
+	_, err = execute(tcc, data, depositor, state, header, amount)
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func GetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*big.Int, error) {
+	method := staking.GetContract_Method_GetBalanceOfDepositor()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetBalanceOfDepositor abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack AddDeposit", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
 	if len(result) == 0 {
-		return errors.New("AddDeposit result is 0")
+		return nil, errors.New("GetBalanceOfDepositor result is 0")
 	}
 
 	var out *big.Int
 
 	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
 		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
-		return err
+		return nil, err
 	}
 
-	if out.Cmp(amount) != 0 {
-		return errors.New("adddeposit return value failed")
-	}
-
-	return nil
+	return out, nil
 }
 
 func Test_AddDeposit_Basic(t *testing.T) {
@@ -191,10 +217,22 @@ func Test_AddDeposit_Basic(t *testing.T) {
 	state.SetBalance(depositor, balance)
 	//state.Finalise(true)
 
+	depositAmount := MIN_VALIDATOR_DEPOSIT
 	err := AddDeposit(state, depositor, validator, MIN_VALIDATOR_DEPOSIT)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	stakingBalance, err := GetBalanceOfDepositor(state, depositor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if stakingBalance.Cmp(depositAmount) != 0 {
+		t.Fatalf("balanace compare failed")
+	}
+
+	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance)
 }
 
 func Test_GetBalance(t *testing.T) {
