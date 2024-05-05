@@ -414,7 +414,11 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 	}
 
 	if blockNumber >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
-		for valAddr, _ := range *valDetailsMap {
+		for valAddr, valDetails := range *valDetailsMap {
+			if valDetails.IsValidationPaused {
+				delete(*valDetailsMap, valAddr)
+				continue
+			}
 			_, ok := filteredValidatorDepositMap[valAddr]
 			if ok == false {
 				delete(*valDetailsMap, valAddr)

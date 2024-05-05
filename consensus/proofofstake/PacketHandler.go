@@ -558,7 +558,11 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 			log.Error("listValidatorsFn", "err", err)
 			return err
 		}
-		for valAddr, _ := range validatorDetailsMap {
+		for valAddr, valDetails := range validatorDetailsMap {
+			if valDetails.IsValidationPaused {
+				delete(validatorDetailsMap, valAddr)
+				continue
+			}
 			_, ok := filteredValidators[valAddr]
 			if ok == false {
 				delete(validatorDetailsMap, valAddr)
