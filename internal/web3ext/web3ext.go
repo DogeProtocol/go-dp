@@ -65,6 +65,11 @@ web3._extend({
 			call: 'proofofstake_getStakingDetailsByDepositorAddress',
 			params: 2
 		}),
+		new web3._extend.Method({
+			name: 'getBlockConsensusContext',
+			call: 'proofofstake_getBlockConsensusContext',
+			params: 1
+		}),
 	]
 });
 `

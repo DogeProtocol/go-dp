@@ -355,7 +355,7 @@ func filterValidators(parentHash common.Hash, valDepMap *map[common.Address]*big
 
 	totalDepositValue := big.NewInt(0)
 	valCount := 0
-	for val, depositValue := range validatorsDepositMap {
+	for val, depositValue := range validatorsDepositMap { //todo: this should be based on netBalance
 		if depositValue.Cmp(MIN_VALIDATOR_DEPOSIT) == -1 {
 			log.Trace("Skipping validator with low balance", "val", val, "depositValue", depositValue)
 			delete(validatorsDepositMap, val)

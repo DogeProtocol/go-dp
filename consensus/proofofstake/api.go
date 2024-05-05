@@ -424,3 +424,14 @@ func (api *API) GetCoinsForEthereumAddress(ethAddress common.Address, blockHash 
 
 	return out, nil
 }
+
+func (api *API) GetBlockConsensusContext(blockNumber uint64) ([32]byte, error) {
+	currentheader := api.chain.CurrentHeader()
+
+	var context [32]byte
+	key, err := GetBlockConsensusContextKey(blockNumber)
+	if err != nil {
+		return context, err
+	}
+	return api.proofofstake.GetConsensusContext(key, currentheader.Hash())
+}

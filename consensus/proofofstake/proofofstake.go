@@ -29,6 +29,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/systemcontracts/consensuscontext"
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"github.com/DogeProtocol/dp/trie"
@@ -79,7 +80,9 @@ var (
 	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(10)
 	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(20)
 
-	STAKING_CONTRACT_V2_CUTOFF_BLOCK = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
+	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
+	CONSENSUS_CONTEXT_START_BLOCK     = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
+	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(5)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -737,6 +740,43 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		log.Info("Setting stakingv2 contract code", "blockNumber", STAKING_CONTRACT_V2_CUTOFF_BLOCK)
 		stakingContractCode := common.FromHex(stakingv2.STAKING_RUNTIME_BIN)
 		state.SetCode(staking.STAKING_CONTRACT_ADDRESS, stakingContractCode)
+	}
+
+	//Consensus Context
+	if header.Number.Uint64() == CONSENSUS_CONTEXT_START_BLOCK {
+		log.Info("Setting consensus context contract code", "blockNumber", CONSENSUS_CONTEXT_START_BLOCK)
+		consensuscontextContractCode := common.FromHex(consensuscontext.CONSENSUS_CONTEXT_RUNTIME_BIN)
+		state.SetCode(consensuscontext.CONSENSUS_CONTEXT_CONTRACT_ADDRESS, consensuscontextContractCode)
+	}
+
+	if header.Number.Uint64() > CONSENSUS_CONTEXT_START_BLOCK {
+		key, err := GetBlockConsensusContextKey(header.Number.Uint64())
+		if err != nil {
+			log.Error("GetBlockConsensusContext err", "err", err)
+			return err
+		}
+		var consensuscontext [32]byte
+		copy(consensuscontext[:], header.ParentHash.Bytes())
+		err = c.SetConsensusContext(key, consensuscontext, state, header)
+		if err != nil {
+			log.Error("SetConsensusContext err", "err", err)
+			return err
+		}
+
+		//Remove the oldest key
+		if header.Number.Uint64() > (CONSENSUS_CONTEXT_START_BLOCK + CONSENSUS_CONTEXT_MAX_BLOCK_COUNT) {
+			oldKey, err := GetBlockConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
+			if err != nil {
+				log.Error("GetBlockConsensusContextKey oldKey err", "err", err)
+				return err
+			}
+
+			err = c.DeleteConsensusContext(oldKey, state, header)
+			if err != nil {
+				log.Error("DeleteConsensusContext oldKey err", "err", err)
+				return err
+			}
+		}
 	}
 
 	//Fix blocktime
