@@ -84,7 +84,8 @@ var (
 	CONSENSUS_CONTEXT_START_BLOCK     = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
 	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(512000)
 
-	VALIDATOR_NIL_BLOCK_START_BLOCK = STAKING_CONTRACT_V2_CUTOFF_BLOCK
+	VALIDATOR_NIL_BLOCK_START_BLOCK      = STAKING_CONTRACT_V2_CUTOFF_BLOCK + 1
+	BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK = VALIDATOR_NIL_BLOCK_START_BLOCK + 16
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -228,6 +229,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 	}
 
 	proofofstake.consensusHandler.getValidatorsFn = proofofstake.GetValidators
+	proofofstake.consensusHandler.listValidatorsFn = proofofstake.ListValidatorsAsMap
 	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExistFn
 
 	return proofofstake
@@ -585,7 +587,16 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 		return err
 	}
 
-	err = ValidateBlockConsensusData(block, &validatorDepositMap)
+	var valDetailsMap map[common.Address]*ValidatorDetailsV2
+	if number >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
+		valDetailsMap, err = c.ListValidatorsAsMap(header.ParentHash)
+		if err != nil {
+			log.Trace("VerifyBlock 4", "err", err)
+			return err
+		}
+	}
+
+	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap)
 	if err != nil {
 		log.Trace("ValidateBlockConsensusData", "err", err)
 	}

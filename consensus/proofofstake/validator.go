@@ -1259,3 +1259,73 @@ func (p *ProofOfStake) ResetNilBlock(
 
 	return nil
 }
+
+func (p *ProofOfStake) ListValidatorsAsMap(blockHash common.Hash) (map[common.Address]*ValidatorDetailsV2, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // cancel when we are finished consuming integers
+
+	method := staking.GetContract_Method_ListValidators()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("ListValidatorsAsMap error getting abidata", "err", err)
+		return nil, err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+	// call
+	data, err := abiData.Pack(method)
+	if err != nil {
+		log.Error("Unable to pack tx for get ListValidatorsAsMap", "error", err)
+		return nil, err
+	}
+	// block
+	blockNr := rpc.BlockNumberOrHashWithHash(blockHash, false)
+
+	msgData := (hexutil.Bytes)(data)
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
+		To:   &contractAddress,
+		Data: &msgData,
+	}, blockNr, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		log.Debug("result 0 length")
+		return nil, nil
+	}
+	_, err = abiData.Unpack(method, result)
+	if err != nil {
+		log.Error("Unpack", "err", err)
+		return nil, err
+	}
+
+	var (
+		ret0 = new([]common.Address)
+	)
+	out := ret0
+
+	if err := abiData.UnpackIntoInterface(out, method, result); err != nil {
+		log.Info("UnpackIntoInterface error")
+		return nil, err
+	}
+	var validatorMap map[common.Address]*ValidatorDetailsV2
+	validatorMap = make(map[common.Address]*ValidatorDetailsV2)
+
+	for _, val := range *out {
+		if val.IsEqualTo(ZERO_ADDRESS) {
+			return nil, errors.New("invalid validator")
+		}
+		log.Debug("ListValidatorsAsMap Validator", "val", val)
+	}
+	for _, val := range *out {
+
+		validatorDetailsV2, err := p.GetStakingDetailsByValidatorAddressV2(val, blockHash)
+
+		if err != nil {
+			return nil, err
+		}
+
+		validatorMap[val] = validatorDetailsV2
+	}
+
+	return validatorMap, nil
+}
