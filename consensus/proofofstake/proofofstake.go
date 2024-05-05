@@ -74,15 +74,15 @@ var (
 
 	slashAmount = params.EtherToWei(big.NewInt(10))
 
-	rewardStartBlockNumber = uint64(5)
-	slashStartBlockNumber  = uint64(100)
+	rewardStartBlockNumber = uint64(277204)
+	slashStartBlockNumber  = uint64(1497600)
 
-	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(10)
-	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(20)
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
+	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
 
 	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
 	CONSENSUS_CONTEXT_START_BLOCK     = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
-	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(5)
+	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(512000)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
