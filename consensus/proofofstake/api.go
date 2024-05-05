@@ -239,6 +239,27 @@ func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, er
 		consensusData.BlockProposerRewards = hexutil.EncodeUint64(0)
 	}
 
+	/*
+		//Extract Original Block Proposer //todo: remove code duplication here, instead modularize PacketHandler
+		validators, err := api.proofofstake.GetValidators(header.ParentHash)
+		if err != nil {
+			return nil, err
+		}
+		filteredValidators, _, _, err := filterValidators(header.ParentHash, &validators)
+		if err != nil {
+			return nil, err
+		}
+		var filteredValidatorsDepositMap map[common.Address]*big.Int
+		filteredValidatorsDepositMap = make(map[common.Address]*big.Int)
+		for addr, _ := range filteredValidators {
+			depositValue := validators[addr]
+			filteredValidatorsDepositMap[addr] = depositValue
+		}
+		originalBlockProposer, err := getBlockProposer(header.ParentHash, &filteredValidatorsDepositMap, 1)
+
+		consensusData.OriginalBlockProposer.CopyFrom(originalBlockProposer)
+	*/
+
 	return consensusData, err
 }
 

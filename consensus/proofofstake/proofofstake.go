@@ -709,7 +709,6 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	//Validator nil block
 	if blockConsensusData.VoteType == VOTE_TYPE_NIL && blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= VALIDATOR_NIL_BLOCK_START_BLOCK {
 		for _, val := range blockConsensusData.SlashedBlockProposers {
-			fmt.Println("========================VOTE_TYPE_NIL SetNilBlock", val)
 			err = c.SetNilBlock(val, state, header)
 			if err != nil {
 				log.Error("SetNilBlock err", "err", err)
@@ -750,7 +749,6 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 		//Validator nil block reset
 		if header.Number.Uint64() > VALIDATOR_NIL_BLOCK_START_BLOCK {
-			fmt.Println("=================ResetNilBlock", blockConsensusData.BlockProposer)
 			err = c.ResetNilBlock(blockConsensusData.BlockProposer, state, header)
 			if err != nil {
 				log.Error("ResetNilBlock err", "err", err)

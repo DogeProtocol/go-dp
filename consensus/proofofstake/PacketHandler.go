@@ -3,7 +3,6 @@ package proofofstake
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
@@ -1613,7 +1612,6 @@ func ValidateBlockProposalTimeConsensus(blockNumber uint64, proposedTime uint64)
 			}
 		} else if currTime.After(tm) {
 			difference := currTime.Sub(tm)
-			fmt.Println(difference.Minutes())
 			if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
 				return false
 			}
