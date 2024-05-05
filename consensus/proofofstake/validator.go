@@ -22,11 +22,13 @@ type ValidatorDetails struct {
 	Balance             string         `json:"balance"       gencodec:"required"`
 	NetBalance          string         `json:"netBalance"    gencodec:"required"`
 	BlockRewards        string         `json:"blockRewards"  gencodec:"required"`
-	Slashings           string         `json:"slashings"  	gencodec:"required"`
+	Slashings           string         `json:"slashings"  gencodec:"required"`
 	IsValidationPaused  bool           `json:"isValidationPaused"  gencodec:"required"`
 	WithdrawalBlock     string         `json:"withdrawalBlock"  gencodec:"required"`
 	WithdrawalAmount    string         `json:"withdrawalAmount"  gencodec:"required"`
 	NewDepositorAddress common.Address `json:"newDepositorAddress" gencodec:"required"`
+	LastNiLBlock        string         `json:"lastNiLBlock" gencodec:"required"`
+	NilBlockCount       string         `json:"nilBlockCount" gencodec:"required"`
 }
 
 type ValidatorDetailsV2 struct {
@@ -35,11 +37,13 @@ type ValidatorDetailsV2 struct {
 	Balance             *big.Int       `json:"balance"       gencodec:"required"`
 	NetBalance          *big.Int       `json:"netBalance"    gencodec:"required"`
 	BlockRewards        *big.Int       `json:"blockRewards"  gencodec:"required"`
-	Slashings           *big.Int       `json:"slashings"  	 gencodec:"required"`
+	Slashings           *big.Int       `json:"slashings"     gencodec:"required"`
 	IsValidationPaused  bool           `json:"isValidationPaused"  gencodec:"required"`
 	WithdrawalBlock     *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
 	WithdrawalAmount    *big.Int       `json:"withdrawalAmount" gencodec:"required"`
 	NewDepositorAddress common.Address `json:"newDepositorAddress" gencodec:"required"`
+	LastNiLBlock        *big.Int       `json:"lastNiLBlock" gencodec:"required"`
+	NilBlockCount       *big.Int       `json:"nilBlockCount" gencodec:"required"`
 }
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
@@ -1061,6 +1065,8 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash, blockNumber uint64)
 				WithdrawalBlock:     hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
 				WithdrawalAmount:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
 				NewDepositorAddress: validatorDetailsV2.NewDepositorAddress,
+				LastNiLBlock:        hexutil.EncodeBig(validatorDetailsV2.LastNiLBlock),
+				NilBlockCount:       hexutil.EncodeBig(validatorDetailsV2.NilBlockCount),
 			}
 		}
 
@@ -1174,4 +1180,82 @@ func (p *ProofOfStake) GetStakingDetailsByValidatorAddressV2(val common.Address,
 		return nil, err
 	}
 	return out, nil
+}
+
+func (p *ProofOfStake) SetNilBlock(
+	validator common.Address, state *state.StateDB, header *types.Header) error {
+	method := staking.GetContract_Method_SetNilBlock()
+	abiData, err := p.GetStakingContractAbi()
+	if err != nil {
+		log.Error("SetNilBlock abi error", "err", err)
+		return err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack SetNilBlock", "error", err)
+		return err
+	}
+
+	msgData := (hexutil.Bytes)(data)
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
+		From: &from,
+		To:   &contractAddress,
+		Data: &msgData,
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *ProofOfStake) ResetNilBlock(
+	validator common.Address, state *state.StateDB, header *types.Header) error {
+	method := staking.GetContract_Method_ResetNilBlock()
+	abiData, err := p.GetStakingContractAbi()
+	if err != nil {
+		log.Error("ResetNilBlock abi error", "err", err)
+		return err
+	}
+	contractAddress := common.HexToAddress(staking.GetStakingContract_Address_String())
+
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack ResetNilBlock", "error", err)
+		return err
+	}
+
+	msgData := (hexutil.Bytes)(data)
+	var from common.Address
+	from.CopyFrom(ZERO_ADDRESS)
+	args := ethapi.TransactionArgs{
+		From: &from,
+		To:   &contractAddress,
+		Data: &msgData,
+	}
+
+	msg, err := args.ToMessage(math.MaxUint64)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.blockchain.ExecuteNoGas(msg, state, header)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

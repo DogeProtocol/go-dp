@@ -83,6 +83,8 @@ interface IStakingContract {
         uint256 WithdrawalBlock;
         uint256 WithdrawalAmount;
         address NewDepositorAddress; //will be zero address if none found
+        uint256 LastNilBlockNumber;
+        uint256 NilBlockCount;
     }
 
     //Rotate
@@ -98,6 +100,10 @@ interface IStakingContract {
     function completePartialWithdrawal() external returns (uint256);
 
     function getStakingDetails(address validatorAddress) external view returns (StakingDetails calldata);
+
+    //Liveness
+    function setNilBlock(address validatorAddress) external;
+    function resetNilBlock(address validatorAddress) external;
 
     event OnNewDeposit(
         address indexed depositorAddress,
@@ -187,6 +193,10 @@ contract StakingContract is IStakingContract {
 
     //Depositor Change Mapping
     mapping (address => address) private _oldDepositorNewDepositorMapping;
+
+    //Liveness Mapping
+    mapping (address => uint256) private _validatorLastNilBlock;
+    mapping (address => uint256) private _validatorNilBlockCount;
 
     function newDeposit(address validatorAddress) override external payable {
         address depositorAddress = msg.sender;
@@ -392,6 +402,16 @@ contract StakingContract is IStakingContract {
         _validatorExists[newValidatorAddress] = true;
         _validatorEverExisted[newValidatorAddress] = true;
 
+        uint256 lastNilBlock  = _validatorLastNilBlock[oldValidatorAddress];
+        uint256 nilBlockCount = _validatorNilBlockCount[oldValidatorAddress];
+        if(lastNilBlock > 0) {
+            _validatorLastNilBlock[newValidatorAddress] = lastNilBlock;
+            _validatorNilBlockCount[newValidatorAddress] = nilBlockCount;
+
+            delete _validatorLastNilBlock[oldValidatorAddress];
+            delete _validatorNilBlockCount[oldValidatorAddress];
+        }
+
         _validatorToDepositorMapping[newValidatorAddress] = depositorAddress;
         _depositorToValidatorMapping[depositorAddress] = newValidatorAddress;
         _validatorList.push(newValidatorAddress);
@@ -551,6 +571,18 @@ contract StakingContract is IStakingContract {
         return amount;
     }
 
+    function setNilBlock(address validatorAddress) override external {
+        require(msg.sender == address(0), "Only VM calls are allowed");
+        _validatorLastNilBlock[validatorAddress] = block.number;
+        _validatorNilBlockCount[validatorAddress] = _validatorNilBlockCount[validatorAddress].add(1);
+    }
+
+    function resetNilBlock(address validatorAddress) override external {
+        require(msg.sender == address(0), "Only VM calls are allowed");
+        _validatorLastNilBlock[validatorAddress] = 0;
+        delete _validatorNilBlockCount[validatorAddress];
+    }
+
     function getStakingDetails(address validatorAddress) override external view returns (StakingDetails memory) {
         require(_validatorExists[validatorAddress] == true, "Validator does not exist");
 
@@ -569,7 +601,8 @@ contract StakingContract is IStakingContract {
         }
 
         stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress],
-            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount, _oldDepositorNewDepositorMapping[depositorAddress]);
+            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount, _oldDepositorNewDepositorMapping[depositorAddress],
+            _validatorLastNilBlock[validatorAddress], _validatorNilBlockCount[validatorAddress]);
 
         return stakingDetails;
     }

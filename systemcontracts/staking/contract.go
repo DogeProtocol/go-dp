@@ -225,6 +225,13 @@ func GetContract_Method_AddDepositorSlashing() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorSlashing
 }
 
+func GetContract_Method_SetNilBlock() string {
+	return "setNilBlock"
+}
+func GetContract_Method_ResetNilBlock() string {
+	return "resetNilBlock"
+}
+
 func GetContract_Method_AddDepositorReward() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorReward
 }

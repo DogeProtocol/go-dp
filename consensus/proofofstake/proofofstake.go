@@ -80,9 +80,11 @@ var (
 	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
 	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
 
-	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
-	CONSENSUS_CONTEXT_START_BLOCK     = uint64(FULL_SIGN_PROPOSAL_CUTOFF_BLOCK)
+	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
+	CONSENSUS_CONTEXT_START_BLOCK     = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
 	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(512000)
+
+	VALIDATOR_NIL_BLOCK_START_BLOCK = STAKING_CONTRACT_V2_CUTOFF_BLOCK
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -704,6 +706,18 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 		}
 	}
 
+	//Validator nil block
+	if blockConsensusData.VoteType == VOTE_TYPE_NIL && blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= VALIDATOR_NIL_BLOCK_START_BLOCK {
+		for _, val := range blockConsensusData.SlashedBlockProposers {
+			fmt.Println("========================VOTE_TYPE_NIL SetNilBlock", val)
+			err = c.SetNilBlock(val, state, header)
+			if err != nil {
+				log.Error("SetNilBlock err", "err", err)
+				return err
+			}
+		}
+	}
+
 	//Block Rewards
 	if blockConsensusData.VoteType == VOTE_TYPE_OK && header.Number.Uint64() >= rewardStartBlockNumber {
 		blockProposerRewardAmount := GetReward(header.Number)
@@ -732,6 +746,16 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 		if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
 			log.Info("You potentially proposed and mined a new block!", "BlockNumber", header.Number, "parentHash", header.ParentHash)
+		}
+
+		//Validator nil block reset
+		if header.Number.Uint64() > VALIDATOR_NIL_BLOCK_START_BLOCK {
+			fmt.Println("=================ResetNilBlock", blockConsensusData.BlockProposer)
+			err = c.ResetNilBlock(blockConsensusData.BlockProposer, state, header)
+			if err != nil {
+				log.Error("ResetNilBlock err", "err", err)
+				return err
+			}
 		}
 	}
 
