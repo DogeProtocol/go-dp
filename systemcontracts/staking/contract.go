@@ -12,7 +12,8 @@ import (
 // Steps after Contract is modified
 // 1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking\stakingv2
 // 2) abigen --bin=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\stakingv2\staking.go
-// 3) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field
+// 3) in staking\stakingv2\staking.go, change the package name to just "stakingv2" (instead of "staking") to clear the error
+// 4) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field
 const STAKING_CONTRACT = "0x0000000000000000000000000000000000000000000000000000000000001000"
 
 var STAKING_CONTRACT_ADDRESS = common.HexToAddress(STAKING_CONTRACT)
@@ -191,6 +192,14 @@ func GetContract_Method_GetBalanceOfDepositor() string {
 
 func GetContract_Method_IsValidationPaused() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.IsValidationPaused
+}
+
+func GetContract_Method_PauseValidation() string {
+	return "pauseValidation"
+}
+
+func GetContract_Method_ResumeValidation() string {
+	return "resumeValidation"
 }
 
 func GetContract_Method_GetNetBalanceOfDepositor() string {

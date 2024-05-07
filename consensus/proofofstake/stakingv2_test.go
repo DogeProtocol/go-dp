@@ -129,25 +129,9 @@ func newStakingStateDb() *state.StateDB {
 	statedb.Finalise(true) // Push the state into the "original" slot
 
 	return statedb
-	/*vmctx := vm.BlockContext{
-		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
-		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-	}
-	_ = vm.NewEVM(vmctx, vm.TxContext{}, statedb, params.AllProofOfStakeProtocolChanges, vm.Config{OverrideGasFailure: true})*/
-
-	/*_, gas, err := vmenv.Call(vm.AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
-	if err != tt.failure {
-		t.Errorf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
-	}
-	if used := tt.gaspool - gas; used != tt.used {
-		t.Errorf("test %d: gas used mismatch: have %v, want %v", i, used, tt.used)
-	}
-	if refund := vmenv.StateDB.GetRefund(); refund != tt.refund {
-		t.Errorf("test %d: gas refund mismatch: have %v, want %v", i, refund, tt.refund)
-	}*/
 }
 
-func AddDeposit(state *state.StateDB, depositor common.Address, validator common.Address, amount *big.Int) error {
+func NewDeposit(state *state.StateDB, depositor common.Address, validator common.Address, amount *big.Int) error {
 	method := staking.GetContract_Method_NewDeposit()
 	abiData, err := staking.GetStakingContractV2_ABI()
 	if err != nil {
@@ -165,6 +149,76 @@ func AddDeposit(state *state.StateDB, depositor common.Address, validator common
 
 	_, err = execute(tcc, data, depositor, state, header, amount)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PauseValidation(state *state.StateDB, depositor common.Address) error {
+	method := staking.GetContract_Method_PauseValidation()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("PauseValidation abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack PauseValidation", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	if len(result) == 0 {
+		return errors.New("PauseValidation result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return err
+	}
+
+	return nil
+}
+
+func ResumeValidation(state *state.StateDB, depositor common.Address) error {
+	method := staking.GetContract_Method_ResumeValidation()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("PauseValidation abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack PauseValidation", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	if len(result) == 0 {
+		return errors.New("PauseValidation result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
 		return err
 	}
 
@@ -276,6 +330,41 @@ func GetTotalDepositedBalance(state *state.StateDB) (*big.Int, error) {
 	return out, nil
 }
 
+func GetDepositorCount(state *state.StateDB) (*big.Int, error) {
+	method := staking.GetContract_Method_GetDepositorCount()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetDepositorCount abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack GetDepositorCount", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetDepositorCount result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return nil, err
+	}
+
+	return out, nil
+}
+
 func TestStaking_Basic(t *testing.T) {
 	depositor := common.RandomAddress()
 	validator := common.RandomAddress()
@@ -286,7 +375,7 @@ func TestStaking_Basic(t *testing.T) {
 	//state.Finalise(true)
 
 	depositAmount := MIN_VALIDATOR_DEPOSIT
-	err := AddDeposit(state, depositor, validator, MIN_VALIDATOR_DEPOSIT)
+	err := NewDeposit(state, depositor, validator, MIN_VALIDATOR_DEPOSIT)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,8 +408,4 @@ func TestStaking_Basic(t *testing.T) {
 	}
 
 	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance, "stakingNetBalance", stakingNetBalance, "totalDepositedBalance", totalDepositedBalance)
-}
-
-func Test_GetBalance(t *testing.T) {
-
 }
