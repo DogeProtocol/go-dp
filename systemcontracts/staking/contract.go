@@ -257,22 +257,6 @@ func GetContract_Method_GetWithdrawalBlock() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetWithdrawalBlock
 }
 
-func IsStakingContractCreated(currentBlockNumber uint64) bool {
-	if currentBlockNumber > PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
-		return true
-	}
-
-	return false
-}
-
-func shouldCreateContract(currentBlockNumber uint64, contractAddress string) bool {
-	if strings.Compare(contractAddress, STAKING_CONTRACT) == 0 && currentBlockNumber == PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
-		return true
-	}
-
-	return false
-}
-
 func (sf Contract) Address() common.Address {
 	return sf.CallerAddress
 }
@@ -281,20 +265,24 @@ func GetContract_Method_ChangeValidator() string {
 	return "changeValidator"
 }
 
-func GetContract_Method_ChangeDepositor() string {
-	return "changeDepositor"
+func GetContract_Method_InitiateChangeDepositor() string {
+	return "initiateChangeDepositor"
+}
+
+func GetContract_Method_CompleteChangeDepositor() string {
+	return "completeChangeDepositor"
 }
 
 func GetContract_Method_IncreaseDeposit() string {
 	return "increaseDeposit"
 }
 
-func GetContract_Method_InitiateWithdrawalRewards() string {
-	return "initiateWithdrawalRewards"
+func GetContract_Method_InitiatePartialWithdrawal() string {
+	return "initiatePartialWithdrawal"
 }
 
-func GetContract_Method_CompleteWithdrawalRewards() string {
-	return "completeWithdrawalRewards"
+func GetContract_Method_CompletePartialWithdrawal() string {
+	return "completePartialWithdrawal"
 }
 
 func GetContract_Method_GetStakingDetails() string {

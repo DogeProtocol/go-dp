@@ -194,13 +194,13 @@ func ResumeValidation(state *state.StateDB, depositor common.Address) error {
 	method := staking.GetContract_Method_ResumeValidation()
 	abiData, err := staking.GetStakingContractV2_ABI()
 	if err != nil {
-		log.Error("PauseValidation abi error", "err", err)
+		log.Error("ResumeValidation abi error", "err", err)
 		return err
 	}
 	// call
 	data, err := encodeCall(&abiData, method)
 	if err != nil {
-		log.Error("Unable to pack PauseValidation", "error", err)
+		log.Error("Unable to pack ResumeValidation", "error", err)
 		return err
 	}
 
@@ -212,7 +212,7 @@ func ResumeValidation(state *state.StateDB, depositor common.Address) error {
 	}
 
 	if len(result) == 0 {
-		return errors.New("PauseValidation result is 0")
+		return errors.New("ResumeValidation result is 0")
 	}
 
 	var out *big.Int
@@ -223,6 +223,292 @@ func ResumeValidation(state *state.StateDB, depositor common.Address) error {
 	}
 
 	return nil
+}
+
+func CompleteWithdrawal(state *state.StateDB, depositor common.Address) error {
+	method := staking.GetContract_Method_CompleteWithdrawal()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("CompleteWithdrawal abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack CompleteWithdrawal", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	if len(result) == 0 {
+		return errors.New("CompleteWithdrawal result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return err
+	}
+
+	return nil
+}
+
+func AddDepositorSlashing(state *state.StateDB, from common.Address, depositor common.Address, amount *big.Int) (*big.Int, error) {
+	method := staking.GetContract_Method_AddDepositorSlashing()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("AddDepositorSlashing abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, amount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorSlashing", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, from, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("AddDepositorSlashing result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func AddDepositorReward(state *state.StateDB, from common.Address, depositor common.Address, amount *big.Int) (*big.Int, error) {
+	method := staking.GetContract_Method_AddDepositorReward()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("AddDepositorReward abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, amount)
+	if err != nil {
+		log.Error("Unable to pack AddDepositorReward", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, from, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("AddDepositorReward result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func GetDepositorCount(state *state.StateDB) (*big.Int, error) {
+	method := staking.GetContract_Method_GetDepositorCount()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetDepositorCount abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack GetDepositorCount", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetDepositorCount result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func GetTotalDepositedBalance(state *state.StateDB) (*big.Int, error) {
+	method := staking.GetContract_Method_GetTotalDepositedBalance()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetTotalDepositedBalance abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack GetTotalDepositedBalance", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetTotalDepositedBalance result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func ListValidators(state *state.StateDB) ([]common.Address, error) {
+	method := staking.GetContract_Method_ListValidators()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("ListValidators abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack ListValidators", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("ListValidators result is 0")
+	}
+
+	var (
+		out = new([]common.Address)
+	)
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err)
+		return nil, err
+	}
+
+	return *out, nil
+}
+
+func GetDepositorOfValidator(state *state.StateDB, validator common.Address) (common.Address, error) {
+	method := staking.GetContract_Method_GetDepositorOfValidator()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetDepositorOfValidator abi error", "err", err)
+		return ZERO_ADDRESS, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack GetDepositorOfValidator", "error", err)
+		return ZERO_ADDRESS, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, validator, state, header, new(big.Int))
+	if err != nil {
+		return ZERO_ADDRESS, err
+	}
+
+	if len(result) == 0 {
+		return ZERO_ADDRESS, errors.New("GetDepositorOfValidator result is 0")
+	}
+
+	var (
+		out = new(common.Address)
+	)
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "validator", validator)
+		return ZERO_ADDRESS, err
+	}
+
+	return *out, nil
+}
+
+func GetValidatorOfDepositor(state *state.StateDB, depositor common.Address) (common.Address, error) {
+	method := staking.GetContract_Method_GetValidatorOfDepositor()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetValidatorOfDepositor abi error", "err", err)
+		return ZERO_ADDRESS, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack GetValidatorOfDepositor", "error", err)
+		return ZERO_ADDRESS, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return ZERO_ADDRESS, err
+	}
+
+	if len(result) == 0 {
+		return ZERO_ADDRESS, errors.New("GetValidatorOfDepositor result is 0")
+	}
+
+	var (
+		out = new(common.Address)
+	)
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return ZERO_ADDRESS, err
+	}
+
+	return *out, nil
 }
 
 func GetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*big.Int, error) {
@@ -295,74 +581,506 @@ func GetNetBalanceOfDepositor(state *state.StateDB, depositor common.Address) (*
 	return out, nil
 }
 
-func GetTotalDepositedBalance(state *state.StateDB) (*big.Int, error) {
-	method := staking.GetContract_Method_GetTotalDepositedBalance()
+func GetDepositorRewards(state *state.StateDB, depositor common.Address) (*big.Int, error) {
+	method := staking.GetContract_Method_GetDepositorRewards()
 	abiData, err := staking.GetStakingContractV2_ABI()
 	if err != nil {
-		log.Error("GetTotalDepositedBalance abi error", "err", err)
+		log.Error("GetDepositorRewards abi error", "err", err)
 		return nil, err
 	}
 	// call
-	data, err := encodeCall(&abiData, method)
+	data, err := encodeCall(&abiData, method, depositor)
 	if err != nil {
-		log.Error("Unable to pack GetTotalDepositedBalance", "error", err)
+		log.Error("Unable to pack GetDepositorRewards", "error", err)
 		return nil, err
 	}
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(result) == 0 {
-		return nil, errors.New("GetTotalDepositedBalance result is 0")
+		return nil, errors.New("GetDepositorRewards result is 0")
 	}
 
 	var out *big.Int
 
 	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err)
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
 	}
 
 	return out, nil
 }
 
-func GetDepositorCount(state *state.StateDB) (*big.Int, error) {
-	method := staking.GetContract_Method_GetDepositorCount()
+func GetDepositorSlashings(state *state.StateDB, depositor common.Address) (*big.Int, error) {
+	method := staking.GetContract_Method_GetDepositorSlashings()
 	abiData, err := staking.GetStakingContractV2_ABI()
 	if err != nil {
-		log.Error("GetDepositorCount abi error", "err", err)
+		log.Error("GetDepositorSlashings abi error", "err", err)
 		return nil, err
 	}
 	// call
-	data, err := encodeCall(&abiData, method)
+	data, err := encodeCall(&abiData, method, depositor)
 	if err != nil {
-		log.Error("Unable to pack GetDepositorCount", "error", err)
+		log.Error("Unable to pack GetDepositorSlashings", "error", err)
 		return nil, err
 	}
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, ZERO_ADDRESS, state, header, new(big.Int))
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(result) == 0 {
-		return nil, errors.New("GetDepositorCount result is 0")
+		return nil, errors.New("GetDepositorSlashings result is 0")
 	}
 
 	var out *big.Int
 
 	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err)
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
 		return nil, err
 	}
 
 	return out, nil
+}
+
+func GetWithdrawalBlock(state *state.StateDB, depositor common.Address) (*big.Int, error) {
+	method := staking.GetContract_Method_GetWithdrawalBlock()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetWithdrawalBlock abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack GetWithdrawalBlock", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetWithdrawalBlock result is 0")
+	}
+
+	var out *big.Int
+
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func IsValidationPaused(state *state.StateDB, depositor common.Address) (bool, error) {
+	var out bool
+
+	method := staking.GetContract_Method_IsValidationPaused()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("IsValidationPaused abi error", "err", err)
+		return out, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack IsValidationPaused", "error", err)
+		return out, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return out, err
+	}
+
+	if len(result) == 0 {
+		return out, errors.New("IsValidationPaused result is 0")
+	}
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func DoesValidatorExist(state *state.StateDB, validator common.Address) (bool, error) {
+	var out bool
+
+	method := staking.GetContract_Method_DoesValidatorExist()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("DoesValidatorExist abi error", "err", err)
+		return out, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack DoesValidatorExist", "error", err)
+		return out, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, validator, state, header, new(big.Int))
+	if err != nil {
+		return out, err
+	}
+
+	if len(result) == 0 {
+		return out, errors.New("DoesValidatorExist result is 0")
+	}
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", validator)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func DidValidatorEverExist(state *state.StateDB, validator common.Address) (bool, error) {
+	var out bool
+
+	method := staking.GetContract_Method_DidValidatorEverExist()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("DidValidatorEverExist abi error", "err", err)
+		return out, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack DidValidatorEverExist", "error", err)
+		return out, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, validator, state, header, new(big.Int))
+	if err != nil {
+		return out, err
+	}
+
+	if len(result) == 0 {
+		return out, errors.New("DidValidatorEverExist result is 0")
+	}
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", validator)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func DoesDepositorExist(state *state.StateDB, depositor common.Address) (bool, error) {
+	var out bool
+
+	method := staking.GetContract_Method_DoesDepositorExist()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("DoesDepositorExist abi error", "err", err)
+		return out, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack DoesDepositorExist", "error", err)
+		return out, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return out, err
+	}
+
+	if len(result) == 0 {
+		return out, errors.New("DoesDepositorExist result is 0")
+	}
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func DidDepositorEverExist(state *state.StateDB, depositor common.Address) (bool, error) {
+	var out bool
+
+	method := staking.GetContract_Method_DidValidatorEverExist()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("DidDepositorEverExist abi error", "err", err)
+		return out, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, depositor)
+	if err != nil {
+		log.Error("Unable to pack DidDepositorEverExist", "error", err)
+		return out, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return out, err
+	}
+
+	if len(result) == 0 {
+		return out, errors.New("DidDepositorEverExist result is 0")
+	}
+	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func ChangeValidator(state *state.StateDB, depositor common.Address, newValidatorAddress common.Address) error {
+	method := staking.GetContract_Method_ChangeValidator()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("ChangeValidator abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, newValidatorAddress)
+	if err != nil {
+		log.Error("Unable to pack ChangeValidator", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func InitiateChangeDepositor(state *state.StateDB, oldDepositorAddress common.Address, newDepositorAddress common.Address) error {
+	method := staking.GetContract_Method_InitiateChangeDepositor()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("InitiateChangeDepositor abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, newDepositorAddress)
+	if err != nil {
+		log.Error("Unable to pack InitiateChangeDepositor", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, oldDepositorAddress, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CompleteChangeDepositor(state *state.StateDB, oldDepositorAddress common.Address, newDepositorAddress common.Address) error {
+	method := staking.GetContract_Method_CompleteChangeDepositor()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("CompleteChangeDepositor abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, oldDepositorAddress)
+	if err != nil {
+		log.Error("Unable to pack CompleteChangeDepositor", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, newDepositorAddress, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func IncreaseDeposit(state *state.StateDB, depositor common.Address, amount *big.Int) error {
+	method := staking.GetContract_Method_IncreaseDeposit()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("IncreaseDeposit abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, amount)
+	if err != nil {
+		log.Error("Unable to pack IncreaseDeposit", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func InitiatePartialWithdrawal(state *state.StateDB, depositor common.Address, amount *big.Int) error {
+	method := staking.GetContract_Method_InitiatePartialWithdrawal()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("InitiatePartialWithdrawal abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, amount)
+	if err != nil {
+		log.Error("Unable to pack InitiatePartialWithdrawal", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CompletePartialWithdrawal(state *state.StateDB, depositor common.Address) error {
+	method := staking.GetContract_Method_CompletePartialWithdrawal()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("CompletePartialWithdrawal abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack CompletePartialWithdrawal", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetStakingDetails(state *state.StateDB, validator common.Address) (*ValidatorDetailsV2, error) {
+	method := staking.GetContract_Method_GetStakingDetails()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("GetStakingDetails abi error", "err", err)
+		return nil, err
+	}
+	// call
+	data, err := encodeCall(&abiData, method)
+	if err != nil {
+		log.Error("Unable to pack GetStakingDetails", "error", err)
+		return nil, err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	result, err := execute(tcc, data, validator, state, header, new(big.Int))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("GetStakingDetails result is 0")
+	}
+	var out *ValidatorDetailsV2
+	out = new(ValidatorDetailsV2)
+
+	if err := abiData.UnpackIntoInterface(&out, method, result); err != nil {
+		log.Debug("UnpackIntoInterface", "err", err, "validator", validator)
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func SetNilBlock(state *state.StateDB, from common.Address, validator common.Address) error {
+	method := staking.GetContract_Method_SetNilBlock()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("CompletePartialWithdrawal abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack CompletePartialWithdrawal", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, from, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ResetNilBlock(state *state.StateDB, from common.Address, validator common.Address) error {
+	method := staking.GetContract_Method_ResetNilBlock()
+	abiData, err := staking.GetStakingContractV2_ABI()
+	if err != nil {
+		log.Error("ResetNilBlock abi error", "err", err)
+		return err
+	}
+	// call
+	data, err := encodeCall(&abiData, method, validator)
+	if err != nil {
+		log.Error("Unable to pack ResetNilBlock", "error", err)
+		return err
+	}
+
+	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+
+	_, err = execute(tcc, data, from, state, header, new(big.Int))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestStaking_Basic(t *testing.T) {
