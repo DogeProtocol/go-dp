@@ -694,7 +694,7 @@ func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(100000)
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
@@ -1001,11 +1001,18 @@ func listValidators() error {
 	}
 
 	totalDepositedBalance := big.NewInt(int64(0))
-	ValidatorDetailsList := make([]*ValidatorDetails, len(validatorList))
+
+	var validatorDetails *ValidatorDetails
+	var validatorDetailsList []*ValidatorDetails
+
 	for i := 0; i < len(validatorList); i++ {
 		depositor, err := getDepositorOfValidator(validatorList[i].String())
 		if err != nil {
 			return err
+		}
+
+		if depositor.IsEqualTo(common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000000")) {
+			continue
 		}
 
 		balanceVal, err := getBalanceOfDepositor(depositor.String())
@@ -1028,7 +1035,7 @@ func listValidators() error {
 			return err
 		}
 
-		ValidatorDetailsList[i] = &ValidatorDetails{
+		validatorDetails = &ValidatorDetails{
 			Depositor:    depositor,
 			Validator:    validatorList[i],
 			Balance:      hexutil.EncodeBig(balanceVal),
@@ -1036,12 +1043,14 @@ func listValidators() error {
 			BlockRewards: hexutil.EncodeBig(blockrewards),
 			Slashings:    hexutil.EncodeBig(blockslashing),
 		}
+		validatorDetailsList = append(validatorDetailsList, validatorDetails)
 
 		totalDepositedBalance = totalDepositedBalance.Add(totalDepositedBalance, balanceVal)
+
 	}
 
-	for i := 0; i < len(ValidatorDetailsList); i++ {
-		validatorDetails := ValidatorDetailsList[i]
+	for i := 0; i < len(validatorDetailsList); i++ {
+		validatorDetails := validatorDetailsList[i]
 
 		balance, _ := hexutil.DecodeBig(validatorDetails.Balance)
 		netBalance, _ := hexutil.DecodeBig(validatorDetails.NetBalance)
@@ -1052,7 +1061,7 @@ func listValidators() error {
 			"NetBalance coins", weiToEther(netBalance).String(), "Block Rewards coins", weiToEther(blockRewards).String(), "Slashing Coins", weiToEther(slashing).String())
 	}
 
-	fmt.Println("Total validators", len(validatorList), "totalDepositedBalance", weiToEther(totalDepositedBalance).String())
+	fmt.Println("Total validators", len(validatorDetailsList), "totalDepositedBalance", weiToEther(totalDepositedBalance).String())
 
 	fmt.Println()
 
@@ -1086,7 +1095,7 @@ func initiatePartialWithdrawal(key *signaturealgorithm.PrivateKey, amount string
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(100000)
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
@@ -1143,7 +1152,7 @@ func completePartialWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(50000)
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
@@ -1193,7 +1202,7 @@ func increaseDeposit(key *signaturealgorithm.PrivateKey, additionalAmount string
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(65000)
 
 	val, _ := ParseBigFloat(additionalAmount)
 	txnOpts.Value = etherToWeiFloat(val)
@@ -1242,7 +1251,7 @@ func changeValidator(key *signaturealgorithm.PrivateKey, newValidatorAddress com
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = uint64(175000)
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
@@ -1293,9 +1302,13 @@ func getStakingDetails(validatorAddress common.Address) error {
 
 		stakingDetails, err := instance.GetStakingDetails(nil, validatorAddress)
 
+		if stakingDetails.Depositor.IsEqualTo(common.ZERO_ADDRESS) {
+			return nil
+		}
+
 		fmt.Println("Depositor ", stakingDetails.Depositor, " Validator ", stakingDetails.Validator)
-		fmt.Println("Last NiL Block ", weiToEther(stakingDetails.LastNilBlockNumber).String(), " Nil Block Count ", weiToEther(stakingDetails.NilBlockCount).String())
-		fmt.Println("Withdrawal Block ", weiToEther(stakingDetails.WithdrawalBlock).String())
+		fmt.Println("Last NiL Block ", stakingDetails.LastNilBlockNumber.String(), " Nil Block Count ", stakingDetails.NilBlockCount.String())
+		fmt.Println("Withdrawal Block ", stakingDetails.WithdrawalBlock.String())
 		fmt.Println("Withdrawal coins ", weiToEther(stakingDetails.WithdrawalAmount).String())
 		fmt.Println("Slashing coins", weiToEther(stakingDetails.Slashings).String())
 		fmt.Println("Rewards coins ", weiToEther(stakingDetails.BlockRewards).String())

@@ -483,7 +483,7 @@ contract StakingContract is IStakingContract {
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
         require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
         require(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0, "Depositor partial withdrawal request does not exist");
-        require((_depositorPartialWithdrawalBlockMapping[depositorAddress].add(WITHDRAWAL_BLOCK_DELAY)) >= block.number, "Depositor partial withdrawal request cutoff block not reached");
+        require(block.number >= (_depositorPartialWithdrawalBlockMapping[depositorAddress].add(WITHDRAWAL_BLOCK_DELAY)), "Depositor partial withdrawal request cutoff block not reached");
 
         uint256 amount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
         delete _depositorPartialWithdrawalBlockMapping[depositorAddress];
@@ -522,7 +522,7 @@ contract StakingContract is IStakingContract {
         uint256 depositorNetBalance = this.getNetBalanceOfDepositor(depositorAddress);
 
         if(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0) {
-            withdrawalBlock = _depositorPartialWithdrawalBlockMapping[depositorAddress];
+            withdrawalBlock = _depositorPartialWithdrawalBlockMapping[depositorAddress].add(WITHDRAWAL_BLOCK_DELAY);
             withdrawalAmount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
         } else if(_depositorWithdrawalRequests[depositorAddress] > 0) {
             withdrawalBlock = _depositorWithdrawalRequests[depositorAddress];

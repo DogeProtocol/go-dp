@@ -142,7 +142,8 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		}
 
 		if depositor.IsEqualTo(ZERO_ADDRESS) {
-			return nil, errors.New("invalid depositor")
+			log.Debug("GetValidators invalid depositor", val.String())
+			continue
 		}
 
 		balance, err := p.GetNetBalanceOfDepositor(depositor, blockHash)
@@ -1048,6 +1049,17 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash, blockNumber uint64)
 				return nil, err
 			}
 		} else {
+			depositor, err := p.GetDepositorOfValidator(val, blockHash)
+			if err != nil {
+				log.Debug("GetDepositorOfValidator failed", "err", err)
+				continue
+			}
+
+			if depositor.IsEqualTo(ZERO_ADDRESS) {
+				log.Debug("ListValidators invalid depositor", val.String())
+				continue
+			}
+
 			validatorDetailsV2, err := p.GetStakingDetailsByValidatorAddressV2(val, blockHash)
 			if err != nil {
 				return nil, err
@@ -1087,7 +1099,7 @@ func (p *ProofOfStake) GetStakingDetailsByValidatorAddress(val common.Address, b
 	}
 
 	if depositor.IsEqualTo(ZERO_ADDRESS) {
-		return nil, errors.New("invalid depositor")
+		return nil, errors.New("GetStakingDetailsByValidatorAddress invalid depositor")
 	}
 
 	balance, err := p.GetBalanceOfDepositor(depositor, blockHash)
@@ -1314,6 +1326,17 @@ func (p *ProofOfStake) ListValidatorsAsMap(blockHash common.Hash) (map[common.Ad
 		log.Debug("ListValidatorsAsMap Validator", "val", val)
 	}
 	for _, val := range *out {
+
+		depositor, err := p.GetDepositorOfValidator(val, blockHash)
+		if err != nil {
+			log.Debug("GetDepositorOfValidator failed", "err", err)
+			continue
+		}
+
+		if depositor.IsEqualTo(ZERO_ADDRESS) {
+			log.Debug("ListValidatorsAsMap invalid depositor", val.String())
+			continue
+		}
 
 		validatorDetailsV2, err := p.GetStakingDetailsByValidatorAddressV2(val, blockHash)
 
