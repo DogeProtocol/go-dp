@@ -1322,3 +1322,133 @@ func getStakingDetails(validatorAddress common.Address) error {
 
 	return nil
 }
+
+func pauseValidation(key *signaturealgorithm.PrivateKey) error {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(100000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	var tx *types.Transaction
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contract, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.PauseValidation(txnOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		contract, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.PauseValidation(txnOpts)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}
+
+func resumeValidation(key *signaturealgorithm.PrivateKey) error {
+
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return err
+	}
+
+	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
+
+	if err != nil {
+		return err
+	}
+
+	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	if err != nil {
+		return err
+	}
+
+	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
+
+	if err != nil {
+		return err
+	}
+
+	txnOpts.From = fromAddress
+	txnOpts.Nonce = big.NewInt(int64(nonce))
+	txnOpts.GasLimit = uint64(100000)
+
+	val, _ := ParseBigFloat("0")
+	txnOpts.Value = etherToWeiFloat(val)
+
+	var tx *types.Transaction
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contract, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.ResumeValidation(txnOpts)
+		if err != nil {
+			return err
+		}
+	} else {
+		contract, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
+
+		tx, err = contract.PauseValidation(txnOpts)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
+	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return nil
+}

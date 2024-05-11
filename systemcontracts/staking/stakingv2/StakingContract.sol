@@ -238,7 +238,7 @@ contract StakingContract is IStakingContract {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
 
-        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        address validatorAddress = _depositorToValidatorMapping[depositorAddress];
         require(_validationPaused[validatorAddress] == false, "Validation is already paused");
         _validationPaused[validatorAddress] = true;
 
@@ -249,9 +249,9 @@ contract StakingContract is IStakingContract {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
 
-        address validatorAddress = _validatorToDepositorMapping[depositorAddress];
+        address validatorAddress = _depositorToValidatorMapping[depositorAddress];
         require(_validationPaused[validatorAddress] == true, "Validation is not paused");
-        _validationPaused[validatorAddress] = false;
+        delete _validationPaused[validatorAddress];
 
         emit OnResumeValidation(depositorAddress, validatorAddress);
     }
