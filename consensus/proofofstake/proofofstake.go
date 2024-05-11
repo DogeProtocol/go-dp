@@ -77,7 +77,7 @@ var (
 	rewardStartBlockNumber = uint64(277204)
 	slashStartBlockNumber  = uint64(1497600)
 
-	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(409600)
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(419000)
 	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
 
 	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
@@ -591,7 +591,6 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 	if number >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
 		valDetailsMap, err = c.ListValidatorsAsMap(header.ParentHash)
 		if err != nil {
-			log.Trace("VerifyBlock 4", "err", err)
 			return err
 		}
 	}

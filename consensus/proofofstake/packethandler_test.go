@@ -14,7 +14,6 @@ import (
 	"github.com/DogeProtocol/dp/rlp"
 	"math/big"
 	"math/rand"
-	"runtime/debug"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -152,17 +151,14 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	if shouldSignFull(TEST_CONSENSUS_BLOCK_NUMBER) && packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packet.ParentHash.IsEqualTo(getTestParentHash(TEST_CONSENSUS_BLOCK_NUMBER)) {
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 		if err != nil {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, err
 		}
 		if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, FULL_SIGN_CONTEXT) == false {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, InvalidPacketErr
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 		if err != nil {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, err
 		}
 
@@ -170,17 +166,14 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	} else {
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
 		if err != nil {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, err
 		}
 		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, InvalidPacketErr
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 		if err != nil {
-			fmt.Println("getSigner ParentHash", packet.ParentHash)
 			return ZERO_ADDRESS, err
 		}
 
@@ -206,8 +199,6 @@ func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) err
 			}
 			signer, err := getSigner(packet)
 			if err != nil {
-				fmt.Println(err)
-				debug.PrintStack()
 				panic("unexpected")
 			}
 			if p.mockP2pManager.IsValidatorPacketsBlocked(signer) {

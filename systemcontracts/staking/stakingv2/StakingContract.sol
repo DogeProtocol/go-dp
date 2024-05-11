@@ -82,15 +82,12 @@ interface IStakingContract {
         bool    IsValidationPaused;
         uint256 WithdrawalBlock;
         uint256 WithdrawalAmount;
-        address NewDepositorAddress; //will be zero address if none found
         uint256 LastNilBlockNumber;
         uint256 NilBlockCount;
     }
 
     //Rotate
     function changeValidator(address newValidatorAddress) external;
-    function initiateChangeDepositor(address newDepositorAddress) external; //to be called by current depositor
-    function completeChangeDepositor(address oldDepositorAddress) external; //to be called by new depositor
 
     //Deposit
     function increaseDeposit() external payable;
@@ -136,8 +133,6 @@ interface IStakingContract {
 
     //Staking V2 events
     event OnChangeValidator(address indexed depositorAddress, address indexed oldValidatorAddress, address indexed newValidatorAddress);
-    event OnInitiateChangeDepositor(address indexed oldDepositorAddress, address indexed newDepositorAddress);
-    event OnCompleteChangeDepositor(address indexed oldDepositorAddress, address indexed newDepositorAddress);
 
     event OnIncreaseDeposit(address indexed depositorAddress, uint256 oldBalance, uint256 newBalance);
 
@@ -149,7 +144,7 @@ contract StakingContract is IStakingContract {
     using SafeMath for uint256;
 
     uint256 constant MINIMUM_DEPOSIT = 5000000000000000000000000; //5000000
-    uint256 constant WITHDRAWAL_BLOCK_DELAY = 10;
+    uint256 constant WITHDRAWAL_BLOCK_DELAY = 32000;
 
     address[] private _validatorList;
 
@@ -190,9 +185,6 @@ contract StakingContract is IStakingContract {
     //Withdrawal Request, depositor to withdrawalBlock
     mapping (address => uint256) private _depositorPartialWithdrawalBlockMapping;
     mapping (address => uint256) private _depositorPartialWithdrawalAmountMapping;
-
-    //Depositor Change Mapping
-    mapping (address => address) private _oldDepositorNewDepositorMapping;
 
     //Liveness Mapping
     mapping (address => uint256) private _validatorLastNilBlock;
@@ -276,8 +268,10 @@ contract StakingContract is IStakingContract {
         delete _depositorBalances[depositorAddress];
         delete _depositorRewards[depositorAddress];
         delete _depositorSlashings[depositorAddress];
-        delete _depositorExists[depositorAddress];
         delete _depositorWithdrawalRequests[depositorAddress];
+
+        _totalDepositedBalance = _totalDepositedBalance.sub(netBalance);
+	    _depositorExists[depositorAddress] = true;
 
         (bool success, ) = depositorAddress.call{value:netBalance}("");
         // success should be true
@@ -360,7 +354,13 @@ contract StakingContract is IStakingContract {
     }
 
     function getWithdrawalBlock(address depositorAddress) override external view returns (uint256) {
-        return _depositorWithdrawalRequests[depositorAddress];
+        uint256 withdrawalBlock = 0;
+        if(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0) {
+            withdrawalBlock = _depositorPartialWithdrawalBlockMapping[depositorAddress];
+        } else if(_depositorWithdrawalRequests[depositorAddress] > 0) {
+            withdrawalBlock = _depositorWithdrawalRequests[depositorAddress];
+        }
+        return withdrawalBlock;
     }
 
     function isValidationPaused(address validatorAddress) override external view returns (bool) {
@@ -428,83 +428,6 @@ contract StakingContract is IStakingContract {
         emit OnChangeValidator(depositorAddress, oldValidatorAddress, newValidatorAddress);
     }
 
-    function initiateChangeDepositor(address newDepositorAddress) override external {
-        address oldDepositorAddress = msg.sender;
-
-        require(_depositorExists[oldDepositorAddress] == true, "Depositor does not exist");
-        require(_depositorExists[newDepositorAddress] == false, "Depositor already exists");
-        require(_depositorEverExisted[newDepositorAddress] == false, "newDepositorAddress existed once");
-        require(_validatorExists[newDepositorAddress] == false, "Validator already exists as newDepositorAddress");
-        require(_validatorEverExisted[newDepositorAddress] == false, "Validator already existed as newDepositorAddress");
-
-        _oldDepositorNewDepositorMapping[oldDepositorAddress] = newDepositorAddress;
-        emit OnInitiateChangeDepositor(oldDepositorAddress, newDepositorAddress);
-    }
-
-    function completeChangeDepositor(address oldDepositorAddress) override external {
-        address newDepositorAddress = msg.sender;
-
-        require(_oldDepositorNewDepositorMapping[oldDepositorAddress] == newDepositorAddress, "initiateChangeDepositor not called yet");
-        require(_depositorExists[oldDepositorAddress] == true, "Depositor does not exist");
-        require(_depositorBalances[oldDepositorAddress] > 0, "Depositor balance is zero");
-
-        require(_depositorExists[newDepositorAddress] == false, "newDepositorAddress already exists");
-        require(_depositorEverExisted[newDepositorAddress] == false, "newDepositorAddress existed once");
-        require(_validatorExists[newDepositorAddress] == false, "Validator already exists as newDepositorAddress");
-        require(_validatorEverExisted[newDepositorAddress] == false, "Validator already existed as newDepositorAddress");
-
-        //Delete old to new mapping
-        delete _oldDepositorNewDepositorMapping[oldDepositorAddress];
-
-        //Update balance
-        uint256 depositorBalance = _depositorBalances[oldDepositorAddress];
-        _depositorBalances[newDepositorAddress] = depositorBalance;
-
-        //Update depositor exists maps
-        _depositorExists[newDepositorAddress] = true;
-        _depositorExists[oldDepositorAddress] = false;
-
-        //Update depositor ever exist mapping
-        _depositorEverExisted[newDepositorAddress] = true;
-
-        //Update depositor to validate map
-        address validatorAddress = _depositorToValidatorMapping[oldDepositorAddress];
-        delete _depositorToValidatorMapping[oldDepositorAddress];
-        _depositorToValidatorMapping[newDepositorAddress] = validatorAddress;
-
-        //Update validator to depositor map
-        _validatorToDepositorMapping[validatorAddress] = newDepositorAddress;
-
-        //Update depositor slashings
-        uint256 depositorSlashings = _depositorSlashings[oldDepositorAddress];
-        delete _depositorSlashings[oldDepositorAddress];
-        _depositorSlashings[newDepositorAddress] = depositorSlashings;
-
-        //Update depositor rewards
-        uint256 depositorRewards = _depositorRewards[oldDepositorAddress];
-        delete _depositorRewards[oldDepositorAddress];
-        _depositorRewards[newDepositorAddress] = depositorRewards;
-
-        //Update withdrawal request
-        if(_depositorWithdrawalRequests[oldDepositorAddress] > 0) {
-            uint256 depositorWithdrawalBlock = _depositorWithdrawalRequests[oldDepositorAddress];
-            delete(_depositorWithdrawalRequests[oldDepositorAddress]);
-            _depositorWithdrawalRequests[newDepositorAddress] = depositorWithdrawalBlock;
-        }
-
-        if(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress] > 0) {
-            uint256 depositorRewardsWithdrawalBlock = _depositorPartialWithdrawalBlockMapping[oldDepositorAddress];
-            delete(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress]);
-            _depositorPartialWithdrawalBlockMapping[newDepositorAddress] = depositorRewardsWithdrawalBlock;
-
-            uint256 depositorRewardsWithdrawalAmount = _depositorPartialWithdrawalBlockMapping[oldDepositorAddress];
-            delete(_depositorPartialWithdrawalBlockMapping[oldDepositorAddress]);
-            _depositorPartialWithdrawalBlockMapping[newDepositorAddress] = depositorRewardsWithdrawalAmount;
-        }
-
-        emit OnCompleteChangeDepositor(oldDepositorAddress, newDepositorAddress);
-    }
-
     function increaseDeposit() override external payable {
         address depositorAddress = msg.sender;
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
@@ -533,15 +456,19 @@ contract StakingContract is IStakingContract {
         require(netBalance >= amount, "Depositor net balance is low");
 
         //First withdraw from rewards and then from balance
+
         uint256 rewardsAmount = _depositorRewards[depositorAddress];
-        if(rewardsAmount >= amount) {
-            _depositorRewards[depositorAddress] = rewardsAmount.sub(amount);
+	    uint256 debitAmount = _depositorSlashings[depositorAddress].add(amount);
+        if(rewardsAmount >= debitAmount) {
+            _depositorRewards[depositorAddress] = rewardsAmount.sub(debitAmount);
         } else {
             delete _depositorRewards[depositorAddress];
-            uint256 remaining = amount.sub(rewardsAmount);
+            uint256 remaining = debitAmount.sub(rewardsAmount);
             _totalDepositedBalance = _totalDepositedBalance.sub(remaining);
             _depositorBalances[depositorAddress] = _depositorBalances[depositorAddress].sub(remaining);
         }
+
+        delete _depositorSlashings[depositorAddress];
 
         _depositorPartialWithdrawalBlockMapping[depositorAddress] = block.number;
         _depositorPartialWithdrawalAmountMapping[depositorAddress] = amount;
@@ -556,7 +483,7 @@ contract StakingContract is IStakingContract {
         require(_depositorExists[depositorAddress] == true, "Depositor does not exist");
         require(_depositorWithdrawalRequests[depositorAddress] == 0, "Depositor withdrawal request exists");
         require(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0, "Depositor partial withdrawal request does not exist");
-        require(_depositorPartialWithdrawalBlockMapping[depositorAddress] + WITHDRAWAL_BLOCK_DELAY >= block.number, "Depositor partial withdrawal request cutoff block not reached");
+        require((_depositorPartialWithdrawalBlockMapping[depositorAddress].add(WITHDRAWAL_BLOCK_DELAY)) >= block.number, "Depositor partial withdrawal request cutoff block not reached");
 
         uint256 amount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
         delete _depositorPartialWithdrawalBlockMapping[depositorAddress];
@@ -592,6 +519,8 @@ contract StakingContract is IStakingContract {
 
         uint256 withdrawalBlock = 0;
         uint256 withdrawalAmount = 0;
+        uint256 depositorNetBalance = this.getNetBalanceOfDepositor(depositorAddress);
+
         if(_depositorPartialWithdrawalBlockMapping[depositorAddress] > 0) {
             withdrawalBlock = _depositorPartialWithdrawalBlockMapping[depositorAddress];
             withdrawalAmount = _depositorPartialWithdrawalAmountMapping[depositorAddress];
@@ -600,8 +529,8 @@ contract StakingContract is IStakingContract {
             withdrawalAmount = this.getNetBalanceOfDepositor(depositorAddress);
         }
 
-        stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], _depositorBalances[depositorAddress], _depositorRewards[depositorAddress],
-            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount, _oldDepositorNewDepositorMapping[depositorAddress],
+        stakingDetails = StakingDetails(depositorAddress, validatorAddress, _depositorBalances[depositorAddress], depositorNetBalance, _depositorRewards[depositorAddress],
+            _depositorSlashings[depositorAddress], _validationPaused[validatorAddress], withdrawalBlock, withdrawalAmount,
             _validatorLastNilBlock[validatorAddress], _validatorNilBlockCount[validatorAddress]);
 
         return stakingDetails;

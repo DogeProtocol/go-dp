@@ -17,33 +17,31 @@ import (
 )
 
 type ValidatorDetails struct {
-	Depositor           common.Address `json:"depositor"     gencodec:"required"`
-	Validator           common.Address `json:"validator"     gencodec:"required"`
-	Balance             string         `json:"balance"       gencodec:"required"`
-	NetBalance          string         `json:"netBalance"    gencodec:"required"`
-	BlockRewards        string         `json:"blockRewards"  gencodec:"required"`
-	Slashings           string         `json:"slashings"  gencodec:"required"`
-	IsValidationPaused  bool           `json:"isValidationPaused"  gencodec:"required"`
-	WithdrawalBlock     string         `json:"withdrawalBlock"  gencodec:"required"`
-	WithdrawalAmount    string         `json:"withdrawalAmount"  gencodec:"required"`
-	NewDepositorAddress common.Address `json:"newDepositorAddress" gencodec:"required"`
-	LastNiLBlock        string         `json:"lastNiLBlock" gencodec:"required"`
-	NilBlockCount       string         `json:"nilBlockCount" gencodec:"required"`
+	Depositor          common.Address `json:"depositor"     gencodec:"required"`
+	Validator          common.Address `json:"validator"     gencodec:"required"`
+	Balance            string         `json:"balance"       gencodec:"required"`
+	NetBalance         string         `json:"netBalance"    gencodec:"required"`
+	BlockRewards       string         `json:"blockRewards"  gencodec:"required"`
+	Slashings          string         `json:"slashings"  gencodec:"required"`
+	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
+	WithdrawalBlock    string         `json:"withdrawalBlock"  gencodec:"required"`
+	WithdrawalAmount   string         `json:"withdrawalAmount"  gencodec:"required"`
+	LastNiLBlock       string         `json:"lastNiLBlock" gencodec:"required"`
+	NilBlockCount      string         `json:"nilBlockCount" gencodec:"required"`
 }
 
 type ValidatorDetailsV2 struct {
-	Depositor           common.Address `json:"depositor"     gencodec:"required"`
-	Validator           common.Address `json:"validator"     gencodec:"required"`
-	Balance             *big.Int       `json:"balance"       gencodec:"required"`
-	NetBalance          *big.Int       `json:"netBalance"    gencodec:"required"`
-	BlockRewards        *big.Int       `json:"blockRewards"  gencodec:"required"`
-	Slashings           *big.Int       `json:"slashings"     gencodec:"required"`
-	IsValidationPaused  bool           `json:"isValidationPaused"  gencodec:"required"`
-	WithdrawalBlock     *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
-	WithdrawalAmount    *big.Int       `json:"withdrawalAmount" gencodec:"required"`
-	NewDepositorAddress common.Address `json:"newDepositorAddress" gencodec:"required"`
-	LastNiLBlock        *big.Int       `json:"lastNiLBlock" gencodec:"required"`
-	NilBlockCount       *big.Int       `json:"nilBlockCount" gencodec:"required"`
+	Depositor          common.Address `json:"depositor"     gencodec:"required"`
+	Validator          common.Address `json:"validator"     gencodec:"required"`
+	Balance            *big.Int       `json:"balance"       gencodec:"required"`
+	NetBalance         *big.Int       `json:"netBalance"    gencodec:"required"`
+	BlockRewards       *big.Int       `json:"blockRewards"  gencodec:"required"`
+	Slashings          *big.Int       `json:"slashings"     gencodec:"required"`
+	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
+	WithdrawalBlock    *big.Int       `json:"withdrawalBlock"  gencodec:"required"`
+	WithdrawalAmount   *big.Int       `json:"withdrawalAmount" gencodec:"required"`
+	LastNiLBlock       *big.Int       `json:"lastNiLBlock" gencodec:"required"`
+	NilBlockCount      *big.Int       `json:"nilBlockCount" gencodec:"required"`
 }
 
 func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]*big.Int, error) {
@@ -1055,18 +1053,17 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash, blockNumber uint64)
 				return nil, err
 			}
 			validatorDetails = &ValidatorDetails{
-				Depositor:           validatorDetailsV2.Depositor,
-				Validator:           validatorDetailsV2.Validator,
-				Balance:             hexutil.EncodeBig(validatorDetailsV2.Balance),
-				NetBalance:          hexutil.EncodeBig(validatorDetailsV2.NetBalance),
-				BlockRewards:        hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
-				Slashings:           hexutil.EncodeBig(validatorDetailsV2.Slashings),
-				IsValidationPaused:  validatorDetailsV2.IsValidationPaused,
-				WithdrawalBlock:     hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
-				WithdrawalAmount:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
-				NewDepositorAddress: validatorDetailsV2.NewDepositorAddress,
-				LastNiLBlock:        hexutil.EncodeBig(validatorDetailsV2.LastNiLBlock),
-				NilBlockCount:       hexutil.EncodeBig(validatorDetailsV2.NilBlockCount),
+				Depositor:          validatorDetailsV2.Depositor,
+				Validator:          validatorDetailsV2.Validator,
+				Balance:            hexutil.EncodeBig(validatorDetailsV2.Balance),
+				NetBalance:         hexutil.EncodeBig(validatorDetailsV2.NetBalance),
+				BlockRewards:       hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
+				Slashings:          hexutil.EncodeBig(validatorDetailsV2.Slashings),
+				IsValidationPaused: validatorDetailsV2.IsValidationPaused,
+				WithdrawalBlock:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
+				WithdrawalAmount:   hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
+				LastNiLBlock:       hexutil.EncodeBig(validatorDetailsV2.LastNiLBlock),
+				NilBlockCount:      hexutil.EncodeBig(validatorDetailsV2.NilBlockCount),
 			}
 		}
 

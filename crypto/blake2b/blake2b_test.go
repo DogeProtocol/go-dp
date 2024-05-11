@@ -179,7 +179,6 @@ func testHashes2X(t *testing.T) {
 		}
 		if gotHex := fmt.Sprintf("%x", sum); gotHex != expectedHex {
 			t.Fatalf("#%d (single write): got %s, wanted %s", i, gotHex, expectedHex)
-			//fmt.Println("\"" + gotHex + "\",")
 		}
 
 		h.Reset()

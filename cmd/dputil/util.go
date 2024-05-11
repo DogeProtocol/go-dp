@@ -904,12 +904,60 @@ func getDepositorBlockRewards(dep string) (*big.Int, error) {
 	return depositorBalance, nil
 }
 
+func getDepositorSlashings(dep string) (*big.Int, error) {
+	client, err := ethclient.Dial(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var depositorSlashing *big.Int
+	var blockNumber uint64
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv1.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorSlashing, err = instance.GetDepositorSlashings(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return nil, err
+		}
+
+		depositor := common.HexToAddress(dep)
+		depositorSlashing, err = instance.GetDepositorSlashings(nil, depositor)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	fmt.Println("Slashing", "Depositor", dep, "coins", weiToEther(depositorSlashing).String(), "wei", depositorSlashing)
+	fmt.Println()
+
+	time.Sleep(1000 * time.Millisecond)
+
+	return depositorSlashing, nil
+}
+
 type ValidatorDetails struct {
-	depositor    common.Address
-	validator    common.Address
-	balance      *big.Int
-	netBalance   *big.Int
-	blockRewards *big.Int
+	Depositor          common.Address `json:"depositor"     gencodec:"required"`
+	Validator          common.Address `json:"validator"     gencodec:"required"`
+	Balance            string         `json:"balance"       gencodec:"required"`
+	NetBalance         string         `json:"netBalance"    gencodec:"required"`
+	BlockRewards       string         `json:"blockRewards"  gencodec:"required"`
+	Slashings          string         `json:"slashings"  gencodec:"required"`
+	IsValidationPaused bool           `json:"isValidationPaused"  gencodec:"required"`
+	WithdrawalBlock    string         `json:"withdrawalBlock"  gencodec:"required"`
+	WithdrawalAmount   string         `json:"withdrawalAmount"  gencodec:"required"`
+	LastNiLBlock       string         `json:"lastNiLBlock" gencodec:"required"`
+	NilBlockCount      string         `json:"nilBlockCount" gencodec:"required"`
 }
 
 func listValidators() error {
@@ -975,12 +1023,18 @@ func listValidators() error {
 			return err
 		}
 
+		blockslashing, err := getDepositorSlashings(depositor.String())
+		if err != nil {
+			return err
+		}
+
 		ValidatorDetailsList[i] = &ValidatorDetails{
-			depositor:    depositor,
-			validator:    validatorList[i],
-			balance:      balanceVal,
-			netBalance:   netBalance,
-			blockRewards: blockrewards,
+			Depositor:    depositor,
+			Validator:    validatorList[i],
+			Balance:      hexutil.EncodeBig(balanceVal),
+			NetBalance:   hexutil.EncodeBig(netBalance),
+			BlockRewards: hexutil.EncodeBig(blockrewards),
+			Slashings:    hexutil.EncodeBig(blockslashing),
 		}
 
 		totalDepositedBalance = totalDepositedBalance.Add(totalDepositedBalance, balanceVal)
@@ -988,8 +1042,14 @@ func listValidators() error {
 
 	for i := 0; i < len(ValidatorDetailsList); i++ {
 		validatorDetails := ValidatorDetailsList[i]
-		fmt.Println("Depositor", validatorDetails.depositor, "Validator", validatorDetails.validator, "balance coins", weiToEther(validatorDetails.balance).String(),
-			"netBalance coins", weiToEther(validatorDetails.netBalance).String(), "blockrewards coins", weiToEther(validatorDetails.blockRewards).String())
+
+		balance, _ := hexutil.DecodeBig(validatorDetails.Balance)
+		netBalance, _ := hexutil.DecodeBig(validatorDetails.NetBalance)
+		blockRewards, _ := hexutil.DecodeBig(validatorDetails.BlockRewards)
+		slashing, _ := hexutil.DecodeBig(validatorDetails.Slashings)
+
+		fmt.Println("Depositor ", validatorDetails.Depositor, "Validator ", validatorDetails.Validator, "Balance coins", weiToEther(balance).String(),
+			"NetBalance coins", weiToEther(netBalance).String(), "Block Rewards coins", weiToEther(blockRewards).String(), "Slashing Coins", weiToEther(slashing).String())
 	}
 
 	fmt.Println("Total validators", len(validatorList), "totalDepositedBalance", weiToEther(totalDepositedBalance).String())
@@ -1206,97 +1266,43 @@ func changeValidator(key *signaturealgorithm.PrivateKey, newValidatorAddress com
 	return nil
 }
 
-func initiateChangeDepositor(key *signaturealgorithm.PrivateKey, newDepositorAddress common.Address) error {
+func getStakingDetails(validatorAddress common.Address) error {
+	if len(rawURL) == 0 {
+		return errors.New("DP_RAW_URL environment variable not specified")
+	}
+
 	client, err := ethclient.Dial(rawURL)
 	if err != nil {
 		return err
 	}
 
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		return err
-	}
-
 	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
 
+	blockNumber, err := client.BlockNumber(context.Background())
 	if err != nil {
 		return err
 	}
 
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	if blockNumber < proofofstake.STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		fmt.Println(nil)
+	} else {
+		instance, err := stakingv2.NewStaking(contractAddress, client)
+		if err != nil {
+			return err
+		}
 
-	val, _ := ParseBigFloat("0")
-	txnOpts.Value = etherToWeiFloat(val)
+		stakingDetails, err := instance.GetStakingDetails(nil, validatorAddress)
 
-	contract, err := stakingv2.NewStaking(contractAddress, client)
-	if err != nil {
-		return err
+		fmt.Println("Depositor ", stakingDetails.Depositor, " Validator ", stakingDetails.Validator)
+		fmt.Println("Last NiL Block ", weiToEther(stakingDetails.LastNilBlockNumber).String(), " Nil Block Count ", weiToEther(stakingDetails.NilBlockCount).String())
+		fmt.Println("Withdrawal Block ", weiToEther(stakingDetails.WithdrawalBlock).String())
+		fmt.Println("Withdrawal coins ", weiToEther(stakingDetails.WithdrawalAmount).String())
+		fmt.Println("Slashing coins", weiToEther(stakingDetails.Slashings).String())
+		fmt.Println("Rewards coins ", weiToEther(stakingDetails.BlockRewards).String())
+		fmt.Println("Staking Balance coins ", weiToEther(stakingDetails.Balance).String())
+		fmt.Println("Net Balance coins ", weiToEther(stakingDetails.NetBalance).String())
 	}
 
-	tx, err := contract.InitiateChangeDepositor(txnOpts, newDepositorAddress)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Your request to initiate changing the depositor has been added to the queue for processing.")
-	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
-	fmt.Println()
-
-	time.Sleep(1000 * time.Millisecond)
-
-	return nil
-}
-
-func completeChangeDepositor(key *signaturealgorithm.PrivateKey, oldDepositorAddress common.Address) error {
-	client, err := ethclient.Dial(rawURL)
-	if err != nil {
-		return err
-	}
-
-	fromAddress, err := cryptobase.SigAlg.PublicKeyToAddress(&key.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		return err
-	}
-
-	contractAddress := common.HexToAddress(staking.STAKING_CONTRACT)
-	txnOpts, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(123123))
-
-	if err != nil {
-		return err
-	}
-
-	txnOpts.From = fromAddress
-	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
-
-	val, _ := ParseBigFloat("0")
-	txnOpts.Value = etherToWeiFloat(val)
-
-	contract, err := stakingv2.NewStaking(contractAddress, client)
-	if err != nil {
-		return err
-	}
-
-	tx, err := contract.CompleteChangeDepositor(txnOpts, oldDepositorAddress)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Your request to complete changing the depositor has been added to the queue for processing.")
-	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 
 	time.Sleep(1000 * time.Millisecond)
