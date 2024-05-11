@@ -142,7 +142,7 @@ func (p *ProofOfStake) GetValidators(blockHash common.Hash) (map[common.Address]
 		}
 
 		if depositor.IsEqualTo(ZERO_ADDRESS) {
-			log.Debug("GetValidators invalid depositor", val.String())
+			log.Debug("GetValidators invalid depositor", "validator", val)
 			continue
 		}
 
@@ -1056,7 +1056,7 @@ func (p *ProofOfStake) ListValidators(blockHash common.Hash, blockNumber uint64)
 			}
 
 			if depositor.IsEqualTo(ZERO_ADDRESS) {
-				log.Debug("ListValidators invalid depositor", val.String())
+				log.Debug("ListValidators invalid depositor", "validator", val)
 				continue
 			}
 
@@ -1334,7 +1334,7 @@ func (p *ProofOfStake) ListValidatorsAsMap(blockHash common.Hash) (map[common.Ad
 		}
 
 		if depositor.IsEqualTo(ZERO_ADDRESS) {
-			log.Debug("ListValidatorsAsMap invalid depositor", val.String())
+			log.Debug("ListValidatorsAsMap invalid depositor", "validator", val)
 			continue
 		}
 
