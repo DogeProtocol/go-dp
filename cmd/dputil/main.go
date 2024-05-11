@@ -87,6 +87,13 @@ func printHelp() {
 	fmt.Println("dputil getstakingdetails VALIDATOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
+	fmt.Println("dputil pausevalidation DEPOSITOR_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
+	fmt.Println("dputil resumevalidation DEPOSITOR_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL")
+	fmt.Println("===========")
 	fmt.Println("===========")
 }
 
@@ -186,6 +193,16 @@ func main() {
 		}
 	} else if os.Args[1] == "getstakingdetails" {
 		err := GetStakingDetails()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "pausevalidation" {
+		err := PauseValidation()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "resumevalidation" {
+		err := ResumeValidation()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
@@ -1255,4 +1272,120 @@ func GetStakingDetails() error {
 		return errors.New("invalid validator address " + validatorAddr)
 	}
 	return getStakingDetails(common.HexToAddress(validatorAddr))
+}
+
+func PauseValidation() error {
+	if len(os.Args) < 3 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	if len(os.Getenv("DP_KEY_FILE_DIR")) == 0 {
+		return errors.New("set the keyfile directory environment variable DP_KEY_FILE_DIR")
+	}
+
+	depositorAddr := os.Args[2]
+
+	if common.IsHexAddress(depositorAddr) == false {
+		return errors.New("invalid depositor address " + depositorAddr)
+	}
+
+	depositorKeyFile, err := findKeyFile(depositorAddr)
+	if err != nil {
+		return errors.New("error finding DEPOSITOR_ADDRESS in DP_KEY_FILE_DIR " + err.Error())
+	}
+
+	fmt.Println(fmt.Sprintf("Depositor wallet address %s", depositorKeyFile))
+	depositorPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the depositor wallet password : "))
+	if err != nil {
+		return err
+	}
+	if len(depositorPwd) == 0 {
+		return errors.New("depositor password is not set")
+	}
+
+	depKey, err := GetKeyFromFile(depositorKeyFile, depositorPwd)
+	if err != nil {
+		return errors.New("error decrypting depositor key " + err.Error())
+	}
+
+	fmt.Println()
+
+	depositorPasswordConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you understand that the depositor password will always be required to use the quantum depositor wallet at %s?", depositorKeyFile))
+	if err != nil {
+		return err
+	}
+	if depositorPasswordConfirm != true {
+		return errors.New("confirmation not made")
+	}
+	fmt.Println()
+
+	depAddressFromKey, err := cryptobase.SigAlg.PublicKeyToAddress(&depKey.PublicKey)
+	if err != nil {
+		return errors.New("depositor public key to address " + err.Error())
+	}
+
+	if !depAddressFromKey.IsEqualTo(common.HexToAddress(depositorAddr)) {
+		return errors.New("depositor key address check failed " + err.Error())
+	}
+
+	return pauseValidation(depKey)
+}
+
+func ResumeValidation() error {
+	if len(os.Args) < 3 {
+		printHelp()
+		return errors.New("incorrect usage")
+	}
+
+	if len(os.Getenv("DP_KEY_FILE_DIR")) == 0 {
+		return errors.New("set the keyfile directory environment variable DP_KEY_FILE_DIR")
+	}
+
+	depositorAddr := os.Args[2]
+
+	if common.IsHexAddress(depositorAddr) == false {
+		return errors.New("invalid depositor address " + depositorAddr)
+	}
+
+	depositorKeyFile, err := findKeyFile(depositorAddr)
+	if err != nil {
+		return errors.New("error finding DEPOSITOR_ADDRESS in DP_KEY_FILE_DIR " + err.Error())
+	}
+
+	fmt.Println(fmt.Sprintf("Depositor wallet address %s", depositorKeyFile))
+	depositorPwd, err := prompt.Stdin.PromptPassword(fmt.Sprintf("Enter the depositor wallet password : "))
+	if err != nil {
+		return err
+	}
+	if len(depositorPwd) == 0 {
+		return errors.New("depositor password is not set")
+	}
+
+	depKey, err := GetKeyFromFile(depositorKeyFile, depositorPwd)
+	if err != nil {
+		return errors.New("error decrypting depositor key " + err.Error())
+	}
+
+	fmt.Println()
+
+	depositorPasswordConfirm, err := prompt.Stdin.PromptConfirm(fmt.Sprintf("Do you understand that the depositor password will always be required to use the quantum depositor wallet at %s?", depositorKeyFile))
+	if err != nil {
+		return err
+	}
+	if depositorPasswordConfirm != true {
+		return errors.New("confirmation not made")
+	}
+	fmt.Println()
+
+	depAddressFromKey, err := cryptobase.SigAlg.PublicKeyToAddress(&depKey.PublicKey)
+	if err != nil {
+		return errors.New("depositor public key to address " + err.Error())
+	}
+
+	if !depAddressFromKey.IsEqualTo(common.HexToAddress(depositorAddr)) {
+		return errors.New("depositor key address check failed " + err.Error())
+	}
+
+	return resumeValidation(depKey)
 }

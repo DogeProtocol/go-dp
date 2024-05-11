@@ -172,19 +172,9 @@ func PauseValidation(state *state.StateDB, depositor common.Address) error {
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
 	if err != nil {
-		return err
-	}
-
-	if len(result) == 0 {
-		return errors.New("PauseValidation result is 0")
-	}
-
-	var out *big.Int
-
-	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err)
+		fmt.Println("PauseValidation", "err", err)
 		return err
 	}
 
@@ -207,19 +197,9 @@ func ResumeValidation(state *state.StateDB, depositor common.Address) error {
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
 	if err != nil {
-		return err
-	}
-
-	if len(result) == 0 {
-		return errors.New("ResumeValidation result is 0")
-	}
-
-	var out *big.Int
-
-	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err)
+		fmt.Println("ResumeValidation", "err", err)
 		return err
 	}
 
@@ -687,7 +667,7 @@ func GetWithdrawalBlock(state *state.StateDB, depositor common.Address) (*big.In
 	return out, nil
 }
 
-func IsValidationPaused(state *state.StateDB, depositor common.Address) (bool, error) {
+func IsValidationPaused(state *state.StateDB, validator common.Address) (bool, error) {
 	var out bool
 
 	method := staking.GetContract_Method_IsValidationPaused()
@@ -697,7 +677,7 @@ func IsValidationPaused(state *state.StateDB, depositor common.Address) (bool, e
 		return out, err
 	}
 	// call
-	data, err := encodeCall(&abiData, method, depositor)
+	data, err := encodeCall(&abiData, method, validator)
 	if err != nil {
 		log.Error("Unable to pack IsValidationPaused", "error", err)
 		return out, err
@@ -705,7 +685,7 @@ func IsValidationPaused(state *state.StateDB, depositor common.Address) (bool, e
 
 	header := tcc.GetHeader(ZERO_HASH, uint64(1))
 
-	result, err := execute(tcc, data, depositor, state, header, new(big.Int))
+	result, err := execute(tcc, data, validator, state, header, new(big.Int))
 	if err != nil {
 		return out, err
 	}
@@ -714,9 +694,11 @@ func IsValidationPaused(state *state.StateDB, depositor common.Address) (bool, e
 		return out, errors.New("IsValidationPaused result is 0")
 	}
 	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err, "depositor", depositor)
+		log.Trace("UnpackIntoInterface", "err", err, "depositor", validator)
 		return out, err
 	}
+
+	fmt.Println("IsValidationPaused", "validator", validator, out)
 
 	return out, nil
 }
@@ -748,7 +730,7 @@ func DoesValidatorExist(state *state.StateDB, validator common.Address) (bool, e
 		return out, errors.New("DoesValidatorExist result is 0")
 	}
 	if err = abiData.UnpackIntoInterface(&out, method, result); err != nil {
-		log.Trace("UnpackIntoInterface", "err", err, "depositor", validator)
+		log.Trace("UnpackIntoInterface", "err", err, "validator", validator)
 		return out, err
 	}
 
@@ -1126,8 +1108,27 @@ func TestStaking_Basic(t *testing.T) {
 		t.Fatalf("totalDepositedBalance compare failed")
 	}
 
-	err = InitiatePartialWithdrawal(state, depositor, big.NewInt(1000), 10)
+	err = ResumeValidation(state, depositor)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	isPaused, err := IsValidationPaused(state, validator)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if isPaused == true {
+		t.Fatal(err)
+	}
+
+	err = PauseValidation(state, depositor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = PauseValidation(state, depositor)
+	if err == nil {
 		t.Fatal(err)
 	}
 
@@ -1136,7 +1137,36 @@ func TestStaking_Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance, "stakingNetBalance", stakingNetBalance, "totalDepositedBalance", totalDepositedBalance)
+	isPaused, err = IsValidationPaused(state, validator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if isPaused == false {
+		t.Fatal(err)
+	}
+
+	doesValExist, err := DoesValidatorExist(state, validator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance, "stakingNetBalance", stakingNetBalance,
+		"totalDepositedBalance", totalDepositedBalance, "isValidationPaused", stakingDetails.IsValidationPaused, "isPaused", isPaused, "doesValExist", doesValExist)
+
+	err = InitiatePartialWithdrawal(state, depositor, big.NewInt(1000), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stakingDetails, err = GetStakingDetails(state, validator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingDetails.Balance,
+		"stakingNetBalance", stakingDetails.NetBalance, "totalDepositedBalance", totalDepositedBalance, "isValidationPaused", stakingDetails.IsValidationPaused,
+		"validator", stakingDetails.Validator, "depositor", stakingDetails.Depositor)
 
 	fmt.Println("StakingDetails withdrawalblock", stakingDetails.WithdrawalBlock.Uint64())
 	fmt.Println("StakingDetails withdrawalbamount", stakingDetails.WithdrawalAmount.Uint64())
