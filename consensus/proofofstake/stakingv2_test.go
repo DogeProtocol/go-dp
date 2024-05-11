@@ -39,6 +39,7 @@ func (tcc *TestChainContext) Engine() consensus.Engine {
 
 func (tcc *TestChainContext) GetHeader(lastKnownHash common.Hash, lastKnownNumber uint64) *types.Header {
 	hash := common.BytesToHash([]byte(strconv.FormatUint(lastKnownNumber+1, 10)))
+	blockNumber := big.NewInt(int64(lastKnownNumber + 1))
 
 	header := &types.Header{
 		MixDigest:   hash,
@@ -53,7 +54,7 @@ func (tcc *TestChainContext) GetHeader(lastKnownHash common.Hash, lastKnownNumbe
 		Time:        1337,
 		ParentHash:  lastKnownHash,
 		Root:        hash,
-		Number:      largeNumber(2),
+		Number:      blockNumber,
 		Difficulty:  largeNumber(2),
 	}
 
@@ -952,7 +953,7 @@ func IncreaseDeposit(state *state.StateDB, depositor common.Address, amount *big
 	return nil
 }
 
-func InitiatePartialWithdrawal(state *state.StateDB, depositor common.Address, amount *big.Int) error {
+func InitiatePartialWithdrawal(state *state.StateDB, depositor common.Address, amount *big.Int, currentBlockNumber uint64) error {
 	method := staking.GetContract_Method_InitiatePartialWithdrawal()
 	abiData, err := staking.GetStakingContractV2_ABI()
 	if err != nil {
@@ -966,7 +967,7 @@ func InitiatePartialWithdrawal(state *state.StateDB, depositor common.Address, a
 		return err
 	}
 
-	header := tcc.GetHeader(ZERO_HASH, uint64(1))
+	header := tcc.GetHeader(ZERO_HASH, currentBlockNumber)
 
 	_, err = execute(tcc, data, depositor, state, header, new(big.Int))
 	if err != nil {
@@ -1008,7 +1009,7 @@ func GetStakingDetails(state *state.StateDB, validator common.Address) (*Validat
 		return nil, err
 	}
 	// call
-	data, err := encodeCall(&abiData, method)
+	data, err := encodeCall(&abiData, method, validator)
 	if err != nil {
 		log.Error("Unable to pack GetStakingDetails", "error", err)
 		return nil, err
@@ -1125,5 +1126,18 @@ func TestStaking_Basic(t *testing.T) {
 		t.Fatalf("totalDepositedBalance compare failed")
 	}
 
+	err = InitiatePartialWithdrawal(state, depositor, big.NewInt(1000), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stakingDetails, err := GetStakingDetails(state, validator)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	fmt.Println("depositAmount", depositAmount, "stakingBalance", stakingBalance, "stakingNetBalance", stakingNetBalance, "totalDepositedBalance", totalDepositedBalance)
+
+	fmt.Println("StakingDetails withdrawalblock", stakingDetails.WithdrawalBlock.Uint64())
+	fmt.Println("StakingDetails withdrawalbamount", stakingDetails.WithdrawalAmount.Uint64())
 }
