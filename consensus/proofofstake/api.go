@@ -76,7 +76,7 @@ func (api *API) ListValidators(blockNumberHex string) ([]*ValidatorDetails, erro
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	validators, err := api.proofofstake.ListValidators(header.Hash())
+	validators, err := api.proofofstake.ListValidators(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -147,18 +147,16 @@ func (api *API) GetStakingDetails(blockNumberHex string) (*StakingData, error) {
 			return nil, err
 		}
 	}
-
 	// Retrieve the requested block number (or current if none requested)
 	var header = api.chain.GetHeaderByNumber(blockNumber)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	balance, err := api.proofofstake.GetTotalDepositedBalance(header.Hash())
+	balance, err := api.proofofstake.GetTotalDepositedBalance(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
-
-	validators, err := api.proofofstake.ListValidators(header.Hash())
+	validators, err := api.proofofstake.ListValidators(header.Hash(), blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +238,27 @@ func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, er
 	} else {
 		consensusData.BlockProposerRewards = hexutil.EncodeUint64(0)
 	}
+
+	/*
+		//Extract Original Block Proposer //todo: remove code duplication here, instead modularize PacketHandler
+		validators, err := api.proofofstake.GetValidators(header.ParentHash)
+		if err != nil {
+			return nil, err
+		}
+		filteredValidators, _, _, err := filterValidators(header.ParentHash, &validators)
+		if err != nil {
+			return nil, err
+		}
+		var filteredValidatorsDepositMap map[common.Address]*big.Int
+		filteredValidatorsDepositMap = make(map[common.Address]*big.Int)
+		for addr, _ := range filteredValidators {
+			depositValue := validators[addr]
+			filteredValidatorsDepositMap[addr] = depositValue
+		}
+		originalBlockProposer, err := getBlockProposer(header.ParentHash, &filteredValidatorsDepositMap, 1)
+
+		consensusData.OriginalBlockProposer.CopyFrom(originalBlockProposer)
+	*/
 
 	return consensusData, err
 }
@@ -425,4 +444,15 @@ func (api *API) GetCoinsForEthereumAddress(ethAddress common.Address, blockHash 
 	}
 
 	return out, nil
+}
+
+func (api *API) GetBlockConsensusContext(blockNumber uint64) ([32]byte, error) {
+	currentheader := api.chain.CurrentHeader()
+
+	var context [32]byte
+	key, err := GetBlockConsensusContextKey(blockNumber)
+	if err != nil {
+		return context, err
+	}
+	return api.proofofstake.GetConsensusContext(key, currentheader.Hash())
 }

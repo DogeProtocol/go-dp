@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts/abi"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv1"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	"strings"
 )
 
 // Steps after Contract is modified
-// 1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking
-// 2) abigen --bin=c:\github\go-dp\systemcontracts\staking\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\staking.go
-// 3) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field
+// 1) solc --bin --bin-runtime --abi c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.sol  -o c:\github\go-dp\systemcontracts\staking\stakingv2
+// 2) abigen --bin=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.bin --abi=c:\github\go-dp\systemcontracts\staking\stakingv2\StakingContract.abi --pkg=staking --out=c:\github\go-dp\systemcontracts\staking\stakingv2\staking.go
+// 3) in staking\stakingv2\staking.go, change the package name to just "stakingv2" (instead of "staking") to clear the error
+// 4) copy StakingContract-runtime.bin into stakingbin.go STAKING_RUNTIME_BIN field
 const STAKING_CONTRACT = "0x0000000000000000000000000000000000000000000000000000000000001000"
 
 var STAKING_CONTRACT_ADDRESS = common.HexToAddress(STAKING_CONTRACT)
@@ -19,7 +22,6 @@ const PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER = 1
 
 var (
 	stakingContract = STAKING_CONTRACT
-	//stakingContractABI = STAKING_ABI
 
 	systemContracts      []string
 	SystemContractsData  = make(map[string]*Contracts)
@@ -148,7 +150,13 @@ func GetStakingContract_Address() common.Address {
 }
 
 func GetStakingContract_ABI() (abi.ABI, error) {
-	s := StakingMetaData.ABI
+	s := stakingv1.StakingMetaData.ABI
+	abi, err := abi.JSON(strings.NewReader(s))
+	return abi, err
+}
+
+func GetStakingContractV2_ABI() (abi.ABI, error) {
+	s := stakingv2.StakingMetaData.ABI
 	abi, err := abi.JSON(strings.NewReader(s))
 	return abi, err
 }
@@ -186,6 +194,14 @@ func GetContract_Method_IsValidationPaused() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.IsValidationPaused
 }
 
+func GetContract_Method_PauseValidation() string {
+	return "pauseValidation"
+}
+
+func GetContract_Method_ResumeValidation() string {
+	return "resumeValidation"
+}
+
 func GetContract_Method_GetNetBalanceOfDepositor() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.GetNetBalanceOfDepositor
 }
@@ -218,6 +234,13 @@ func GetContract_Method_AddDepositorSlashing() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorSlashing
 }
 
+func GetContract_Method_SetNilBlock() string {
+	return "setNilBlock"
+}
+func GetContract_Method_ResetNilBlock() string {
+	return "resetNilBlock"
+}
+
 func GetContract_Method_AddDepositorReward() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Validators.AddDepositorReward
 }
@@ -234,22 +257,34 @@ func GetContract_Method_GetWithdrawalBlock() string {
 	return SystemContractsData[stakingContract].Contracts.Methods.Deposits.GetWithdrawalBlock
 }
 
-func IsStakingContractCreated(currentBlockNumber uint64) bool {
-	if currentBlockNumber > PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
-		return true
-	}
-
-	return false
-}
-
-func shouldCreateContract(currentBlockNumber uint64, contractAddress string) bool {
-	if strings.Compare(contractAddress, STAKING_CONTRACT) == 0 && currentBlockNumber == PROOF_OF_STAKE_STAKING_CONTRACT_BLOCK_NUMBER {
-		return true
-	}
-
-	return false
-}
-
 func (sf Contract) Address() common.Address {
 	return sf.CallerAddress
+}
+
+func GetContract_Method_ChangeValidator() string {
+	return "changeValidator"
+}
+
+func GetContract_Method_InitiateChangeDepositor() string {
+	return "initiateChangeDepositor"
+}
+
+func GetContract_Method_CompleteChangeDepositor() string {
+	return "completeChangeDepositor"
+}
+
+func GetContract_Method_IncreaseDeposit() string {
+	return "increaseDeposit"
+}
+
+func GetContract_Method_InitiatePartialWithdrawal() string {
+	return "initiatePartialWithdrawal"
+}
+
+func GetContract_Method_CompletePartialWithdrawal() string {
+	return "completePartialWithdrawal"
+}
+
+func GetContract_Method_GetStakingDetails() string {
+	return "getStakingDetails"
 }

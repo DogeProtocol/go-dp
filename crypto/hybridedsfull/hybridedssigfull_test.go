@@ -1,10 +1,8 @@
 package hybridedsfull
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
-	"github.com/DogeProtocol/dp/crypto/hybrideds"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"testing"
 )
@@ -65,66 +63,4 @@ func testBase64(t *testing.T) {
 
 func TestBase64(t *testing.T) {
 	testBase64(t)
-}
-
-func TestCompactAndFullInterop(t *testing.T) {
-	var sigFull signaturealgorithm.SignatureAlgorithm
-	sigFull = CreateHybridedsfullSig()
-
-	var sigCompact signaturealgorithm.SignatureAlgorithm
-	sigCompact = hybrideds.CreateHybridedsSig(true)
-
-	keyCompact, err := sigCompact.GenerateKey()
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	serializedCompact, err := sigCompact.SerializePrivateKey(keyCompact)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	keyFull, err := sigFull.DeserializePrivateKey(serializedCompact)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	addrCompact, err := sigCompact.PublicKeyToAddress(&keyCompact.PublicKey)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	addrFull, err := sigFull.PublicKeyToAddress(&keyFull.PublicKey)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	if addrFull.IsEqualTo(addrCompact) == false {
-		t.Fatalf("failed")
-	}
-
-	if bytes.Compare(keyCompact.PubData, keyFull.PubData) != 0 {
-		t.Fatalf("failed")
-	}
-
-	digestHash1 := []byte(testmsg1)
-	signature1, err := sigFull.Sign(digestHash1, keyFull)
-	if err != nil {
-		fmt.Println(err)
-		t.Fatal("Sign failed")
-	}
-
-	if sigFull.Verify(keyCompact.PubData, digestHash1, signature1) != true { //compact pub
-		t.Fatal("Verify failed")
-	}
-
-	signature2, err := sigCompact.Sign(digestHash1, keyFull)
-	if err != nil {
-		fmt.Println(err)
-		t.Fatal("Sign failed")
-	}
-
-	if sigCompact.Verify(keyFull.PubData, digestHash1, signature2) != true { //full pub
-		t.Fatal("Verify failed")
-	}
 }

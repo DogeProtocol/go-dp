@@ -92,6 +92,19 @@ func (w *keystoreWallet) signHash(account accounts.Account, hash []byte) ([]byte
 	return w.keystore.SignHash(account, hash)
 }
 
+func (w *keystoreWallet) signHashWithContext(account accounts.Account, hash []byte, context []byte) ([]byte, error) {
+	// Make sure the requested account is contained within
+	if !w.Contains(account) {
+		return nil, accounts.ErrUnknownAccount
+	}
+	// Account seems valid, request the keystore to sign
+	return w.keystore.SignHashWithContext(account, hash, context)
+}
+
+func (w *keystoreWallet) SignDataWithContext(account accounts.Account, mimeType string, data []byte, context []byte) ([]byte, error) {
+	return w.signHashWithContext(account, crypto.Keccak256(data), context)
+}
+
 // SignData signs keccak256(data). The mimetype parameter describes the type of data being signed.
 func (w *keystoreWallet) SignData(account accounts.Account, mimeType string, data []byte) ([]byte, error) {
 	return w.signHash(account, crypto.Keccak256(data))

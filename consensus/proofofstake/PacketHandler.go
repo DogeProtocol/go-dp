@@ -3,17 +3,19 @@ package proofofstake
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/hybrideds"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/node"
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -25,6 +27,7 @@ import (
 
 type GetValidatorsFn func(blockHash common.Hash) (map[common.Address]*big.Int, error)
 type DoesFinalizedTransactionExistFn func(txnHash common.Hash) (bool, error)
+type ListValidatorsAsMapFn func(blockHash common.Hash) (map[common.Address]*ValidatorDetailsV2, error)
 
 type OutOfOrderPacket struct {
 	ReceivedTime time.Time
@@ -34,6 +37,7 @@ type OutOfOrderPacket struct {
 type ConsensusHandler struct {
 	account                         accounts.Account
 	signFn                          SignerFn
+	signFnWithContext               SignerFnWithContext
 	p2pHandler                      P2PHandler
 	blockStateDetailsMap            map[common.Hash]*BlockStateDetails
 	outOfOrderPacketsMap            map[common.Hash][]*OutOfOrderPacket
@@ -41,6 +45,7 @@ type ConsensusHandler struct {
 	innerPacketLock                 sync.Mutex
 	p2pLock                         sync.Mutex
 	getValidatorsFn                 GetValidatorsFn
+	listValidatorsFn                ListValidatorsAsMapFn
 	doesFinalizedTransactionExistFn DoesFinalizedTransactionExistFn
 	currentParentHash               common.Hash
 
@@ -84,6 +89,7 @@ type BlockAdditionalConsensusData struct {
 
 // todo: use mono clock
 var BLOCK_TIMEOUT_MS = int64(60000)
+var FULL_BLOCK_TIMEOUT_MS = int64(90000)
 var ACK_BLOCK_TIMEOUT_MS = 300000 //relative to start of block locally
 var BLOCK_CLEANUP_TIME_MS = int64(900000)
 var MAX_ROUND = byte(2)
@@ -95,6 +101,8 @@ var BLOCK_PERIOD_TIME_CHANGE = uint64(64) //propose timeChanges every N blocks
 var ALLOWED_TIME_SKEW_MINUTES = 3.0
 var SKIP_HASH_CHECK = false
 var STALE_BLOCK_WARN_TIME = int64(1800 * 1000)
+var BLOCK_PROPOSER_OFFLINE_NIL_BLOCK_MULTIPLIER = uint64(2)
+var BLOCK_PROPOSER_OFFLINE_MAX_DELAY_BLOCK_COUNT = uint64(1024)
 
 type BlockRoundState byte
 type VoteType byte
@@ -141,6 +149,16 @@ const (
 	NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_TIMEOUT      NewRoundReason = 2
 	NEW_ROUND_REASON_WAIT_ACK_BLOCK_PROPOSAL_HIGHER_ROUND NewRoundReason = 3
 	NEW_ROUND_REASON_WAIT_PRECOMMIT_TIMEOUT               NewRoundReason = 4
+)
+
+const (
+	GENESIS_BLOCK_HASH = "0x2c8127f13d50434052128a88c9c9f79a27d44a1145e51f6fd250b6e247369e99"
+)
+
+var (
+	//Use genesis block as context, so that cryptographic state-proof using full-signature-mode can be verified using the genesis file itself (if signatures from proposal blocks of genesis validators are available as well).
+	//Eventually when 70% (staked coins) of genesis proposers have full-signed proposal blocks that also contain genesis hash as part of the message, it means that the first state-proof is achieved for the chain.
+	FULL_SIGN_CONTEXT = append(common.Hex2Bytes(GENESIS_BLOCK_HASH), []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}...)
 )
 
 var (
@@ -196,6 +214,7 @@ type BlockRoundDetails struct {
 
 type BlockStateDetails struct {
 	filteredValidatorsDepositMap      map[common.Address]*big.Int
+	validatorDetailsMap               *map[common.Address]*ValidatorDetailsV2
 	totalBlockDepositValue            *big.Int
 	blockMinWeightedProposalsRequired *big.Int
 	initTime                          time.Time
@@ -291,6 +310,10 @@ func (cph *ConsensusHandler) SetValidatorsFunction(getValidatorsFn GetValidators
 	cph.getValidatorsFn = getValidatorsFn
 }
 
+func (cph *ConsensusHandler) SetListValidatorsFunction(listValidatorsFn ListValidatorsAsMapFn) {
+	cph.listValidatorsFn = listValidatorsFn
+}
+
 func (cph *ConsensusHandler) SetTransactionsFunction(doesFinalizedTransactionExistFn DoesFinalizedTransactionExistFn) {
 	cph.doesFinalizedTransactionExistFn = doesFinalizedTransactionExistFn
 }
@@ -308,8 +331,10 @@ func (cph *ConsensusHandler) isValidator(parentHash common.Hash) (bool, error) {
 	return found, nil
 }
 
-func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte) (common.Address, error) {
-
+func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte, validatorDetailsMap *map[common.Address]*ValidatorDetailsV2, blockNumber uint64) (common.Address, error) {
+	if blockNumber >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
+		return getBlockProposerV2(parentHash, validatorDetailsMap, round, blockNumber)
+	}
 	var proposer common.Address
 
 	if len(*filteredValidatorDepositMap) < MIN_VALIDATORS {
@@ -336,12 +361,72 @@ func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[c
 	return proposer, nil
 }
 
+func canPropose(valDetails *ValidatorDetailsV2, currentBlockNumber uint64) bool {
+	if valDetails.LastNiLBlock.Cmp(new(big.Int)) == 0 {
+		return true
+	}
+
+	slotsMissed := float64(valDetails.NilBlockCount.Uint64() / BLOCK_PROPOSER_OFFLINE_NIL_BLOCK_MULTIPLIER)
+	blockDelay := uint64(math.Pow(2.0, slotsMissed))
+	if blockDelay > BLOCK_PROPOSER_OFFLINE_MAX_DELAY_BLOCK_COUNT {
+		blockDelay = BLOCK_PROPOSER_OFFLINE_MAX_DELAY_BLOCK_COUNT
+	}
+
+	nextProposalBlock := valDetails.LastNiLBlock.Uint64() + blockDelay
+	result := currentBlockNumber >= nextProposalBlock
+	log.Debug("canPropose", "LastNiLBlock", valDetails.LastNiLBlock, "NilBlockCount", valDetails.NilBlockCount,
+		"slotsMissed", slotsMissed, "blockDelay", blockDelay, "nextProposalBlock", nextProposalBlock,
+		"currentBlockNumber", currentBlockNumber, "canPropose", result, "validator", valDetails.Validator)
+	return result
+}
+
+func getBlockProposerV2(parentHash common.Hash, validatorMap *map[common.Address]*ValidatorDetailsV2, round byte, blockNumber uint64) (common.Address, error) {
+	var proposer common.Address
+
+	if len(*validatorMap) < MIN_VALIDATORS {
+		return proposer, errors.New("getBlockProposerV2 min validators not found")
+	}
+
+	selectedValMap := make(map[common.Address]*ValidatorDetailsV2)
+	for valAddr, valDetails := range *validatorMap {
+		if canPropose(valDetails, blockNumber) == false {
+			continue
+		}
+		selectedValMap[valAddr] = valDetails
+	}
+
+	//If fewer proposers than MIN_VALIDATORS, then select everyone, something is wrong
+	if len(selectedValMap) < MIN_VALIDATORS {
+		for valAddr, valDetails := range *validatorMap {
+			selectedValMap[valAddr] = valDetails
+		}
+	}
+
+	validators := make([]common.Address, len(selectedValMap))
+	j := 0
+	for valAddr, _ := range selectedValMap {
+		validators[j] = valAddr
+		j = j + 1
+	}
+
+	sort.Slice(validators, func(i, j int) bool {
+		vi := crypto.Keccak256Hash(parentHash.Bytes(), validators[i].Bytes(), []byte{round}).Bytes()
+		vj := crypto.Keccak256Hash(parentHash.Bytes(), validators[j].Bytes(), []byte{round}).Bytes()
+		return bytes.Compare(vi, vj) == -1
+	})
+
+	proposer = validators[0]
+	log.Trace("getBlockProposerV2", "proposer", proposer, "round", round)
+
+	return proposer, nil
+}
+
 func filterValidators(parentHash common.Hash, valDepMap *map[common.Address]*big.Int) (filteredValidators map[common.Address]bool, filteredDepositValue *big.Int, blockMinWeightedProposalsRequired *big.Int, err error) {
 	validatorsDepositMap := *valDepMap
 
 	totalDepositValue := big.NewInt(0)
 	valCount := 0
-	for val, depositValue := range validatorsDepositMap {
+	for val, depositValue := range validatorsDepositMap { //todo: this should be based on netBalance
 		if depositValue.Cmp(MIN_VALIDATOR_DEPOSIT) == -1 {
 			log.Trace("Skipping validator with low balance", "val", val, "depositValue", depositValue)
 			delete(validatorsDepositMap, val)
@@ -467,6 +552,25 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return err
 	}
 
+	if blockNumber >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
+		validatorDetailsMap, err := cph.listValidatorsFn(parentHash)
+		if err != nil {
+			log.Error("listValidatorsFn", "err", err)
+			return err
+		}
+		for valAddr, valDetails := range validatorDetailsMap {
+			if valDetails.IsValidationPaused {
+				delete(validatorDetailsMap, valAddr)
+				continue
+			}
+			_, ok := filteredValidators[valAddr]
+			if ok == false {
+				delete(validatorDetailsMap, valAddr)
+			}
+		}
+		blockStateDetails.validatorDetailsMap = &validatorDetailsMap
+	}
+
 	if blockStateDetails.totalBlockDepositValue.Cmp(MIN_BLOCK_DEPOSIT) == -1 {
 		delete(cph.blockStateDetailsMap, parentHash)
 		return errors.New("min block deposit not met")
@@ -521,7 +625,7 @@ func (cph *ConsensusHandler) initializeNewBlockRound(newRoundReason NewRoundReas
 		log.Trace("initializeNewBlockRound", "currentRound", blockStateDetails.currentRound, "Address", cph.account.Address)
 	}
 
-	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.filteredValidatorsDepositMap, blockRoundDetails.Round)
+	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.filteredValidatorsDepositMap, blockRoundDetails.Round, blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
 	if err != nil {
 		return err
 	}
@@ -535,8 +639,9 @@ func (cph *ConsensusHandler) initializeNewBlockRound(newRoundReason NewRoundReas
 	return nil
 }
 
-func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte) (bool, error) {
-	blockProposer, err := getBlockProposer(parentHash, filteredValidatorDepositMap, round)
+func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte, blockStateDetails *BlockStateDetails) (bool, error) {
+	blockProposer, err := getBlockProposer(parentHash, filteredValidatorDepositMap, round, blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
+
 	if err != nil {
 		log.Trace("isBlockProposer", "err", err)
 		return false, err
@@ -580,19 +685,42 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	return err
 }
 
+func shouldSignFull(blockNumber uint64) bool {
+	if blockNumber >= FULL_SIGN_PROPOSAL_CUTOFF_BLOCK && blockNumber%FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS == 0 {
+		return true
+	}
+	return false
+}
+
 func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
-	if packet == nil {
-		debug.PrintStack()
+	if packet == nil || packet.ConsensusData == nil || len(packet.ConsensusData) < 1 || packet.Signature == nil || len(packet.Signature) < hybrideds.CRYPTO_SIGNATURE_BYTES {
 		return errors.New("nil packet")
 	}
+	packetType := ConsensusPacketType(packet.ConsensusData[0])
+
 	dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToVerify)
-	pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
-	if err != nil {
-		return InvalidPacketErr
-	}
-	if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-		return InvalidPacketErr
+	var pubKey *signaturealgorithm.PublicKey
+	var err error
+
+	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
+		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
+		if err != nil {
+			return InvalidPacketErr
+		}
+
+		if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, FULL_SIGN_CONTEXT) == false {
+			return InvalidPacketErr
+		}
+	} else {
+		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
+		if err != nil {
+			return InvalidPacketErr
+		}
+
+		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			return InvalidPacketErr
+		}
 	}
 
 	validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
@@ -600,7 +728,6 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 		return InvalidPacketErr
 	}
 
-	packetType := ConsensusPacketType(packet.ConsensusData[0])
 	log.Trace("processPacket", "validator", validator, "packetType", packetType)
 	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
 		return cph.handleProposeBlockPacket(validator, packet, false)
@@ -739,7 +866,8 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 			consensusPackets = append(consensusPackets, eth.NewConsensusPacket(pkt))
 		}
 
-		roundProposer, err := getBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, r)
+		roundProposer, err := getBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, r,
+			blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -770,9 +898,9 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 	}
 
 	if blockConsensusData.VoteType == VOTE_TYPE_NIL {
-		err = ValidateBlockConsensusDataInner(nil, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap)
+		err = ValidateBlockConsensusDataInner(nil, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap)
 	} else {
-		err = ValidateBlockConsensusDataInner(blockRoundDetails.proposalTxns, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap)
+		err = ValidateBlockConsensusDataInner(blockRoundDetails.proposalTxns, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap)
 	}
 
 	if err != nil {
@@ -1577,7 +1705,6 @@ func ValidateBlockProposalTimeConsensus(blockNumber uint64, proposedTime uint64)
 			}
 		} else if currTime.After(tm) {
 			difference := currTime.Sub(tm)
-			fmt.Println(difference.Minutes())
 			if difference.Minutes() > ALLOWED_TIME_SKEW_MINUTES {
 				return false
 			}
@@ -1623,7 +1750,8 @@ func (cph *ConsensusHandler) proposeBlock(parentHash common.Hash, txns []common.
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK)}, data...)
 
-	packet, err = cph.createConsensusPacket(parentHash, dataToSend)
+	fullSignNeeded := shouldSignFull(blockNumber)
+	packet, err = cph.createConsensusPacket(parentHash, dataToSend, fullSignNeeded)
 	if err != nil {
 		return err
 	}
@@ -1673,7 +1801,7 @@ func (cph *ConsensusHandler) ackBlockProposalTimeout(parentHash common.Hash) err
 		}
 
 		dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_ACK_BLOCK_PROPOSAL)}, data...)
-		packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+		packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 		if err != nil {
 			return err
 		}
@@ -1793,7 +1921,7 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 	blockRoundDetails := blockStateDetails.blockRoundMap[blockStateDetails.currentRound]
 
 	if blockRoundDetails.selfAckd == true {
-		shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound)
+		shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound, blockStateDetails)
 		if err != nil {
 			return err
 		}
@@ -1850,7 +1978,7 @@ func (cph *ConsensusHandler) ackBlockProposal(parentHash common.Hash) error {
 		}
 
 		dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_ACK_BLOCK_PROPOSAL)}, data...)
-		packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+		packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 		if err != nil {
 			return err
 		}
@@ -1977,7 +2105,7 @@ func (cph *ConsensusHandler) precommitBlock(parentHash common.Hash) error {
 	}
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_PRECOMMIT_BLOCK)}, data...)
-	packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+	packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 	if err != nil {
 		return err
 	}
@@ -2024,7 +2152,7 @@ func (cph *ConsensusHandler) commitBlock(parentHash common.Hash) error {
 	}
 
 	dataToSend := append([]byte{byte(CONSENSUS_PACKET_TYPE_COMMIT_BLOCK)}, data...)
-	packet, err := cph.createConsensusPacket(parentHash, dataToSend)
+	packet, err := cph.createConsensusPacket(parentHash, dataToSend, false)
 	if err != nil {
 		return err
 	}
@@ -2165,7 +2293,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		return errors.New("not a validator in this block")
 	}
 
-	shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound)
+	shouldPropose, err := cph.isBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.currentRound, blockStateDetails)
 	if err != nil {
 		return err
 	}
@@ -2189,7 +2317,13 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		if shouldPropose {
 			cph.proposeBlock(parentHash, txns, blockNumber)
 		} else {
-			if HasExceededTimeThreshold(blockRoundDetails.initTime, BLOCK_TIMEOUT_MS*int64(blockRoundDetails.Round)) {
+			var timeoutMs int64
+			if shouldSignFull(blockNumber) {
+				timeoutMs = FULL_BLOCK_TIMEOUT_MS
+			} else {
+				timeoutMs = BLOCK_TIMEOUT_MS
+			}
+			if HasExceededTimeThreshold(blockRoundDetails.initTime, timeoutMs*int64(blockRoundDetails.Round)) {
 				cph.ackBlockProposalTimeout(parentHash)
 			} else {
 				cph.requestConsensusData(blockStateDetails)
@@ -2227,12 +2361,20 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	return err
 }
 
-func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data []byte) (*eth.ConsensusPacket, error) {
+func (cph *ConsensusHandler) createConsensusPacket(parentHash common.Hash, data []byte, fullSign bool) (*eth.ConsensusPacket, error) {
 	if cph.signFn == nil {
 		return nil, errors.New("signFn is not set")
 	}
 	dataToSign := append(parentHash.Bytes(), data...)
-	signature, err := cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
+	var signature []byte
+	var err error
+	if fullSign {
+		log.Debug("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
+		signature, err = cph.signFnWithContext(cph.account, accounts.MimetypeProofOfStake, dataToSign, FULL_SIGN_CONTEXT)
+	} else {
+		log.Trace("createConsensusPacket", "parentHash", parentHash, "fullSign", fullSign)
+		signature, err = cph.signFn(cph.account, accounts.MimetypeProofOfStake, dataToSign)
+	}
 	if err != nil {
 		log.Trace("createConsensusPacket signAndSend failed", "err", err)
 		return nil, err

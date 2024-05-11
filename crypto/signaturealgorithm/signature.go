@@ -51,6 +51,9 @@ type SignatureAlgorithm interface {
 	Sign(digestHash []byte, prv *PrivateKey) (sig []byte, err error)
 	Verify(pubKey []byte, digestHash []byte, signature []byte) bool
 
+	SignWithContext(digestHash []byte, prv *PrivateKey, context []byte) (sig []byte, err error)
+	VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool
+
 	Zeroize(prv *PrivateKey)
 
 	PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error)
@@ -60,6 +63,7 @@ type SignatureAlgorithm interface {
 	PublicKeyBytesFromSignature(digestHash []byte, sig []byte) ([]byte, error)
 
 	PublicKeyFromSignature(digestHash []byte, sig []byte) (*PublicKey, error)
+	PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*PublicKey, error)
 
 	ValidateSignatureValues(digestHash []byte, v byte, r, s *big.Int) bool
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/internal/ethapi"
+	"github.com/DogeProtocol/dp/systemcontracts/consensuscontext"
 	"github.com/DogeProtocol/dp/systemcontracts/conversion"
 	"github.com/DogeProtocol/dp/systemcontracts/staking"
 	"github.com/DogeProtocol/dp/trie"
@@ -47,6 +48,7 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
+	"github.com/DogeProtocol/dp/systemcontracts/staking/stakingv2"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -74,6 +76,16 @@ var (
 
 	rewardStartBlockNumber = uint64(277204)
 	slashStartBlockNumber  = uint64(1497600)
+
+	FULL_SIGN_PROPOSAL_CUTOFF_BLOCK     = uint64(421888)
+	FULL_SIGN_PROPOSAL_FREQUENCY_BLOCKS = uint64(4096)
+
+	STAKING_CONTRACT_V2_CUTOFF_BLOCK  = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
+	CONSENSUS_CONTEXT_START_BLOCK     = FULL_SIGN_PROPOSAL_CUTOFF_BLOCK
+	CONSENSUS_CONTEXT_MAX_BLOCK_COUNT = uint64(512000)
+
+	VALIDATOR_NIL_BLOCK_START_BLOCK      = STAKING_CONTRACT_V2_CUTOFF_BLOCK + 1
+	BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK = VALIDATOR_NIL_BLOCK_START_BLOCK + 16
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -152,6 +164,7 @@ var (
 
 // SignerFn hashes and signs the data to be signed by a backing account.
 type SignerFn func(signer accounts.Account, mimeType string, message []byte) ([]byte, error)
+type SignerFnWithContext func(signer accounts.Account, mimeType string, message []byte, context []byte) ([]byte, error)
 type SignerTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
 
 // ProofOfStake is the proof-of-authority consensus engine proposed to support the
@@ -167,10 +180,11 @@ type ProofOfStake struct {
 
 	proposals map[common.Address]bool // Current list of proposals we are pushing
 
-	signer    types.Signer
-	validator common.Address
-	signFn    SignerFn // Signer function to authorize hashes with
-	signTxFn  SignerTxFn
+	signer            types.Signer
+	validator         common.Address
+	signFn            SignerFn // Signer function to authorize hashes with
+	signFnWithContext SignerFnWithContext
+	signTxFn          SignerTxFn
 
 	ethAPI *ethapi.PublicBlockChainAPI
 
@@ -215,6 +229,7 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 	}
 
 	proofofstake.consensusHandler.getValidatorsFn = proofofstake.GetValidators
+	proofofstake.consensusHandler.listValidatorsFn = proofofstake.ListValidatorsAsMap
 	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExistFn
 
 	return proofofstake
@@ -572,7 +587,15 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 		return err
 	}
 
-	err = ValidateBlockConsensusData(block, &validatorDepositMap)
+	var valDetailsMap map[common.Address]*ValidatorDetailsV2
+	if number >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
+		valDetailsMap, err = c.ListValidatorsAsMap(header.ParentHash)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap)
 	if err != nil {
 		log.Trace("ValidateBlockConsensusData", "err", err)
 	}
@@ -673,7 +696,8 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	//Block Slashing
-	if blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= slashStartBlockNumber {
+	//If Round = 1, then it means PROPOSER was likely offline, as opposed to Round = 2 which means validators were not able to get consensus on time
+	if blockConsensusData.Round == 1 && blockConsensusData.SlashedBlockProposers != nil && len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= slashStartBlockNumber {
 		for _, val := range blockConsensusData.SlashedBlockProposers {
 			depositor, err := c.GetDepositorOfValidator(val, header.ParentHash)
 			if err != nil {
@@ -689,6 +713,19 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 			if c.signFn != nil && val.IsEqualTo(c.validator) {
 				log.Warn("You account got a slashing!", "parentHash", header.ParentHash)
+			}
+		}
+	}
+
+	//Validator nil block
+	//If Round = 1, then it means PROPOSER was likely offline, as opposed to Round = 2 which means validators were not able to get consensus on time
+	if blockConsensusData.VoteType == VOTE_TYPE_NIL && blockConsensusData.Round == 1 && blockConsensusData.SlashedBlockProposers != nil &&
+		len(blockConsensusData.SlashedBlockProposers) > 0 && header.Number.Uint64() >= VALIDATOR_NIL_BLOCK_START_BLOCK {
+		for _, val := range blockConsensusData.SlashedBlockProposers {
+			err = c.SetNilBlock(val, state, header)
+			if err != nil {
+				log.Error("SetNilBlock err", "err", err)
+				return err
 			}
 		}
 	}
@@ -721,6 +758,59 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 		if blockConsensusData.VoteType == VOTE_TYPE_OK && c.signFn != nil && blockConsensusData.BlockProposer.IsEqualTo(c.validator) {
 			log.Info("You potentially proposed and mined a new block!", "BlockNumber", header.Number, "parentHash", header.ParentHash)
+		}
+
+		//Validator nil block reset
+		if header.Number.Uint64() > VALIDATOR_NIL_BLOCK_START_BLOCK {
+			err = c.ResetNilBlock(blockConsensusData.BlockProposer, state, header)
+			if err != nil {
+				log.Error("ResetNilBlock err", "err", err)
+				return err
+			}
+		}
+	}
+
+	//Staking V2
+	if header.Number.Uint64() == STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		log.Info("Setting stakingv2 contract code", "blockNumber", STAKING_CONTRACT_V2_CUTOFF_BLOCK)
+		stakingContractCode := common.FromHex(stakingv2.STAKING_RUNTIME_BIN)
+		state.SetCode(staking.STAKING_CONTRACT_ADDRESS, stakingContractCode)
+	}
+
+	//Consensus Context
+	if header.Number.Uint64() == CONSENSUS_CONTEXT_START_BLOCK {
+		log.Info("Setting consensus context contract code", "blockNumber", CONSENSUS_CONTEXT_START_BLOCK)
+		consensuscontextContractCode := common.FromHex(consensuscontext.CONSENSUS_CONTEXT_RUNTIME_BIN)
+		state.SetCode(consensuscontext.CONSENSUS_CONTEXT_CONTRACT_ADDRESS, consensuscontextContractCode)
+	}
+
+	if header.Number.Uint64() > CONSENSUS_CONTEXT_START_BLOCK {
+		key, err := GetBlockConsensusContextKey(header.Number.Uint64())
+		if err != nil {
+			log.Error("GetBlockConsensusContext err", "err", err)
+			return err
+		}
+		var consensuscontext [32]byte
+		copy(consensuscontext[:], header.ParentHash.Bytes())
+		err = c.SetConsensusContext(key, consensuscontext, state, header)
+		if err != nil {
+			log.Error("SetConsensusContext err", "err", err)
+			return err
+		}
+
+		//Remove the oldest key
+		if header.Number.Uint64() > (CONSENSUS_CONTEXT_START_BLOCK + CONSENSUS_CONTEXT_MAX_BLOCK_COUNT) {
+			oldKey, err := GetBlockConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
+			if err != nil {
+				log.Error("GetBlockConsensusContextKey oldKey err", "err", err)
+				return err
+			}
+
+			err = c.DeleteConsensusContext(oldKey, state, header)
+			if err != nil {
+				log.Error("DeleteConsensusContext oldKey err", "err", err)
+				return err
+			}
 		}
 	}
 
@@ -799,15 +889,17 @@ func (c *ProofOfStake) FinalizeAndAssembleWithConsensus(chain consensus.ChainHea
 
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
-func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signTxFn SignerTxFn, account accounts.Account) {
+func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, signFnWithContext SignerFnWithContext, signTxFn SignerTxFn, account accounts.Account) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	c.validator = validator
 	c.signFn = signFn
 	c.signTxFn = signTxFn
+	c.signFnWithContext = signFnWithContext
 
 	c.consensusHandler.signFn = signFn
+	c.consensusHandler.signFnWithContext = signFnWithContext
 	c.consensusHandler.account = account
 }
 

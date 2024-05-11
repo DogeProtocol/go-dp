@@ -192,9 +192,7 @@ type Mock struct {
 func New(chainConfig *params.ChainConfig, db ethdb.Database, genesisHash common.Hash) *Mock {
 	// Set any missing consensus parameters to their defaults
 	conf := *chainConfig
-	if conf.ProofOfStake.Epoch == 0 {
-		conf.ProofOfStake.Epoch = epochLength
-	}
+
 	// Allocate the snapshot caches and c.ProofOfStakereate the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)

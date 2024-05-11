@@ -483,7 +483,7 @@ func (s *Ethereum) StartMining(threads int) error {
 				return fmt.Errorf("signer missing: %v", err)
 			}
 
-			proofofstake.Authorize(eb, wallet.SignData, wallet.SignTx, account)
+			proofofstake.Authorize(eb, wallet.SignData, wallet.SignDataWithContext, wallet.SignTx, account)
 		}
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
