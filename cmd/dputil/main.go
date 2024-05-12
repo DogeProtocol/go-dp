@@ -60,9 +60,13 @@ func printHelp() {
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
 	fmt.Println("===========")
-	fmt.Println("dputil initiatewithdrawalreward DEPOSITOR_ADDRESS")
+	fmt.Println("dputil initiatewithdrawalrewards DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
 	fmt.Println("           DP_RAW_URL")
+	fmt.Println("===========")
+	fmt.Println("dputil completewithdrawalrewards DEPOSITOR_ADDRESS")
+	fmt.Println("      Set the following environment variables:")
+	fmt.Println("           DP_RAW_URL, DP_KEY_FILE_DIR")
 	fmt.Println("===========")
 	fmt.Println("dputil completewithdrawal DEPOSITOR_ADDRESS")
 	fmt.Println("      Set the following environment variables:")
@@ -141,16 +145,6 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "initiatewithdrawal" {
-		err := InitiateWithdrawal()
-		if err != nil {
-			fmt.Println("Error", err)
-		}
-	} else if os.Args[1] == "completewithdrawal" {
-		err := CompleteWithdrawal()
-		if err != nil {
-			fmt.Println("Error", err)
-		}
 	} else if os.Args[1] == "stakingbalance" {
 		err := DepositorBalance()
 		if err != nil {
@@ -166,8 +160,13 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
-	} else if os.Args[1] == "initiatewithdrawalreward" {
-		err := InitiateWithdrawalReward()
+	} else if os.Args[1] == "initiatewithdrawalrewards" {
+		err := InitiateWithdrawalRewards()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "completewithdrawalrewards" {
+		err := CompletePartialWithdrawal()
 		if err != nil {
 			fmt.Println("Error", err)
 		}
@@ -889,7 +888,7 @@ func DepositorBlockRewards() error {
 	}
 }
 
-func InitiateWithdrawalReward() error {
+func InitiateWithdrawalRewards() error {
 	if len(os.Args) < 3 {
 		printHelp()
 		return errors.New("incorrect usage")

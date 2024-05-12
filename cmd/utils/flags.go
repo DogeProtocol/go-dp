@@ -599,6 +599,11 @@ var (
 		Usage: "Network listening port",
 		Value: 30303,
 	}
+	ProfPortFlag = cli.IntFlag{
+		Name:  "profport",
+		Usage: "Profiling listening port",
+		Value: 30000,
+	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
 		Usage: "Comma separated enode URLs for P2P discovery bootstrap",
@@ -1222,6 +1227,10 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 
 	if ctx.GlobalIsSet(RebroadcastCountFlag.Name) {
 		cfg.RebroadcastCount = ctx.GlobalInt(RebroadcastCountFlag.Name)
+	}
+
+	if ctx.GlobalIsSet(ProfPortFlag.Name) {
+		cfg.ProfPort = ctx.GlobalInt(ProfPortFlag.Name)
 	}
 
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
