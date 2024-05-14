@@ -40,7 +40,7 @@ type ConsensusHandler struct {
 	signFnWithContext               SignerFnWithContext
 	p2pHandler                      P2PHandler
 	blockStateDetailsMap            map[common.Hash]*BlockStateDetails
-	outOfOrderPacketsMap            map[common.Hash][]*OutOfOrderPacket
+	outOfOrderPacketsMap            map[common.Hash]map[common.Hash]*OutOfOrderPacket
 	outerPacketLock                 sync.Mutex
 	innerPacketLock                 sync.Mutex
 	p2pLock                         sync.Mutex
@@ -301,7 +301,7 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 
 	return &ConsensusHandler{
 		blockStateDetailsMap: make(map[common.Hash]*BlockStateDetails),
-		outOfOrderPacketsMap: make(map[common.Hash][]*OutOfOrderPacket),
+		outOfOrderPacketsMap: make(map[common.Hash]map[common.Hash]*OutOfOrderPacket),
 		timeStatMap:          timeStatMap,
 	}
 }
@@ -672,15 +672,23 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	err := cph.processPacket(packet)
 	if errors.Is(err, OutOfOrderPackerErr) {
 		pkt := eth.NewConsensusPacket(packet)
-		_, ok := cph.outOfOrderPacketsMap[packet.ParentHash]
+		packetMap, ok := cph.outOfOrderPacketsMap[packet.ParentHash]
 		if ok == false {
-			cph.outOfOrderPacketsMap[packet.ParentHash] = make([]*OutOfOrderPacket, 0)
+			cph.outOfOrderPacketsMap[packet.ParentHash] = make(map[common.Hash]*OutOfOrderPacket)
+		}
+		packetMap = cph.outOfOrderPacketsMap[packet.ParentHash]
+		_, ok = packetMap[pkt.Hash()]
+		if ok == true {
+			return nil
 		}
 		oooPacket := &OutOfOrderPacket{
 			ReceivedTime: time.Now(),
 			Packet:       &pkt,
 		}
-		cph.outOfOrderPacketsMap[packet.ParentHash] = append(cph.outOfOrderPacketsMap[packet.ParentHash], oooPacket)
+		packetMap[packet.ParentHash] = oooPacket
+		cph.outOfOrderPacketsMap[packet.ParentHash] = packetMap
+
+		return nil
 	}
 
 	if err != nil {
@@ -777,7 +785,12 @@ func (cph *ConsensusHandler) processOutOfOrderPackets(parentHash common.Hash) er
 			delete(cph.outOfOrderPacketsMap, key)
 		} else {
 			log.Trace("processOutOfOrderPackets", "count", len(unprocessedPackets))
-			cph.outOfOrderPacketsMap[parentHash] = unprocessedPackets
+			packetMap := cph.outOfOrderPacketsMap[parentHash]
+			for i := 0; i < len(unprocessedPackets); i++ {
+				pkt := unprocessedPackets[i]
+				packetMap[pkt.Packet.Hash()] = pkt
+			}
+			cph.outOfOrderPacketsMap[parentHash] = packetMap
 		}
 	}
 
@@ -1184,13 +1197,13 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 		return errors.New("invalid vote type, expected nil vote")
 	}
 
-	log.Debug("handleAckBlockProposalPacket blockRoundDetails", "state", blockRoundDetails.state)
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS || blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PRECOMMITS {
 		log.Trace("handleAckBlockProposalPacket waiting")
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_COMMITS {
 
 	} else {
+		log.Debug("handleAckBlockProposalPacket blockRoundDetails", "unexpected state", blockRoundDetails.state)
 		return errors.New("invalid state")
 	}
 
