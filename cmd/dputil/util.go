@@ -27,9 +27,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
+
+const GAS_LIMIT_ENV = "GAS_LIMIT"
+const DEFAULT_GAS_LIMIT = uint64(210000)
 
 type KeyStore struct {
 	Handle *keystore.KeyStore
@@ -428,7 +432,7 @@ func convertCoins(ethAddress string, ethSignature string, key *signaturealgorith
 	}
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = DEFAULT_GAS_LIMIT
 
 	contract, err := conversion.NewConversion(contractAddress, client)
 	if err != nil {
@@ -477,7 +481,7 @@ func requestConvertCoins(ethAddress string, ethSignature string, key *signaturea
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = DEFAULT_GAS_LIMIT
 
 	method := conversion.GetContract_Method_requestConversion()
 	abiData, err := conversion.GetConversionContract_ABI()
@@ -636,7 +640,7 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(210000)
+	txnOpts.GasLimit = DEFAULT_GAS_LIMIT
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)
@@ -667,6 +671,21 @@ func initiateWithdrawal(key *signaturealgorithm.PrivateKey) error {
 	return nil
 }
 
+func getGasLimit() (uint64, error) {
+	gasLimitEnv := os.Getenv(GAS_LIMIT_ENV)
+	if len(gasLimitEnv) > 0 {
+		gasLimit, err := strconv.ParseUint(gasLimitEnv, 10, 64)
+		if err != nil {
+			fmt.Println("Error parsing gas limit, err")
+			return gasLimit, err
+		}
+		fmt.Println("Using gas limit passed using environment variable", gasLimit)
+		return gasLimit, nil
+	} else {
+		return DEFAULT_GAS_LIMIT, nil
+	}
+}
+
 func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	client, err := ethclient.Dial(rawURL)
@@ -694,7 +713,10 @@ func completeWithdrawal(key *signaturealgorithm.PrivateKey) error {
 
 	txnOpts.From = fromAddress
 	txnOpts.Nonce = big.NewInt(int64(nonce))
-	txnOpts.GasLimit = uint64(100000)
+	txnOpts.GasLimit, err = getGasLimit()
+	if err != nil {
+		return err
+	}
 
 	val, _ := ParseBigFloat("0")
 	txnOpts.Value = etherToWeiFloat(val)

@@ -655,6 +655,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	defer cph.outerPacketLock.Unlock()
 
 	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+		log.Debug("HandleConsensusPacket nil")
 		return errors.New("invalid packet, nil data")
 	}
 
@@ -682,6 +683,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 		cph.outOfOrderPacketsMap[packet.ParentHash] = append(cph.outOfOrderPacketsMap[packet.ParentHash], oooPacket)
 	}
 
+	log.Debug("HandleConsensusPacket error", "err", err)
 	return err
 }
 
@@ -694,6 +696,7 @@ func shouldSignFull(blockNumber uint64) bool {
 
 func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	if packet == nil || packet.ConsensusData == nil || len(packet.ConsensusData) < 1 || packet.Signature == nil || len(packet.Signature) < hybrideds.CRYPTO_SIGNATURE_BYTES {
+		log.Debug("processPacket nil")
 		return errors.New("nil packet")
 	}
 	packetType := ConsensusPacketType(packet.ConsensusData[0])
@@ -706,6 +709,7 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
 		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 		if err != nil {
+			log.Debug("processPacket invalid 1")
 			return InvalidPacketErr
 		}
 
@@ -715,16 +719,19 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	} else {
 		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
 		if err != nil {
+			log.Debug("processPacket invalid 2")
 			return InvalidPacketErr
 		}
 
 		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			log.Debug("processPacket invalid 3")
 			return InvalidPacketErr
 		}
 	}
 
 	validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 	if err != nil {
+		log.Debug("processPacket invalid 4")
 		return InvalidPacketErr
 	}
 
@@ -739,6 +746,7 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 		return cph.handleCommitPacket(validator, packet, false)
 	}
 
+	log.Debug("processPacket unknown packet type")
 	return errors.New("unknown packet type")
 }
 
@@ -2654,4 +2662,5 @@ func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
 
 func (cph *ConsensusHandler) LogIncomingPacketStats() {
 	cph.packetStats.TotalIncomingPacketCount = cph.packetStats.TotalIncomingPacketCount + 1
+	log.Trace("LogIncomingPacketStats", "TotalIncomingPacketCount", cph.packetStats.TotalIncomingPacketCount)
 }

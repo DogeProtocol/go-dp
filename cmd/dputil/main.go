@@ -205,6 +205,16 @@ func main() {
 		if err != nil {
 			fmt.Println("Error", err)
 		}
+	} else if os.Args[1] == "initiatewithdrawal" {
+		err := InitiateWithdrawal()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
+	} else if os.Args[1] == "completewithdrawal" {
+		err := CompleteWithdrawal()
+		if err != nil {
+			fmt.Println("Error", err)
+		}
 	} else {
 		printHelp()
 	}
