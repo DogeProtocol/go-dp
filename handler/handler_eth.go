@@ -36,6 +36,7 @@ import (
 
 const REBROADCAST_CLEANUP_MILLI_SECONDS = 300000
 const REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS = 900000
+const REBROADCAST_MIN_DELAY_PACKET_HASH = 30000
 
 // EthHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
@@ -281,7 +282,7 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 	h.rebroadcastLock.Lock()
 	defer h.rebroadcastLock.Unlock()
 
-	_, ok := h.rebroadcastMap[packetHash]
+	lastRebroadCast, ok := h.rebroadcastMap[packetHash]
 	if ok == false {
 		h.rebroadcastMap[packetHash] = time.Now().UnixNano()
 
@@ -300,10 +301,20 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 			h.rebroadcastLastCleanupTime = time.Now()
 		}
 
+		log.Trace("ShouldRebroadcastIfYesSetFlag true first time", "packet", packetHash.Hex())
 		return true
 	}
 
-	log.Warn("ShouldRebroadcastIfYesSetFlag false", "packet", packetHash.Hex())
+	start := lastRebroadCast / int64(time.Millisecond)
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	diff := end - start
+	if diff > REBROADCAST_MIN_DELAY_PACKET_HASH {
+		h.rebroadcastMap[packetHash] = time.Now().UnixNano()
+		log.Trace("ShouldRebroadcastIfYesSetFlag true", "packet", packetHash.Hex())
+		return true
+	}
+
+	log.Trace("ShouldRebroadcastIfYesSetFlag false", "packet", packetHash.Hex())
 	return false
 }
 
