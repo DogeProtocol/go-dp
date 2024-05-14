@@ -35,7 +35,7 @@ import (
 )
 
 const REBROADCAST_CLEANUP_MILLI_SECONDS = 300000
-const REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS = 1800000
+const REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS = 900000
 
 // EthHandler implements the eth.Backend interface to handle the various network
 // packets that are sent as replies or broadcasts.
@@ -310,6 +310,10 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 func (h *EthHandler) rebroadcast(incomingPeerId string, packet *eth.ConsensusPacket) {
 	log.Trace("rebroadcast", "packet", packet.Hash().Hex())
 	packetHash := packet.Hash()
+	shouldRebroadcast := h.ShouldRebroadcastIfYesSetFlag(packetHash)
+	if shouldRebroadcast == false {
+		return
+	}
 	peerList := h.peers.PeerIdList()
 	for i := len(peerList) - 1; i > 0; i-- { //Fisher Yates shuffle. Send to a random set of peers each time
 		minVal := 0
