@@ -288,13 +288,13 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 
 		//Lazy cleanup
 		if Elapsed(h.rebroadcastLastCleanupTime) > REBROADCAST_CLEANUP_TIMER_MILLI_SECONDS {
-			log.Error("Cleaning up rebroadcast queue")
+			log.Debug("Cleaning up rebroadcast queue")
 			for k, v := range h.rebroadcastMap {
 				start := v / int64(time.Millisecond)
 				end := time.Now().UnixNano() / int64(time.Millisecond)
 				diff := end - start
 				if diff > REBROADCAST_CLEANUP_MILLI_SECONDS {
-					log.Error("Cleaning up rebroadcast packet hash", k.Hex())
+					log.Debug("Cleaning up rebroadcast packet hash", "packetHash", k.Hex())
 					delete(h.rebroadcastMap, k)
 				}
 			}
