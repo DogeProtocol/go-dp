@@ -224,6 +224,7 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.CatalystFlag,
 			utils.EnableBackupsFlag,
 			utils.RebroadcastCountFlag,
+			utils.ProfPortFlag,
 		},
 	},
 }

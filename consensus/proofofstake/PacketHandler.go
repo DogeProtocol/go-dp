@@ -40,7 +40,7 @@ type ConsensusHandler struct {
 	signFnWithContext               SignerFnWithContext
 	p2pHandler                      P2PHandler
 	blockStateDetailsMap            map[common.Hash]*BlockStateDetails
-	outOfOrderPacketsMap            map[common.Hash][]*OutOfOrderPacket
+	outOfOrderPacketsMap            map[common.Hash]map[common.Hash]*OutOfOrderPacket
 	outerPacketLock                 sync.Mutex
 	innerPacketLock                 sync.Mutex
 	p2pLock                         sync.Mutex
@@ -301,7 +301,7 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 
 	return &ConsensusHandler{
 		blockStateDetailsMap: make(map[common.Hash]*BlockStateDetails),
-		outOfOrderPacketsMap: make(map[common.Hash][]*OutOfOrderPacket),
+		outOfOrderPacketsMap: make(map[common.Hash]map[common.Hash]*OutOfOrderPacket),
 		timeStatMap:          timeStatMap,
 	}
 }
@@ -655,6 +655,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	defer cph.outerPacketLock.Unlock()
 
 	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+		log.Debug("HandleConsensusPacket nil")
 		return errors.New("invalid packet, nil data")
 	}
 
@@ -671,17 +672,28 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	err := cph.processPacket(packet)
 	if errors.Is(err, OutOfOrderPackerErr) {
 		pkt := eth.NewConsensusPacket(packet)
-		_, ok := cph.outOfOrderPacketsMap[packet.ParentHash]
+		packetMap, ok := cph.outOfOrderPacketsMap[packet.ParentHash]
 		if ok == false {
-			cph.outOfOrderPacketsMap[packet.ParentHash] = make([]*OutOfOrderPacket, 0)
+			cph.outOfOrderPacketsMap[packet.ParentHash] = make(map[common.Hash]*OutOfOrderPacket)
+		}
+		packetMap = cph.outOfOrderPacketsMap[packet.ParentHash]
+		_, ok = packetMap[pkt.Hash()]
+		if ok == true {
+			return nil
 		}
 		oooPacket := &OutOfOrderPacket{
 			ReceivedTime: time.Now(),
 			Packet:       &pkt,
 		}
-		cph.outOfOrderPacketsMap[packet.ParentHash] = append(cph.outOfOrderPacketsMap[packet.ParentHash], oooPacket)
+		packetMap[packet.ParentHash] = oooPacket
+		cph.outOfOrderPacketsMap[packet.ParentHash] = packetMap
+
+		return nil
 	}
 
+	if err != nil {
+		log.Trace("HandleConsensusPacket error", "err", err)
+	}
 	return err
 }
 
@@ -694,6 +706,7 @@ func shouldSignFull(blockNumber uint64) bool {
 
 func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	if packet == nil || packet.ConsensusData == nil || len(packet.ConsensusData) < 1 || packet.Signature == nil || len(packet.Signature) < hybrideds.CRYPTO_SIGNATURE_BYTES {
+		log.Debug("processPacket nil")
 		return errors.New("nil packet")
 	}
 	packetType := ConsensusPacketType(packet.ConsensusData[0])
@@ -706,6 +719,7 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
 		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 		if err != nil {
+			log.Debug("processPacket invalid 1")
 			return InvalidPacketErr
 		}
 
@@ -715,16 +729,19 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 	} else {
 		pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
 		if err != nil {
+			log.Debug("processPacket invalid 2")
 			return InvalidPacketErr
 		}
 
 		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+			log.Debug("processPacket invalid 3")
 			return InvalidPacketErr
 		}
 	}
 
 	validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
 	if err != nil {
+		log.Debug("processPacket invalid 4")
 		return InvalidPacketErr
 	}
 
@@ -739,6 +756,7 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 		return cph.handleCommitPacket(validator, packet, false)
 	}
 
+	log.Debug("processPacket unknown packet type")
 	return errors.New("unknown packet type")
 }
 
@@ -767,7 +785,12 @@ func (cph *ConsensusHandler) processOutOfOrderPackets(parentHash common.Hash) er
 			delete(cph.outOfOrderPacketsMap, key)
 		} else {
 			log.Trace("processOutOfOrderPackets", "count", len(unprocessedPackets))
-			cph.outOfOrderPacketsMap[parentHash] = unprocessedPackets
+			packetMap := cph.outOfOrderPacketsMap[parentHash]
+			for i := 0; i < len(unprocessedPackets); i++ {
+				pkt := unprocessedPackets[i]
+				packetMap[pkt.Packet.Hash()] = pkt
+			}
+			cph.outOfOrderPacketsMap[parentHash] = packetMap
 		}
 	}
 
@@ -1174,13 +1197,13 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 		return errors.New("invalid vote type, expected nil vote")
 	}
 
-	log.Trace("handleAckBlockProposalPacket blockRoundDetails", "state", blockRoundDetails.state)
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS || blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PRECOMMITS {
 		log.Trace("handleAckBlockProposalPacket waiting")
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_COMMITS {
 
 	} else {
+		log.Debug("handleAckBlockProposalPacket blockRoundDetails", "unexpected state", blockRoundDetails.state)
 		return errors.New("invalid state")
 	}
 
@@ -2654,4 +2677,5 @@ func getNilVotePreCommitHash(parentHash common.Hash, round byte) common.Hash {
 
 func (cph *ConsensusHandler) LogIncomingPacketStats() {
 	cph.packetStats.TotalIncomingPacketCount = cph.packetStats.TotalIncomingPacketCount + 1
+	log.Trace("LogIncomingPacketStats", "TotalIncomingPacketCount", cph.packetStats.TotalIncomingPacketCount)
 }

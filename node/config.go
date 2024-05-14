@@ -195,6 +195,8 @@ type Config struct {
 	EnableBackups bool
 
 	RebroadcastCount int
+
+	ProfPort int `toml:",omitempty"`
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

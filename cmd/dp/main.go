@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/accounts"
 	"github.com/DogeProtocol/dp/accounts/keystore"
+	"github.com/DogeProtocol/dp/cmd/dp/profiling"
 	"github.com/DogeProtocol/dp/cmd/utils"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/console/prompt"
@@ -37,7 +38,6 @@ import (
 	"github.com/bt51/ntpclient"
 	"gopkg.in/urfave/cli.v1"
 	"os"
-	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,6 +47,8 @@ import (
 const (
 	clientIdentifier = "geth" // Client identifier to advertise over the network
 )
+
+const VERSION_NUMBER = "v2.0.34"
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
@@ -148,6 +150,7 @@ var (
 		utils.CatalystFlag,
 		utils.EnableBackupsFlag,
 		utils.RebroadcastCountFlag,
+		utils.ProfPortFlag,
 	}
 
 	rpcFlags = []cli.Flag{
@@ -251,20 +254,10 @@ func init() {
 
 func main() {
 	log.Info("Starting DP")
-
-	cpuProf := os.Getenv("CPU_PROF")
-	if len(cpuProf) > 0 {
-		fmt.Println("CPU_PROF enabled. Starting CPU profiling.")
-		f, err := os.Create("cpu.prof")
-		if err != nil {
-			log.Error("profiling failed")
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	fmt.Println("VERSION_NUMBER", VERSION_NUMBER)
 
 	if len(os.Args) < 2 {
-		fmt.Println("Invalid arguments")
+		fmt.Println("VERSION_NUMBER", VERSION_NUMBER)
 		os.Exit(-1)
 	}
 
@@ -359,6 +352,11 @@ func geth(ctx *cli.Context) error {
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, passphrase string) {
 	debug.Memsize.Add("node", stack)
+
+	if ctx.IsSet(utils.ProfPortFlag.Name) {
+		profPort := ctx.GlobalInt(utils.ProfPortFlag.Name)
+		go profiling.StartProfiling(profPort)
+	}
 
 	// Unlock any account specifically requested
 	_, err := unlockAccounts(ctx, stack, passphrase)
