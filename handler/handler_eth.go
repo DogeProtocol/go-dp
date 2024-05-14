@@ -108,7 +108,7 @@ func (h *EthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 		if h.consensusHandler != nil {
 			err := h.consensusHandler.Handler.HandleConsensusPacket(packet)
 			if err != nil {
-				log.Debug("Error in HandleConsensusPacket", "err", err)
+				log.Trace("Error in HandleConsensusPacket", "err", err)
 			} else {
 				go h.rebroadcast(peer.ID(), packet)
 			}

@@ -683,7 +683,9 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 		cph.outOfOrderPacketsMap[packet.ParentHash] = append(cph.outOfOrderPacketsMap[packet.ParentHash], oooPacket)
 	}
 
-	log.Debug("HandleConsensusPacket error", "err", err)
+	if err != nil {
+		log.Trace("HandleConsensusPacket error", "err", err)
+	}
 	return err
 }
 
@@ -1182,7 +1184,7 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 		return errors.New("invalid vote type, expected nil vote")
 	}
 
-	log.Trace("handleAckBlockProposalPacket blockRoundDetails", "state", blockRoundDetails.state)
+	log.Debug("handleAckBlockProposalPacket blockRoundDetails", "state", blockRoundDetails.state)
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL_ACKS || blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PRECOMMITS {
 		log.Trace("handleAckBlockProposalPacket waiting")
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
