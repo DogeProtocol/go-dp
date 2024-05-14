@@ -48,6 +48,8 @@ const (
 	clientIdentifier = "geth" // Client identifier to advertise over the network
 )
 
+const VERSION_NUMBER = "v2.0.34"
+
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
@@ -252,9 +254,10 @@ func init() {
 
 func main() {
 	log.Info("Starting DP")
+	fmt.Println("VERSION_NUMBER", VERSION_NUMBER)
 
 	if len(os.Args) < 2 {
-		fmt.Println("Invalid arguments")
+		fmt.Println("VERSION_NUMBER", VERSION_NUMBER)
 		os.Exit(-1)
 	}
 
