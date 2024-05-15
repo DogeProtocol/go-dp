@@ -1202,6 +1202,8 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 	} else if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_COMMITS {
 
+	} else if blockRoundDetails.state == BLOCK_STATE_RECEIVED_COMMITS {
+
 	} else {
 		log.Debug("handleAckBlockProposalPacket blockRoundDetails", "unexpected state", blockRoundDetails.state)
 		return errors.New("invalid state")
