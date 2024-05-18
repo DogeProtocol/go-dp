@@ -19,6 +19,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	util "github.com/DogeProtocol/dp/tools"
 	"io"
 	"net"
 	"sort"
@@ -45,7 +46,9 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval = 15 * time.Second
+	pingInterval       = 15 * time.Second
+	resetInterval      = 180 * time.Second
+	stalenessThreshold = int64(180000 * time.Millisecond)
 )
 
 const (
@@ -117,6 +120,10 @@ type Peer struct {
 	// events receives message send / receive events if set
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
+
+	lastMsgReceiveTime time.Time
+
+	statLock sync.Mutex
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -239,11 +246,13 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
 		readErr    = make(chan error, 1)
+		staleErr   = make(chan error, 1)
 		reason     DiscReason // sent to the peer
 	)
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
+	go p.resetLoop(staleErr)
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
@@ -269,6 +278,9 @@ loop:
 				reason = DiscNetworkError
 			}
 			break loop
+		case err = <-staleErr:
+			reason = DiscUselessPeer
+			break loop
 		case err = <-p.protoErr:
 			reason = discReasonForError(err)
 			break loop
@@ -292,6 +304,7 @@ func (p *Peer) pingLoop() {
 		select {
 		case <-ping.C:
 			if err := SendItems(p.rw, pingMsg); err != nil {
+				log.Trace("pingLoop error", "peer", p.RemoteAddr().String(), "error", err)
 				p.protoErr <- err
 				return
 			}
@@ -307,15 +320,54 @@ func (p *Peer) readLoop(errc chan<- error) {
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
+			log.Trace("readLoop ReadMsg err", "peer", p.RemoteAddr().String(), "error", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
+			log.Trace("readLoop handle err", "peer", p.RemoteAddr().String(), "error", err)
 			errc <- err
 			return
 		}
+		p.onReceiveStat()
 	}
+}
+
+func (p *Peer) resetLoop(errc chan<- error) {
+	resetTimer := time.NewTimer(resetInterval)
+	defer resetTimer.Stop()
+	for {
+		select {
+		case <-resetTimer.C:
+			err := p.resetifStale()
+			if err != nil {
+				log.Warn("Peer Reset", "error", err, "peer", p.RemoteAddr().String())
+				errc <- err
+				return
+			}
+		case <-p.closed:
+			return
+		}
+	}
+
+}
+
+func (p *Peer) resetifStale() error {
+	p.statLock.Lock()
+	defer p.statLock.Unlock()
+
+	if util.Elapsed(p.lastMsgReceiveTime) >= stalenessThreshold {
+		return errors.New("no messages received beyond staleness threshold")
+	}
+
+	return nil
+}
+
+func (p *Peer) onReceiveStat() {
+	p.statLock.Lock()
+	defer p.statLock.Unlock()
+	p.lastMsgReceiveTime = time.Now()
 }
 
 func (p *Peer) handle(msg Msg) error {
