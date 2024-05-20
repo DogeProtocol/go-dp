@@ -24,6 +24,7 @@ import (
 	"net"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/DogeProtocol/dp/common/mclock"
@@ -58,6 +59,9 @@ const (
 	pingMsg      = 0x02
 	pongMsg      = 0x03
 )
+
+var resetCounter atomic.Uint64
+var resetLoopCounter atomic.Uint64
 
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
@@ -340,24 +344,26 @@ func (p *Peer) resetLoop(errc chan<- error) {
 	for {
 		select {
 		case <-resetTimer.C:
-			err := p.resetifStale()
+			err := p.resetIfStale()
 			if err != nil {
 				log.Warn("Peer Reset", "error", err, "peer", p.RemoteAddr().String())
 				errc <- err
 				return
 			}
+			log.Info("resetLoop", "resetLoopCounter", resetLoopCounter, "resetCounter", resetCounter)
 		case <-p.closed:
 			return
 		}
 	}
-
 }
 
-func (p *Peer) resetifStale() error {
+func (p *Peer) resetIfStale() error {
 	p.statLock.Lock()
 	defer p.statLock.Unlock()
 
+	resetLoopCounter.Add(1)
 	if util.Elapsed(p.lastMsgReceiveTime) >= stalenessThreshold {
+		resetCounter.Add(1)
 		return errors.New("no messages received beyond staleness threshold")
 	}
 
