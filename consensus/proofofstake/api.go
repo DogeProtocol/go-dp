@@ -106,7 +106,29 @@ func (api *API) GetStakingDetailsByValidatorAddress(validator common.Address, bl
 		return nil, errUnknownBlock
 	}
 
-	return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
+	if blockNumber < STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
+	} else {
+		validatorDetailsV2, err := api.proofofstake.GetStakingDetailsByValidatorAddressV2(validator, header.Hash())
+		if err != nil {
+			return nil, err
+		}
+		validatorDetails := &ValidatorDetails{
+			Depositor:          validatorDetailsV2.Depositor,
+			Validator:          validatorDetailsV2.Validator,
+			Balance:            hexutil.EncodeBig(validatorDetailsV2.Balance),
+			NetBalance:         hexutil.EncodeBig(validatorDetailsV2.NetBalance),
+			BlockRewards:       hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
+			Slashings:          hexutil.EncodeBig(validatorDetailsV2.Slashings),
+			IsValidationPaused: validatorDetailsV2.IsValidationPaused,
+			WithdrawalBlock:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
+			WithdrawalAmount:   hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
+			LastNiLBlock:       hexutil.EncodeBig(validatorDetailsV2.LastNiLBlock),
+			NilBlockCount:      hexutil.EncodeBig(validatorDetailsV2.NilBlockCount),
+		}
+
+		return validatorDetails, nil
+	}
 }
 
 func (api *API) GetStakingDetailsByDepositorAddress(depositor common.Address, blockNumberHex string) (*ValidatorDetails, error) {
@@ -132,7 +154,29 @@ func (api *API) GetStakingDetailsByDepositorAddress(depositor common.Address, bl
 		return nil, err
 	}
 
-	return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
+	if blockNumber < STAKING_CONTRACT_V2_CUTOFF_BLOCK {
+		return api.proofofstake.GetStakingDetailsByValidatorAddress(validator, header.Hash())
+	} else {
+		validatorDetailsV2, err := api.proofofstake.GetStakingDetailsByValidatorAddressV2(validator, header.Hash())
+		if err != nil {
+			return nil, err
+		}
+		validatorDetails := &ValidatorDetails{
+			Depositor:          validatorDetailsV2.Depositor,
+			Validator:          validatorDetailsV2.Validator,
+			Balance:            hexutil.EncodeBig(validatorDetailsV2.Balance),
+			NetBalance:         hexutil.EncodeBig(validatorDetailsV2.NetBalance),
+			BlockRewards:       hexutil.EncodeBig(validatorDetailsV2.BlockRewards),
+			Slashings:          hexutil.EncodeBig(validatorDetailsV2.Slashings),
+			IsValidationPaused: validatorDetailsV2.IsValidationPaused,
+			WithdrawalBlock:    hexutil.EncodeBig(validatorDetailsV2.WithdrawalBlock),
+			WithdrawalAmount:   hexutil.EncodeBig(validatorDetailsV2.WithdrawalAmount),
+			LastNiLBlock:       hexutil.EncodeBig(validatorDetailsV2.LastNiLBlock),
+			NilBlockCount:      hexutil.EncodeBig(validatorDetailsV2.NilBlockCount),
+		}
+
+		return validatorDetails, nil
+	}
 }
 
 // GetStakingDetails retrieves the total deposited quantity.
