@@ -350,7 +350,7 @@ func (p *Peer) resetLoop(errc chan<- error) {
 				errc <- err
 				return
 			}
-			log.Info("resetLoop", "resetLoopCounter", resetLoopCounter, "resetCounter", resetCounter)
+			log.Info("resetLoop", "resetLoopCounter", resetLoopCounter.Load(), "resetCounter", resetCounter.Load())
 		case <-p.closed:
 			return
 		}
