@@ -216,6 +216,9 @@ type Server struct {
 
 	connectNodesTicker    *time.Ticker
 	connectNodesLoopCount uint16
+
+	peerMap     map[enode.ID]*Peer
+	peerMapLock sync.Mutex
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -646,6 +649,7 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 // run is the main loop of the server.
 func (srv *Server) run() {
 	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4())
+
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
 	defer srv.discmix.Close()
@@ -662,6 +666,9 @@ func (srv *Server) run() {
 		trusted[n.ID()] = true
 	}
 	go srv.connectNodes()
+
+	srv.peerMap = make(map[enode.ID]*Peer)
+	go srv.resetLoop()
 
 running:
 	for {
@@ -1048,6 +1055,36 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 	return p
 }
 
+func (srv *Server) resetLoop() {
+	resetTimer := time.NewTimer(resetInterval)
+	defer resetTimer.Stop()
+	for {
+		select {
+		case <-resetTimer.C:
+			log.Info("resetLoop before", "resetLoopCounter", resetLoopCounter.Load(), "resetCounter", resetCounter.Load())
+			srv.resetStalePeers()
+			log.Info("resetLoop after", "resetLoopCounter", resetLoopCounter.Load(), "resetCounter", resetCounter.Load())
+			resetTimer.Reset(resetInterval)
+		case <-srv.quit:
+			return
+		}
+	}
+}
+
+func (srv *Server) resetStalePeers() {
+	srv.peerMapLock.Lock()
+	defer srv.peerMapLock.Unlock()
+	for _, p := range srv.peerMap {
+		log.Info("resetStalePeers evaluating", "peer", p.ID().String())
+		err := p.resetIfStale()
+		if err != nil {
+			log.Info("resetStalePeers error", "err", err, "peer", p.ID().String())
+			p.Disconnect(DiscUselessPeer)
+		}
+		log.Info("resetStalePeers evaluation done", "peer", p.ID().String())
+	}
+}
+
 // runPeer runs in its own goroutine for each peer.
 func (srv *Server) runPeer(p *Peer) {
 	if srv.newPeerHook != nil {
@@ -1060,8 +1097,18 @@ func (srv *Server) runPeer(p *Peer) {
 		LocalAddress:  p.LocalAddr().String(),
 	})
 
+	srv.peerMapLock.Lock()
+	srv.peerMap[p.ID()] = p
+	srv.peerMapLock.Unlock()
+
 	// Run the per-peer main loop.
+	log.Info("runPeer before", "peer", p.ID().String())
 	remoteRequested, err := p.run()
+	log.Info("runPeer after", "peer", p.ID().String())
+
+	srv.peerMapLock.Lock()
+	delete(srv.peerMap, p.ID())
+	srv.peerMapLock.Unlock()
 
 	// Announce disconnect on the main loop to update the peer set.
 	// The main loop waits for existing peers to be sent on srv.delpeer
