@@ -319,6 +319,9 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 }
 
 func (h *EthHandler) rebroadcast(incomingPeerId string, packet *eth.ConsensusPacket) {
+	if h.rebroadcastCount <= 0 {
+		return
+	}
 	log.Trace("rebroadcast", "packet", packet.Hash().Hex())
 	packetHash := packet.Hash()
 	shouldRebroadcast := h.ShouldRebroadcastIfYesSetFlag(packetHash)

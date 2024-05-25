@@ -1078,7 +1078,7 @@ func (srv *Server) resetStalePeers() {
 		log.Info("resetStalePeers evaluating", "peer", p.ID().String())
 		err := p.resetIfStale()
 		if err != nil {
-			log.Info("resetStalePeers error", "err", err, "peer", p.ID().String())
+			log.Warn("resetStalePeers error", "err", err, "peer", p.ID().String())
 			p.Disconnect(DiscUselessPeer)
 		}
 		log.Info("resetStalePeers evaluation done", "peer", p.ID().String())

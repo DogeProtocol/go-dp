@@ -824,7 +824,11 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
-	log.Info("Finalize Block", "root", header.Root, "hash", header.Hash(), "number", header.Number, "txn count", len(txs))
+	for _, tx := range txs {
+		log.Trace("Finalize Block txn", "tx hash", tx.Hash())
+	}
+
+	log.Info("Finalize Block", "root", header.Root, "hash", header.Hash(), "number", header.Number, "txn count", len(txs), "receipts root", header.ReceiptHash)
 
 	return nil
 }

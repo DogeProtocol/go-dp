@@ -294,9 +294,12 @@ loop:
 		}
 	}
 
+	log.Trace("peer close", "peer", p.ID().String())
 	close(p.closed)
 	p.rw.close(reason)
+	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
+	log.Trace("peer close done", "peer", p.ID().String())
 	return remoteRequested, err
 }
 
@@ -314,6 +317,7 @@ func (p *Peer) pingLoop() {
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
+			log.Trace("pingLoop", "peer", p.ID().String())
 			return
 		}
 	}
@@ -334,7 +338,6 @@ func (p *Peer) readLoop(errc chan<- error) {
 			errc <- err
 			return
 		}
-		p.onReceiveStat()
 	}
 }
 
@@ -376,21 +379,26 @@ func (p *Peer) onReceiveStat() {
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
+		log.Trace("hanndle pingMsg", "peer", p.ID().String())
 		msg.Discard()
 		go SendItems(p.rw, pongMsg)
 	case msg.Code == discMsg:
+		log.Trace("hanndle discMsg", "peer", p.ID().String())
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
 		rlp.Decode(msg.Payload, &reason)
 		return reason[0]
 	case msg.Code < baseProtocolLength:
+		log.Trace("hanndle baseProtocolLength", "peer", p.ID().String())
 		// ignore other base protocol messages
 		return msg.Discard()
 	default:
+		log.Trace("hanndle default", "peer", p.ID().String())
 		// it's a subprotocol message
 		proto, err := p.getProto(msg.Code)
 		if err != nil {
+			log.Trace("hanndle code out of rang", "peer", p.ID().String())
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
 		if metrics.Enabled {
@@ -400,11 +408,15 @@ func (p *Peer) handle(msg Msg) error {
 		}
 		select {
 		case proto.in <- msg:
+			p.onReceiveStat()
+			log.Trace("hanndle in", "peer", p.ID().String())
 			return nil
 		case <-p.closed:
+			log.Trace("hanndle closed", "peer", p.ID().String())
 			return io.EOF
 		}
 	}
+	log.Trace("hanndle other", "peer", p.ID().String())
 	return nil
 }
 
@@ -518,6 +530,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
+	log.Trace("ReadMsg")
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset

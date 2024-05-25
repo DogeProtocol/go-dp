@@ -198,6 +198,7 @@ var eth66 = map[uint64]msgHandler{
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
 func handleMessage(backend Backend, peer *Peer) error {
+	log.Trace("handleMessage", "peer", peer.ID())
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
