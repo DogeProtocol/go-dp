@@ -17,12 +17,10 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core/state"
@@ -217,47 +215,41 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *types.Signer, tx *types.Transaction, txIndex uint64) {
 	from, _ := types.Sender(*signer, tx)
 
-	fields := map[string]interface{}{
-		"blockHash":         block.Hash(),
-		"blockNumber":       hexutil.Uint64(block.NumberU64()),
-		"transactionHash":   tx.Hash(),
-		"transactionIndex":  txIndex,
-		"from":              from,
-		"to":                tx.To(),
-		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
-		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
-		"contractAddress":   nil,
-		"logs":              receipt.Logs,
-		"logsBloom":         receipt.Bloom,
-		"type":              hexutil.Uint(tx.Type()),
-	}
-	// Assign the effective gas price paid
-	fields["effectiveGasPrice"] = hexutil.Uint64(tx.GasPrice().Uint64())
-	// Assign receipt status or post state.
-	if len(receipt.PostState) > 0 {
-		fields["root"] = hexutil.Bytes(receipt.PostState)
-	} else {
-		fields["status"] = hexutil.Uint(receipt.Status)
-	}
-	if receipt.Logs == nil {
-		fields["logs"] = [][]*types.Log{}
-	}
-	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
-	if receipt.ContractAddress != (common.Address{}) {
-		fields["contractAddress"] = receipt.ContractAddress
-	}
+	receiptStr := ""
 
-	strFields, err := json.MarshalIndent(fields, "", "  ")
-	if err != nil {
-		log.Warn("MarshalIndent failed", "err", err)
-		return
+	receiptStr = receiptStr + "\nblockHash: " + block.Hash().Hex()
+	receiptStr = receiptStr + "\nblockNumber: " + string(block.NumberU64())
+	receiptStr = receiptStr + "\ntransactionHash: " + tx.Hash().Hex()
+	receiptStr = receiptStr + "\ntransactionIndex: " + string(txIndex)
+	receiptStr = receiptStr + "\nfrom: " + from.Hex()
+	receiptStr = receiptStr + "\nto: " + tx.To().Hex()
+	receiptStr = receiptStr + "\ngasUsed: " + string(receipt.GasUsed)
+	receiptStr = receiptStr + "\ncumulativeGasUsed: " + string(receipt.CumulativeGasUsed)
+	if receipt.Logs != nil {
+		logStr := ""
+		for _, log := range receipt.Logs {
+			logStr = logStr + "\nData: " + common.Bytes2Hex(log.Data)
+			logStr = logStr + "\nAddress: " + log.Address.Hex()
+			logStr = logStr + "\nTxHash: " + log.TxHash.Hex()
+			logStr = logStr + "\nData: "
+			for _, topic := range log.Topics {
+				logStr = logStr + topic.Hex() + ", "
+			}
+			logStr = logStr + "\nBlockHash: " + log.BlockHash.Hex()
+			logStr = logStr + "\nBlockNumber: " + string(log.BlockNumber)
+			logStr = logStr + "\nIndex: " + string(log.Index)
+			if log.Removed {
+				logStr = logStr + "\nRemoved: true"
+			} else {
+				logStr = logStr + "\nRemoved: false"
+			}
+		}
+		receiptStr = receiptStr + "\nlogs: " + logStr
 	}
-	log.Info("printTransactionReceipt A", "receipt", strFields)
+	receiptStr = receiptStr + "\nBloom: " + common.Bytes2Hex(receipt.Bloom.Bytes())
+	receiptStr = receiptStr + "\nStatus: " + string(receipt.Status)
 
-	strReceipt, err := json.MarshalIndent(receipt, "", "  ")
-	if err != nil {
-		log.Warn("MarshalIndent failed", "err", err)
-		return
-	}
-	log.Info("printTransactionReceipt B", "receipt", strReceipt)
+	receiptStr = receiptStr + "\nreceipt.PostState: " + common.Bytes2Hex(receipt.PostState)
+
+	log.Info("printTransactionReceipt", "receipt", receiptStr)
 }
