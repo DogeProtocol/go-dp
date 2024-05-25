@@ -20,18 +20,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/backupmanager"
-	"github.com/DogeProtocol/dp/consensus/misc"
-	"github.com/DogeProtocol/dp/conversionutil"
-	"github.com/DogeProtocol/dp/log"
-	"math/big"
-
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
+	"github.com/DogeProtocol/dp/consensus/misc"
+	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
 	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
+	"math/big"
+	"runtime/debug"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -109,6 +109,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
 
 	}
+	debug.PrintStack()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
 

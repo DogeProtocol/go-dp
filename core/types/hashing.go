@@ -18,9 +18,9 @@ package types
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
+	"github.com/DogeProtocol/dp/log"
 	"runtime/debug"
 	"sync"
 
@@ -97,22 +97,22 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 	for i := 1; i < list.Len() && i <= 0x7f; i++ {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
 		value := encodeForDerive(list, i, valueBuf)
-		fmt.Println("DeriveSha A", "i", i, "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
+		log.Info("DeriveSha A", "i", i, "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
 	if list.Len() > 0 {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], 0)
 		value := encodeForDerive(list, 0, valueBuf)
-		fmt.Println("DeriveSha B", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
+		log.Info("DeriveSha B", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
 	for i := 0x80; i < list.Len(); i++ {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
 		value := encodeForDerive(list, i, valueBuf)
-		fmt.Println("DeriveSha C", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
+		log.Info("DeriveSha C", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
 	retHash := hasher.Hash()
-	fmt.Println("DeriveSha D", "hash", retHash)
+	log.Info("DeriveSha D", "hash", retHash)
 	return retHash
 }
