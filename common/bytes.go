@@ -89,6 +89,10 @@ func Hex2Bytes(str string) []byte {
 	return h
 }
 
+func Hex2BytesWithErrorCheck(str string) ([]byte, error) {
+	return hex.DecodeString(str)
+}
+
 // Hex2BytesFixed returns bytes of a specified fixed length flen.
 func Hex2BytesFixed(str string, flen int) []byte {
 	h, _ := hex.DecodeString(str)
