@@ -140,6 +140,11 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	if config.IsByzantium(blockNumber) {
 		log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
 		statedb.Finalise(true)
+
+		temproot := statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+		log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(temproot), "from", msg.From().Hex())
+		
+		panic("done")
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
 		log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(root), "from", msg.From().Hex())
