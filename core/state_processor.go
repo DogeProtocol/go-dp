@@ -108,6 +108,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
 			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
 
+		panic("done")
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
@@ -142,10 +143,8 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	//	statedb.Finalise(true)
 	//} else {
 	root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-	log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(root), "from", msg.From().Hex())
+	log.Info("applyTransaction root other", "blockNumber", common.Bytes2Hex(root), "from", msg.From().Hex())
 	//}
-
-	panic("done")
 
 	*usedGas += result.UsedGas
 
