@@ -184,12 +184,13 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
+	log.Info("receipt.Logs[0] before", "data", common.Bytes2Hex(receipt.Logs[0].Data))
 	l := receipt.Logs[0]
 	tempData := common.Hex2Bytes("0x00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
 	l.Data = make([]byte, len(tempData))
 	copy(l.Data, tempData)
 	receipt.Logs[0] = l
-	log.Info("receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data))
+	log.Info("===============receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data), "tempData", tempData, "l.Data", l.Data)
 
 	return receipt, err
 }
