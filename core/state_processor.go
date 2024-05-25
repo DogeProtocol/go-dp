@@ -70,6 +70,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs []*types.Log
 		gp      = new(GasPool).AddGas(block.GasLimit())
 	)
+
+	err := p.engine.PostPare(p.bc, header)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	//parentBlock := p.bc.GetBlockByHash(block.ParentHash())
+	//header.Time =  parentBlock.Time + c.config.Period
+
 	// Mutate the block and state according to any hard-fork specs
 	/*if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		log.Trace("Process ApplyDAOHardFork")
@@ -99,7 +108,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		statedb.Prepare(tx.Hash(), i)
 
 		zeroAddress := common.ZERO_ADDRESS
-		receipt, err := ApplyTransaction(p.config, p.bc, &zeroAddress, gp, statedb, block.Header(), tx, usedGas, cfg, isGasExemptTxn)
+		receipt, err := ApplyTransaction(p.config, p.bc, &zeroAddress, gp, statedb, header, tx, usedGas, cfg, isGasExemptTxn)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
@@ -111,12 +120,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 
-		log.Info("Tx", "hash", tx.Hash(), "receipt poststate", common.Bytes2Hex(receipt.PostState), "tx data", common.Bytes2Hex(tx.Data()), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
-			"CumulativeGasUsed", receipt.CumulativeGasUsed, "Type", receipt.Type,
-			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
-			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
+		/*log.Info("Tx", "timestamp", header.Time, "hash", tx.Hash(), "receipt poststate", common.Bytes2Hex(receipt.PostState), "tx data", common.Bytes2Hex(tx.Data()), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
+		"CumulativeGasUsed", receipt.CumulativeGasUsed, "Type", receipt.Type,
+		"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
+		"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())*/
 
-		printTransactionReceipt(*block, receipt, &signer, tx, uint64(i))
+		//printTransactionReceipt(*block, receipt, &signer, tx, uint64(i))
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
@@ -132,7 +141,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
 	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
 
-	panic("done")
+	//panic("done")
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -184,13 +193,13 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	log.Info("receipt.Logs[0] data before", "data", common.Bytes2Hex(receipt.Logs[0].Data))
+	/*log.Info("receipt.Logs[0] data before", "data", common.Bytes2Hex(receipt.Logs[0].Data))
 	l := receipt.Logs[0]
 	tempData := common.Hex2Bytes("00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
 	l.Data = make([]byte, len(tempData))
 	copy(l.Data, tempData)
 	receipt.Logs[0] = l
-	log.Info("===============receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data), "tempData", tempData, "l.Data", l.Data)
+	log.Info("===============receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data), "tempData", tempData, "l.Data", l.Data)*/
 
 	return receipt, err
 }

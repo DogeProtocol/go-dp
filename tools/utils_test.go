@@ -13,4 +13,6 @@ func Test_Temp(t *testing.T) {
 		return
 	}
 	fmt.Println(tempData)
+
+	fmt.Println(common.Hex2Bytes("731f750d43dc0fb62f1251286479ed4f420f30d4ec593422dff43936b7df49a8036c6864"))
 }
