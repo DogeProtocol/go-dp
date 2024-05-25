@@ -131,6 +131,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
 	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
 
+	panic("done")
+
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -180,6 +182,11 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
+	l := receipt.Logs[0]
+	l.Data = common.Hex2Bytes("0x00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
+	receipt.Logs[0] = l
+
 	return receipt, err
 }
 
@@ -231,7 +238,7 @@ func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *
 			logStr = logStr + "\nData: " + common.Bytes2Hex(log.Data)
 			logStr = logStr + "\nAddress: " + log.Address.Hex()
 			logStr = logStr + "\nTxHash: " + log.TxHash.Hex()
-			logStr = logStr + "\nData: "
+			logStr = logStr + "\nTopics: "
 			for _, topic := range log.Topics {
 				logStr = logStr + topic.Hex() + ", "
 			}
