@@ -31,6 +31,7 @@ import (
 	"github.com/DogeProtocol/dp/params"
 	"github.com/DogeProtocol/dp/trie"
 	"math/big"
+	"strconv"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -184,8 +185,11 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	l := receipt.Logs[0]
-	l.Data = common.Hex2Bytes("0x00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
+	tempData := common.Hex2Bytes("0x00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
+	l.Data = make([]byte, len(tempData))
+	copy(l.Data, tempData)
 	receipt.Logs[0] = l
+	log.Info("receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data))
 
 	return receipt, err
 }
@@ -225,13 +229,13 @@ func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *
 	receiptStr := ""
 
 	receiptStr = receiptStr + "\nblockHash: " + block.Hash().Hex()
-	receiptStr = receiptStr + "\nblockNumber: " + string(block.NumberU64())
+	receiptStr = receiptStr + "\nblockNumber: " + strconv.FormatUint(block.NumberU64(), 10)
 	receiptStr = receiptStr + "\ntransactionHash: " + tx.Hash().Hex()
-	receiptStr = receiptStr + "\ntransactionIndex: " + string(txIndex)
+	receiptStr = receiptStr + "\ntransactionIndex: " + strconv.FormatUint(txIndex, 10)
 	receiptStr = receiptStr + "\nfrom: " + from.Hex()
 	receiptStr = receiptStr + "\nto: " + tx.To().Hex()
-	receiptStr = receiptStr + "\ngasUsed: " + string(receipt.GasUsed)
-	receiptStr = receiptStr + "\ncumulativeGasUsed: " + string(receipt.CumulativeGasUsed)
+	receiptStr = receiptStr + "\ngasUsed: " + strconv.FormatUint(receipt.GasUsed, 10)
+	receiptStr = receiptStr + "\ncumulativeGasUsed: " + strconv.FormatUint(receipt.CumulativeGasUsed, 10)
 	if receipt.Logs != nil {
 		logStr := ""
 		for _, log := range receipt.Logs {
@@ -243,8 +247,8 @@ func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *
 				logStr = logStr + topic.Hex() + ", "
 			}
 			logStr = logStr + "\nBlockHash: " + log.BlockHash.Hex()
-			logStr = logStr + "\nBlockNumber: " + string(log.BlockNumber)
-			logStr = logStr + "\nIndex: " + string(log.Index)
+			logStr = logStr + "\nBlockNumber: " + strconv.FormatUint(log.BlockNumber, 10)
+			logStr = logStr + "\nIndex: " + strconv.FormatUint(uint64(log.Index), 10)
 			if log.Removed {
 				logStr = logStr + "\nRemoved: true"
 			} else {
@@ -254,7 +258,7 @@ func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *
 		receiptStr = receiptStr + "\nlogs: " + logStr
 	}
 	receiptStr = receiptStr + "\nBloom: " + common.Bytes2Hex(receipt.Bloom.Bytes())
-	receiptStr = receiptStr + "\nStatus: " + string(receipt.Status)
+	receiptStr = receiptStr + "\nStatus: " + strconv.FormatUint(receipt.Status, 10)
 
 	receiptStr = receiptStr + "\nreceipt.PostState: " + common.Bytes2Hex(receipt.PostState)
 
