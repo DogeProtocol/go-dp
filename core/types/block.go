@@ -21,11 +21,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/DogeProtocol/dp/log"
 	"io"
 	"math/big"
 	"reflect"
-	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -218,8 +216,6 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, hasher Tr
 	if len(receipts) == 0 {
 		b.header.ReceiptHash = EmptyRootHash
 	} else {
-		log.Info("NewBlock", "number", header.Number)
-		debug.PrintStack()
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
 		b.header.Bloom = CreateBloom(receipts)
 	}

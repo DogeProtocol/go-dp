@@ -30,8 +30,8 @@ import (
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
+	"github.com/DogeProtocol/dp/trie"
 	"math/big"
-	"runtime/debug"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -109,7 +109,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
 
 	}
-	debug.PrintStack()
+	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
+	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
 
@@ -120,7 +122,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 	}
-
+	
 	return receipts, allLogs, *usedGas, nil
 }
 
