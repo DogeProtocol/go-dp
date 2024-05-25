@@ -138,13 +138,18 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 
 	// Update the state with pending changes.
 	var root []byte
-	//if config.IsByzantium(blockNumber) {
-	//	log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
-	//	statedb.Finalise(true)
-	//} else {
-	root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-	log.Info("applyTransaction root other", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
-	//}
+	if blockNumber.Uint64() == uint64(423616) {
+		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+		log.Info("applyTransaction root other", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
+	} else {
+		if config.IsByzantium(blockNumber) {
+			log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
+			statedb.Finalise(true)
+		} else {
+			root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+			log.Info("applyTransaction root other", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
+		}
+	}
 
 	*usedGas += result.UsedGas
 
