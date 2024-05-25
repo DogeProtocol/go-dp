@@ -109,11 +109,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
 
 	}
-	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
-	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
-
-	panic("done")
-
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
 
@@ -124,6 +119,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 	}
+
+	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
+	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -142,7 +140,7 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 
 	// Update the state with pending changes.
 	var root []byte
-	if config.IsByzantium(blockNumber) && blockNumber.Uint64() != 423616 {
+	if config.IsByzantium(blockNumber) {
 		log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
 		statedb.Finalise(true)
 	} else {
