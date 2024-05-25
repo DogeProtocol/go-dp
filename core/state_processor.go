@@ -17,10 +17,12 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/common"
+	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/consensus"
 	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core/state"
@@ -115,6 +117,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
 			"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
 
+		printTransactionReceipt(*block, receipt, &signer, tx, uint64(i))
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
@@ -209,4 +212,52 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	blockContext := NewEVMBlockContext(header, bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, vmConfig)
 	return applyTransaction(msg, config, bc, nil, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
+}
+
+func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *types.Signer, tx *types.Transaction, txIndex uint64) {
+	from, _ := types.Sender(*signer, tx)
+
+	fields := map[string]interface{}{
+		"blockHash":         block.Hash(),
+		"blockNumber":       hexutil.Uint64(block.NumberU64()),
+		"transactionHash":   tx.Hash(),
+		"transactionIndex":  txIndex,
+		"from":              from,
+		"to":                tx.To(),
+		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              receipt.Logs,
+		"logsBloom":         receipt.Bloom,
+		"type":              hexutil.Uint(tx.Type()),
+	}
+	// Assign the effective gas price paid
+	fields["effectiveGasPrice"] = hexutil.Uint64(tx.GasPrice().Uint64())
+	// Assign receipt status or post state.
+	if len(receipt.PostState) > 0 {
+		fields["root"] = hexutil.Bytes(receipt.PostState)
+	} else {
+		fields["status"] = hexutil.Uint(receipt.Status)
+	}
+	if receipt.Logs == nil {
+		fields["logs"] = [][]*types.Log{}
+	}
+	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
+	if receipt.ContractAddress != (common.Address{}) {
+		fields["contractAddress"] = receipt.ContractAddress
+	}
+
+	strFields, err := json.MarshalIndent(fields, "", "  ")
+	if err != nil {
+		log.Warn("MarshalIndent failed", "err", err)
+		return
+	}
+	log.Info("printTransactionReceipt A", "receipt", strFields)
+
+	strReceipt, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		log.Warn("MarshalIndent failed", "err", err)
+		return
+	}
+	log.Info("printTransactionReceipt B", "receipt", strReceipt)
 }
