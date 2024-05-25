@@ -137,18 +137,16 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 
 	// Update the state with pending changes.
 	var root []byte
-	if config.IsByzantium(blockNumber) {
-		log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
-		statedb.Finalise(true)
+	//if config.IsByzantium(blockNumber) {
+	//	log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
+	//	statedb.Finalise(true)
+	//} else {
+	root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+	log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(root), "from", msg.From().Hex())
+	//}
 
-		temproot := statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-		log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(temproot), "from", msg.From().Hex())
-		
-		panic("done")
-	} else {
-		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-		log.Info("applyTransaction IsByzantium no", "blockNumber", common.Bytes2Hex(root), "from", msg.From().Hex())
-	}
+	panic("done")
+
 	*usedGas += result.UsedGas
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used
