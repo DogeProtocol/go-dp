@@ -103,10 +103,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 
-		log.Info("Tx", "hash", tx.Hash(), "data", tx.Data(), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
+		log.Info("Tx", "hash", tx.Hash(), "tx data", common.Bytes2Hex(tx.Data()), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
 			"CumulativeGasUsed", receipt.CumulativeGasUsed, "Type", receipt.Type,
-			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash)
-		fmt.Printf("%+v\n", receipt)
+			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
+			"to", tx.To(), "tx", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())
+
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
