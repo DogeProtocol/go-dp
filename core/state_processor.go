@@ -111,6 +111,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
+	panic("done")
 
 	backupManager := backupmanager.GetInstance()
 	if backupManager != nil {
@@ -137,17 +138,12 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 
 	// Update the state with pending changes.
 	var root []byte
-	if blockNumber.Uint64() == uint64(423616) {
-		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-		log.Info("applyTransaction root other", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
+	if config.IsByzantium(blockNumber) {
+		log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
+		statedb.Finalise(true)
 	} else {
-		if config.IsByzantium(blockNumber) {
-			log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
-			statedb.Finalise(true)
-		} else {
-			root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-			log.Info("applyTransaction root other", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
-		}
+		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+		log.Info("applyTransaction IsByzantium no", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
 	}
 
 	*usedGas += result.UsedGas
