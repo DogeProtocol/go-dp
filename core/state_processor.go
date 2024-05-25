@@ -102,6 +102,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
+		log.Info("Tx", "hash", tx.Hash(), "data", tx.Data(), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
+			"CumulativeGasUsed", receipt.CumulativeGasUsed, "Type", receipt.Type,
+			"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash)
+		fmt.Printf("%+v\n", receipt)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
