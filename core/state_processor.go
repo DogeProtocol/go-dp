@@ -22,7 +22,6 @@ import (
 	"github.com/DogeProtocol/dp/backupmanager"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/consensus/misc"
 	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"
@@ -62,19 +61,20 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
-		receipts    types.Receipts
-		usedGas     = new(uint64)
-		header      = block.Header()
-		blockHash   = block.Hash()
-		blockNumber = block.Number()
-		allLogs     []*types.Log
-		gp          = new(GasPool).AddGas(block.GasLimit())
+		receipts types.Receipts
+		usedGas  = new(uint64)
+		header   = block.Header()
+		//blockHash   = block.Hash()
+		//blockNumber = block.Number()
+		allLogs []*types.Log
+		gp      = new(GasPool).AddGas(block.GasLimit())
 	)
 	// Mutate the block and state according to any hard-fork specs
-	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+	/*if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+		log.Trace("Process ApplyDAOHardFork")
 		misc.ApplyDAOHardFork(statedb)
-	}
-	blockContext := NewEVMBlockContext(header, p.bc, nil)
+	}*/
+	//blockContext := NewEVMBlockContext(header, p.bc, nil)
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -93,13 +93,20 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			log.Trace("Process OverrideGasPrice", "txn", tx.Hash(), "price", msg.GasPrice())
 		}
 
-		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, vmConfig)
+		//vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, vmConfig)
 
 		statedb.Prepare(tx.Hash(), i)
-		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
+
+		zeroAddress := common.ZERO_ADDRESS
+		receipt, err := ApplyTransaction(p.config, p.bc, &zeroAddress, gp, statedb, block.Header(), tx, usedGas, cfg, isGasExemptTxn)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
+
+		/*receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
+		}*/
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 
