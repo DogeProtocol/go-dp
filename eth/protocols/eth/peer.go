@@ -588,7 +588,7 @@ func (p *Peer) AsyncSendConsensusPacket(packet *ConsensusPacket) {
 }
 
 func (p *Peer) SendRequestPeerListPacket(packet *RequestPeerListPacket) error {
-	p.Log().Trace("SendRequestPeerListPacket", "maxPeers", packet.MaxPeers)
+	p.Log().Trace("SendRequestPeerListPacket", "maxPeers", packet)
 	return p2p.Send(p.rw, RequestPeerListMsg, packet)
 }
 

@@ -516,7 +516,6 @@ func handlePooledTransactions66(backend Backend, msg Decoder, peer *Peer) error 
 }
 
 func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
-	log.Debug("handleConsensus msg", "peer", peer.RemoteAddr().String())
 	_, err := peer.Node().Address()
 	if err != nil {
 		return err
@@ -535,7 +534,6 @@ func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
 }
 
 func handleRequestConsensus(backend Backend, msg Decoder, peer *Peer) error {
-	log.Debug("handleRequestConsensus msg", "peer", peer.RemoteAddr().String())
 	_, err := peer.Node().Address()
 	if err != nil {
 		return err
@@ -554,7 +552,6 @@ func handleRequestConsensus(backend Backend, msg Decoder, peer *Peer) error {
 }
 
 func handleRequestPeerList(backend Backend, msg Decoder, peer *Peer) error {
-	log.Debug("handleRequestPeerList msg", "peer", peer.RemoteAddr().String())
 	_, err := peer.Node().Address()
 	if err != nil {
 		return err
@@ -574,7 +571,6 @@ func handleRequestPeerList(backend Backend, msg Decoder, peer *Peer) error {
 }
 
 func handlePeerList(backend Backend, msg Decoder, peer *Peer) error {
-	log.Debug("handlePeerList msg", "peer", peer.RemoteAddr().String())
 	_, err := peer.Node().Address()
 	if err != nil {
 		return err

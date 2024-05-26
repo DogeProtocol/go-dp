@@ -20,18 +20,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DogeProtocol/dp/backupmanager"
+	"github.com/DogeProtocol/dp/consensus/misc"
+	"github.com/DogeProtocol/dp/conversionutil"
+	"github.com/DogeProtocol/dp/log"
+	"math/big"
+
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/consensus"
-	"github.com/DogeProtocol/dp/conversionutil"
 	"github.com/DogeProtocol/dp/core/state"
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/core/vm"
 	"github.com/DogeProtocol/dp/crypto"
-	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/params"
-	"github.com/DogeProtocol/dp/trie"
-	"math/big"
-	"strconv"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -62,29 +62,24 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
-		receipts types.Receipts
-		usedGas  = new(uint64)
-		header   = block.Header()
-		//blockHash   = block.Hash()
-		//blockNumber = block.Number()
-		allLogs []*types.Log
-		gp      = new(GasPool).AddGas(block.GasLimit())
+		receipts    types.Receipts
+		usedGas     = new(uint64)
+		header      = block.Header()
+		blockHash   = block.Hash()
+		blockNumber = block.Number()
+		allLogs     []*types.Log
+		gp          = new(GasPool).AddGas(block.GasLimit())
 	)
 
 	err := p.engine.PostPare(p.bc, header)
 	if err != nil {
 		return nil, nil, 0, err
 	}
-
-	//parentBlock := p.bc.GetBlockByHash(block.ParentHash())
-	//header.Time =  parentBlock.Time + c.config.Period
-
 	// Mutate the block and state according to any hard-fork specs
-	/*if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-		log.Trace("Process ApplyDAOHardFork")
+	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
-	}*/
-	//blockContext := NewEVMBlockContext(header, p.bc, nil)
+	}
+	blockContext := NewEVMBlockContext(header, p.bc, nil)
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -103,29 +98,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			log.Trace("Process OverrideGasPrice", "txn", tx.Hash(), "price", msg.GasPrice())
 		}
 
-		//vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, vmConfig)
+		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, vmConfig)
 
 		statedb.Prepare(tx.Hash(), i)
-
-		zeroAddress := common.ZERO_ADDRESS
-		receipt, err := ApplyTransaction(p.config, p.bc, &zeroAddress, gp, statedb, header, tx, usedGas, cfg, isGasExemptTxn)
+		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
-
-		/*receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
-		if err != nil {
-			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
-		}*/
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
-
-		/*log.Info("Tx", "timestamp", header.Time, "hash", tx.Hash(), "receipt poststate", common.Bytes2Hex(receipt.PostState), "tx data", common.Bytes2Hex(tx.Data()), "usedGas", &usedGas, "from", msg.From().Hex(), "nonce", tx.Nonce(), "GasUsed", receipt.GasUsed,
-		"CumulativeGasUsed", receipt.CumulativeGasUsed, "Type", receipt.Type,
-		"status", receipt.Status, "Bloom", receipt.Bloom.Bytes(), "ContractAddress", receipt.ContractAddress, "TxHash", receipt.TxHash.Bytes(),
-		"to", tx.To(), "value", tx.Value().String(), "msg", msg.AccessList(), "receipt", receipt.Logs, "timestamp", block.Time(), "Difficulty", block.Difficulty(), "NumberU64", block.NumberU64())*/
-
-		//printTransactionReceipt(*block, receipt, &signer, tx, uint64(i))
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions())
@@ -137,11 +118,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 	}
-
-	receiptHashTestLocal := types.DeriveSha(receipts, trie.NewStackTrie(nil))
-	log.Info("Process", "receiptHashTestLocal", common.Bytes2Hex(receiptHashTestLocal.Bytes()), "len receipts", len(receipts))
-
-	//panic("done")
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -161,13 +137,10 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	// Update the state with pending changes.
 	var root []byte
 	if config.IsByzantium(blockNumber) {
-		log.Info("applyTransaction IsByzantium yes", "blockNumber", blockNumber)
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
-		log.Info("applyTransaction IsByzantium no", "stateroot", common.Bytes2Hex(root), "from", msg.From().Hex())
 	}
-
 	*usedGas += result.UsedGas
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used
@@ -192,15 +165,6 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-
-	/*log.Info("receipt.Logs[0] data before", "data", common.Bytes2Hex(receipt.Logs[0].Data))
-	l := receipt.Logs[0]
-	tempData := common.Hex2Bytes("00000000000000000000000000000000000000000005ca4ec2a79a7f6700000000000000000000000000000000000000000000000000000000000000000676c0000000000000000000000000000000000000000000000000000000006650c7a8")
-	l.Data = make([]byte, len(tempData))
-	copy(l.Data, tempData)
-	receipt.Logs[0] = l
-	log.Info("===============receipt.Logs[0]", "data", common.Bytes2Hex(receipt.Logs[0].Data), "tempData", tempData, "l.Data", l.Data)*/
-
 	return receipt, err
 }
 
@@ -231,46 +195,4 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	blockContext := NewEVMBlockContext(header, bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, vmConfig)
 	return applyTransaction(msg, config, bc, nil, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
-}
-
-func printTransactionReceipt(block types.Block, receipt *types.Receipt, signer *types.Signer, tx *types.Transaction, txIndex uint64) {
-	from, _ := types.Sender(*signer, tx)
-
-	receiptStr := ""
-
-	receiptStr = receiptStr + "\nblockHash: " + block.Hash().Hex()
-	receiptStr = receiptStr + "\nblockNumber: " + strconv.FormatUint(block.NumberU64(), 10)
-	receiptStr = receiptStr + "\ntransactionHash: " + tx.Hash().Hex()
-	receiptStr = receiptStr + "\ntransactionIndex: " + strconv.FormatUint(txIndex, 10)
-	receiptStr = receiptStr + "\nfrom: " + from.Hex()
-	receiptStr = receiptStr + "\nto: " + tx.To().Hex()
-	receiptStr = receiptStr + "\ngasUsed: " + strconv.FormatUint(receipt.GasUsed, 10)
-	receiptStr = receiptStr + "\ncumulativeGasUsed: " + strconv.FormatUint(receipt.CumulativeGasUsed, 10)
-	if receipt.Logs != nil {
-		logStr := ""
-		for _, log := range receipt.Logs {
-			logStr = logStr + "\nData: " + common.Bytes2Hex(log.Data)
-			logStr = logStr + "\nAddress: " + log.Address.Hex()
-			logStr = logStr + "\nTxHash: " + log.TxHash.Hex()
-			logStr = logStr + "\nTopics: "
-			for _, topic := range log.Topics {
-				logStr = logStr + topic.Hex() + ", "
-			}
-			logStr = logStr + "\nBlockHash: " + log.BlockHash.Hex()
-			logStr = logStr + "\nBlockNumber: " + strconv.FormatUint(log.BlockNumber, 10)
-			logStr = logStr + "\nIndex: " + strconv.FormatUint(uint64(log.Index), 10)
-			if log.Removed {
-				logStr = logStr + "\nRemoved: true"
-			} else {
-				logStr = logStr + "\nRemoved: false"
-			}
-		}
-		receiptStr = receiptStr + "\nlogs: " + logStr
-	}
-	receiptStr = receiptStr + "\nBloom: " + common.Bytes2Hex(receipt.Bloom.Bytes())
-	receiptStr = receiptStr + "\nStatus: " + strconv.FormatUint(receipt.Status, 10)
-
-	receiptStr = receiptStr + "\nreceipt.PostState: " + common.Bytes2Hex(receipt.PostState)
-
-	log.Info("printTransactionReceipt", "receipt", receiptStr)
 }

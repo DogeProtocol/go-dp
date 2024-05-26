@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
-	"github.com/DogeProtocol/dp/log"
 
 	"io"
 	"net"
@@ -109,11 +108,8 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 }
 
 func (t *rlpxTransport) close(err error) {
-	log.Trace("transport close start")
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
-
-	log.Trace("transport close start after lock")
 
 	// Tell the remote end why we're disconnecting if possible.
 	// We only bother doing this if the underlying connection supports
@@ -129,9 +125,7 @@ func (t *rlpxTransport) close(err error) {
 			}
 		}
 	}
-	log.Trace("transport close before")
 	t.conn.Close()
-	log.Trace("transport close done")
 }
 
 func (t *rlpxTransport) doEncHandshake(prv *signaturealgorithm.PrivateKey) (*signaturealgorithm.PublicKey, error) {

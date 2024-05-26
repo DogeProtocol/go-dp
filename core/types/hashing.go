@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/hashingalgorithm"
-	"github.com/DogeProtocol/dp/log"
-	"runtime/debug"
 	"sync"
 
 	"github.com/DogeProtocol/dp/common"
@@ -85,8 +83,6 @@ func encodeForDerive(list DerivableList, i int, buf *bytes.Buffer) []byte {
 func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 	hasher.Reset()
 
-	debug.PrintStack()
-
 	valueBuf := encodeBufferPool.Get().(*bytes.Buffer)
 	defer encodeBufferPool.Put(valueBuf)
 
@@ -97,22 +93,17 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 	for i := 1; i < list.Len() && i <= 0x7f; i++ {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
 		value := encodeForDerive(list, i, valueBuf)
-		log.Info("DeriveSha A", "i", i, "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
 	if list.Len() > 0 {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], 0)
 		value := encodeForDerive(list, 0, valueBuf)
-		log.Info("DeriveSha B", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
 	for i := 0x80; i < list.Len(); i++ {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
 		value := encodeForDerive(list, i, valueBuf)
-		log.Info("DeriveSha C", "indexBuf", common.Bytes2Hex(indexBuf), "value", common.Bytes2Hex(value))
 		hasher.Update(indexBuf, value)
 	}
-	retHash := hasher.Hash()
-	log.Info("DeriveSha D", "hash", retHash)
-	return retHash
+	return hasher.Hash()
 }

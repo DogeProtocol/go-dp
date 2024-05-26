@@ -18,7 +18,6 @@ package eth
 
 import (
 	"fmt"
-	"github.com/DogeProtocol/dp/log"
 	"math/big"
 	"time"
 
@@ -159,7 +158,6 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // connection is torn down.
 func Handle(backend Backend, peer *Peer) error {
 	for {
-		log.Trace("Handle incoming message", "peer", peer.RemoteAddr().String())
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
 			return err
@@ -198,7 +196,6 @@ var eth66 = map[uint64]msgHandler{
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
 func handleMessage(backend Backend, peer *Peer) error {
-	log.Trace("handleMessage", "peer", peer.ID())
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
