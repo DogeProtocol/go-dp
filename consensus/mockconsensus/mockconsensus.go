@@ -267,6 +267,10 @@ func (c *Mock) verifyHeader(chain consensus.ChainHeaderReader, header *types.Hea
 	return nil
 }
 
+func (c *Mock) PostPare(chain consensus.ChainHeaderReader, header *types.Header) error {
+	return nil
+}
+
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *Mock) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {

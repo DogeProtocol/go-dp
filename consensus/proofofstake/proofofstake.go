@@ -538,6 +538,17 @@ func (c *ProofOfStake) verifySeal(chain consensus.ChainHeaderReader, header *typ
 	return nil
 }
 
+func (c *ProofOfStake) PostPare(chain consensus.ChainHeaderReader, header *types.Header) error {
+	number := header.Number.Uint64()
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	header.Time = parent.Time + c.config.Period
+
+	return nil
+}
+
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *ProofOfStake) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
