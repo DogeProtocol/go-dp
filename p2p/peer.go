@@ -19,11 +19,11 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	util "github.com/DogeProtocol/dp/tools"
 	"io"
 	"net"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/DogeProtocol/dp/common/mclock"
@@ -46,10 +46,14 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval       = 15 * time.Second
-	resetInterval      = 180 * time.Second
-	stalenessThreshold = int64(180000 * time.Millisecond)
+	pingInterval            = 15 * time.Second
+	resetInterval           = 300 * time.Second
+	stalenessThreshold      = int64(180000 * time.Millisecond)
+	maxConnectTimeThreshold = int64(60 * 60 * time.Millisecond)
 )
+
+var StaleDisconnectErr = errors.New("stale disconnect error")
+var MaxTimeDisconnectErr = errors.New("max time disconnect error")
 
 const (
 	// devp2p message codes
@@ -58,6 +62,9 @@ const (
 	pingMsg      = 0x02
 	pongMsg      = 0x03
 )
+
+var resetCounter atomic.Uint64
+var resetLoopCounter atomic.Uint64
 
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
@@ -121,9 +128,11 @@ type Peer struct {
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
 
-	lastMsgReceiveTime time.Time
+	lastMsgReceiveTime  int64
+	firstMsgReceiveTime int64
 
-	statLock sync.Mutex
+	statLock     sync.Mutex
+	staleChanErr chan error
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -246,13 +255,13 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
 		readErr    = make(chan error, 1)
-		staleErr   = make(chan error, 1)
 		reason     DiscReason // sent to the peer
 	)
+	p.staleChanErr = make(chan error, 1)
+
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
-	go p.resetLoop(staleErr)
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
@@ -278,8 +287,8 @@ loop:
 				reason = DiscNetworkError
 			}
 			break loop
-		case err = <-staleErr:
-			reason = DiscUselessPeer
+		case err = <-p.staleChanErr:
+			reason = DiscNetworkError
 			break loop
 		case err = <-p.protoErr:
 			reason = discReasonForError(err)
@@ -290,9 +299,12 @@ loop:
 		}
 	}
 
+	log.Trace("peer close", "peer", p.ID().String())
 	close(p.closed)
 	p.rw.close(reason)
+	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
+	log.Trace("peer close done", "peer", p.ID().String())
 	return remoteRequested, err
 }
 
@@ -310,6 +322,7 @@ func (p *Peer) pingLoop() {
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
+			log.Trace("pingLoop", "peer", p.ID().String())
 			return
 		}
 	}
@@ -330,35 +343,44 @@ func (p *Peer) readLoop(errc chan<- error) {
 			errc <- err
 			return
 		}
-		p.onReceiveStat()
 	}
 }
 
-func (p *Peer) resetLoop(errc chan<- error) {
-	resetTimer := time.NewTimer(resetInterval)
-	defer resetTimer.Stop()
-	for {
-		select {
-		case <-resetTimer.C:
-			err := p.resetifStale()
-			if err != nil {
-				log.Warn("Peer Reset", "error", err, "peer", p.RemoteAddr().String())
-				errc <- err
-				return
-			}
-		case <-p.closed:
-			return
-		}
-	}
-
-}
-
-func (p *Peer) resetifStale() error {
+func (p *Peer) resetIfStale() error {
 	p.statLock.Lock()
 	defer p.statLock.Unlock()
 
-	if util.Elapsed(p.lastMsgReceiveTime) >= stalenessThreshold {
-		return errors.New("no messages received beyond staleness threshold")
+	resetLoopCounter.Add(1)
+
+	if p.lastMsgReceiveTime == 0 || p.firstMsgReceiveTime == 0 {
+		return nil
+	}
+
+	//Staleness check
+	start := p.lastMsgReceiveTime
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	if start >= end {
+		return nil
+	}
+
+	diff := end - start
+	if diff > stalenessThreshold {
+		log.Debug("resetIfStale stalenessThreshold yes", "peer", p.ID().String(), "start", start, "end", end)
+		resetCounter.Add(1)
+		err := StaleDisconnectErr
+		p.staleChanErr <- StaleDisconnectErr
+		return err
+	}
+
+	//Max connect time per peer
+	start = p.firstMsgReceiveTime
+	diff = end - start
+	if diff > maxConnectTimeThreshold {
+		log.Debug("resetIfStale maxConnectTimeThreshold yes", "peer", p.ID().String(), "start", start, "end", end)
+		resetCounter.Add(1)
+		err := MaxTimeDisconnectErr
+		p.staleChanErr <- err
+		return err
 	}
 
 	return nil
@@ -367,27 +389,35 @@ func (p *Peer) resetifStale() error {
 func (p *Peer) onReceiveStat() {
 	p.statLock.Lock()
 	defer p.statLock.Unlock()
-	p.lastMsgReceiveTime = time.Now()
+	p.lastMsgReceiveTime = time.Now().UnixNano() / int64(time.Millisecond)
+	if p.firstMsgReceiveTime == 0 {
+		p.firstMsgReceiveTime = p.lastMsgReceiveTime
+	}
 }
 
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
+		log.Trace("hanndle pingMsg", "peer", p.ID().String())
 		msg.Discard()
 		go SendItems(p.rw, pongMsg)
 	case msg.Code == discMsg:
+		log.Trace("hanndle discMsg", "peer", p.ID().String())
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
 		rlp.Decode(msg.Payload, &reason)
 		return reason[0]
 	case msg.Code < baseProtocolLength:
+		log.Trace("hanndle baseProtocolLength", "peer", p.ID().String())
 		// ignore other base protocol messages
 		return msg.Discard()
 	default:
+		log.Trace("hanndle default", "peer", p.ID().String())
 		// it's a subprotocol message
 		proto, err := p.getProto(msg.Code)
 		if err != nil {
+			log.Trace("hanndle code out of rang", "peer", p.ID().String())
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
 		if metrics.Enabled {
@@ -397,11 +427,15 @@ func (p *Peer) handle(msg Msg) error {
 		}
 		select {
 		case proto.in <- msg:
+			p.onReceiveStat()
+			log.Trace("hanndle in", "peer", p.ID().String())
 			return nil
 		case <-p.closed:
+			log.Trace("hanndle closed", "peer", p.ID().String())
 			return io.EOF
 		}
 	}
+	log.Trace("hanndle other", "peer", p.ID().String())
 	return nil
 }
 
@@ -515,6 +549,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
+	log.Trace("ReadMsg")
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset
