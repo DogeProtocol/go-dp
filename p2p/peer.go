@@ -335,12 +335,6 @@ func (p *Peer) pingLoop() {
 				log.Trace("pingLoop error after done", "peer", p.ID().String(), "error", err)
 				return
 			}
-			/*if time.Now().After(p.disconnectTriggerTime) {
-				log.Warn("disconnectTriggerTime before", "peer", p.ID().String(), "error", ErrShuttingDown)
-				p.protoErr <- ErrShuttingDown
-				log.Warn("disconnectTriggerTime after", "peer", p.ID().String(), "error", ErrShuttingDown)
-				return
-			}*/
 			ping.Reset(pingInterval)
 		case <-p.closed:
 			log.Debug("pingLoop closed before done", "peer", p.ID().String())
