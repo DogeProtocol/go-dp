@@ -23,7 +23,6 @@ import (
 	"net"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/DogeProtocol/dp/common/mclock"
@@ -61,9 +60,6 @@ const (
 	pingMsg      = 0x02
 	pongMsg      = 0x03
 )
-
-var resetCounter atomic.Uint64
-var resetLoopCounter atomic.Uint64
 
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
@@ -258,6 +254,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
+	readClosed := false
 
 	// Wait for an error or disconnect.
 loop:
@@ -280,6 +277,7 @@ loop:
 			} else {
 				reason = DiscNetworkError
 			}
+			readClosed = true
 			break loop
 		case err = <-p.protoErr:
 			log.Trace("peer run protoErr", "peer", p.ID().String())
@@ -297,7 +295,10 @@ loop:
 	log.Trace("peer close 2", "peer", p.ID().String())
 	p.rw.close(reason)
 	log.Trace("peer close 3", "peer", p.ID().String())
-	close(readErr)
+	if readClosed == false {
+		log.Trace("peer close 4", "peer", p.ID().String())
+		close(readErr)
+	}
 	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
 	log.Trace("peer close done", "peer", p.ID().String())

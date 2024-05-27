@@ -668,7 +668,6 @@ func (srv *Server) run() {
 	go srv.connectNodes()
 
 	srv.peerMap = make(map[enode.ID]*Peer)
-	//go srv.resetLoop()
 
 running:
 	for {
