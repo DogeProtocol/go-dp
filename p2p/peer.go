@@ -53,7 +53,6 @@ const (
 )
 
 var StaleDisconnectErr = errors.New("stale disconnect error")
-var MaxTimeDisconnectErr = errors.New("max time disconnect error")
 
 const (
 	// devp2p message codes
@@ -127,11 +126,6 @@ type Peer struct {
 	// events receives message send / receive events if set
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
-
-	lastMsgReceiveTime int64
-
-	statLock     sync.Mutex
-	staleChanErr chan error
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -256,7 +250,6 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		readErr    = make(chan error, 1)
 		reason     DiscReason // sent to the peer
 	)
-	p.staleChanErr = make(chan error, 1)
 
 	p.wg.Add(2)
 	go p.readLoop(readErr)
@@ -271,6 +264,7 @@ loop:
 	for {
 		select {
 		case err = <-writeErr:
+			log.Trace("peer run writeErr", "peer", p.ID().String())
 			// A write finished. Allow the next write to start if
 			// there was no error.
 			if err != nil {
@@ -279,6 +273,7 @@ loop:
 			}
 			writeStart <- struct{}{}
 		case err = <-readErr:
+			log.Trace("peer run readErr", "peer", p.ID().String())
 			if r, ok := err.(DiscReason); ok {
 				remoteRequested = true
 				reason = r
@@ -286,24 +281,26 @@ loop:
 				reason = DiscNetworkError
 			}
 			break loop
-		case err = <-p.staleChanErr:
-			reason = DiscNetworkError
-			break loop
 		case err = <-p.protoErr:
+			log.Trace("peer run protoErr", "peer", p.ID().String())
 			reason = discReasonForError(err)
 			break loop
 		case err = <-p.disc:
+			log.Trace("peer run disc", "peer", p.ID().String())
 			reason = discReasonForError(err)
 			break loop
 		}
 	}
 
-	log.Info("peer close", "peer", p.ID().String())
+	log.Trace("peer close 1", "peer", p.ID().String())
 	close(p.closed)
+	log.Trace("peer close 2", "peer", p.ID().String())
 	p.rw.close(reason)
-	log.Info("peer close wait", "peer", p.ID().String())
+	log.Trace("peer close 3", "peer", p.ID().String())
+	close(readErr)
+	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
-	log.Info("peer close done", "peer", p.ID().String())
+	log.Trace("peer close done", "peer", p.ID().String())
 	return remoteRequested, err
 }
 
@@ -316,13 +313,14 @@ func (p *Peer) pingLoop() {
 		case <-ping.C:
 			log.Trace("pingLoop start", "peer", p.ID().String())
 			if err := SendItems(p.rw, pingMsg); err != nil {
-				log.Trace("pingLoop error", "peer", p.ID().String(), "error", err)
+				log.Trace("pingLoop error before", "peer", p.ID().String(), "error", err)
 				p.protoErr <- err
+				log.Trace("pingLoop error after", "peer", p.ID().String(), "error", err)
 				return
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
-			log.Info("pingLoop done", "peer", p.ID().String())
+			log.Debug("pingLoop done", "peer", p.ID().String())
 			return
 		}
 	}
@@ -331,54 +329,23 @@ func (p *Peer) pingLoop() {
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
 	for {
-		log.Trace("readLoop start", "peer", p.ID().String())
+		log.Trace("readLoop ReadMsg", "peer", p.ID().String())
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
-			log.Trace("readLoop ReadMsg err", "peer", p.ID().String(), "error", err)
+			log.Trace("readLoop ReadMsg err before", "peer", p.ID().String(), "error", err)
 			errc <- err
+			log.Trace("readLoop ReadMsg err after", "peer", p.ID().String(), "error", err)
 			return
 		}
+		log.Trace("readLoop handle", "peer", p.ID().String())
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
-			log.Info("readLoop handle err", "peer", p.ID().String(), "error", err)
+			log.Debug("readLoop handle err before", "peer", p.ID().String(), "error", err)
 			errc <- err
+			log.Debug("readLoop handle err after", "peer", p.ID().String(), "error", err)
 			return
 		}
 	}
-}
-
-func (p *Peer) resetIfStale() error {
-	p.statLock.Lock()
-	defer p.statLock.Unlock()
-
-	resetLoopCounter.Add(1)
-
-	if p.lastMsgReceiveTime == 0 {
-		return nil
-	}
-
-	//Staleness check
-	start := p.lastMsgReceiveTime
-	end := time.Now().UnixNano() / int64(time.Millisecond)
-	if start >= end {
-		return nil
-	}
-
-	diff := end - start
-	if diff > stalenessThreshold {
-		log.Debug("resetIfStale stalenessThreshold yes", "peer", p.ID().String(), "start", start, "end", end)
-		resetCounter.Add(1)
-		err := StaleDisconnectErr
-		p.staleChanErr <- StaleDisconnectErr
-		return err
-	}
-	return nil
-}
-
-func (p *Peer) onReceiveStat() {
-	p.statLock.Lock()
-	defer p.statLock.Unlock()
-	p.lastMsgReceiveTime = time.Now().UnixNano() / int64(time.Millisecond)
 }
 
 func (p *Peer) handle(msg Msg) error {
@@ -413,7 +380,6 @@ func (p *Peer) handle(msg Msg) error {
 		}
 		select {
 		case proto.in <- msg:
-			p.onReceiveStat()
 			log.Trace("handle in", "peer", p.ID().String())
 			return nil
 		case <-p.closed:

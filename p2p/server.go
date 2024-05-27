@@ -668,7 +668,7 @@ func (srv *Server) run() {
 	go srv.connectNodes()
 
 	srv.peerMap = make(map[enode.ID]*Peer)
-	go srv.resetLoop()
+	//go srv.resetLoop()
 
 running:
 	for {
@@ -1053,37 +1053,6 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 	}
 	go srv.runPeer(p)
 	return p
-}
-
-func (srv *Server) resetLoop() {
-	resetTimer := time.NewTimer(resetInterval)
-	defer resetTimer.Stop()
-	for {
-		select {
-		case <-resetTimer.C:
-			log.Info("resetLoop before", "resetLoopCounter", resetLoopCounter.Load(), "resetCounter", resetCounter.Load())
-			srv.resetStalePeers()
-			log.Info("resetLoop after", "resetLoopCounter", resetLoopCounter.Load(), "resetCounter", resetCounter.Load())
-			resetTimer.Reset(resetInterval)
-		case <-srv.quit:
-			return
-		}
-	}
-}
-
-func (srv *Server) resetStalePeers() {
-	srv.peerMapLock.Lock()
-	defer srv.peerMapLock.Unlock()
-	for _, p := range srv.peerMap {
-		log.Info("resetStalePeers evaluating", "peer", p.ID().String())
-		err := p.resetIfStale()
-		if err != nil {
-			log.Info("resetStalePeers error", "err", err, "peer", p.ID().String())
-			p.Disconnect(DiscNetworkError)
-			break //only one per loop
-		}
-		log.Info("resetStalePeers evaluation done", "peer", p.ID().String())
-	}
 }
 
 // runPeer runs in its own goroutine for each peer.
