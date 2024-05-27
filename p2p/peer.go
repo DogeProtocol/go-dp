@@ -299,12 +299,12 @@ loop:
 		}
 	}
 
-	log.Trace("peer close", "peer", p.ID().String())
+	log.Info("peer close", "peer", p.ID().String())
 	close(p.closed)
 	p.rw.close(reason)
-	log.Trace("peer close wait", "peer", p.ID().String())
+	log.Info("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
-	log.Trace("peer close done", "peer", p.ID().String())
+	log.Info("peer close done", "peer", p.ID().String())
 	return remoteRequested, err
 }
 
@@ -315,14 +315,15 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
+			log.Trace("pingLoop start", "peer", p.ID().String())
 			if err := SendItems(p.rw, pingMsg); err != nil {
-				log.Trace("pingLoop error", "peer", p.RemoteAddr().String(), "error", err)
+				log.Trace("pingLoop error", "peer", p.ID().String(), "error", err)
 				p.protoErr <- err
 				return
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
-			log.Trace("pingLoop", "peer", p.ID().String())
+			log.Info("pingLoop done", "peer", p.ID().String())
 			return
 		}
 	}
@@ -331,15 +332,16 @@ func (p *Peer) pingLoop() {
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
 	for {
+		log.Trace("readLoop start", "peer", p.ID().String())
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
-			log.Trace("readLoop ReadMsg err", "peer", p.RemoteAddr().String(), "error", err)
+			log.Trace("readLoop ReadMsg err", "peer", p.ID().String(), "error", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
-			log.Trace("readLoop handle err", "peer", p.RemoteAddr().String(), "error", err)
+			log.Info("readLoop handle err", "peer", p.ID().String(), "error", err)
 			errc <- err
 			return
 		}
@@ -428,14 +430,14 @@ func (p *Peer) handle(msg Msg) error {
 		select {
 		case proto.in <- msg:
 			p.onReceiveStat()
-			log.Trace("hanndle in", "peer", p.ID().String())
+			log.Trace("handle in", "peer", p.ID().String())
 			return nil
 		case <-p.closed:
-			log.Trace("hanndle closed", "peer", p.ID().String())
+			log.Trace("handle closed", "peer", p.ID().String())
 			return io.EOF
 		}
 	}
-	log.Trace("hanndle other", "peer", p.ID().String())
+	log.Trace("handle other", "peer", p.ID().String())
 	return nil
 }
 
@@ -524,8 +526,9 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
+	log.Trace("WriteMsg")
 	if msg.Code >= rw.Length {
-		fmt.Println("WriteMsg code", msg.Code, "length", rw.Length, "Version", rw.Version)
+		log.Trace("WriteMsg code", msg.Code, "length", rw.Length, "Version", rw.Version)
 		panic("unexpected msgcode") //todo: fix
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
@@ -543,6 +546,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 		// as well but we don't want to rely on that.
 		rw.werr <- err
 	case <-rw.closed:
+		log.Trace("WriteMsg closed")
 		err = ErrShuttingDown
 	}
 	return err
@@ -555,6 +559,7 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 		msg.Code -= rw.offset
 		return msg, nil
 	case <-rw.closed:
+		log.Trace("ReadMsg closed")
 		return Msg{}, io.EOF
 	}
 }
