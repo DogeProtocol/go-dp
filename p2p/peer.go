@@ -297,7 +297,10 @@ loop:
 	log.Trace("peer close 3", "peer", p.ID().String())
 	if readClosed == false {
 		log.Trace("peer close 4", "peer", p.ID().String())
-		close(readErr)
+		select {
+		case err = <-readErr:
+			log.Trace("peer close 5", "peer", p.ID().String(), "err", err)
+		}
 	}
 	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
