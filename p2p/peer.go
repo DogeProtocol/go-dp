@@ -128,8 +128,7 @@ type Peer struct {
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
 
-	lastMsgReceiveTime  int64
-	firstMsgReceiveTime int64
+	lastMsgReceiveTime int64
 
 	statLock     sync.Mutex
 	staleChanErr chan error
@@ -354,7 +353,7 @@ func (p *Peer) resetIfStale() error {
 
 	resetLoopCounter.Add(1)
 
-	if p.lastMsgReceiveTime == 0 || p.firstMsgReceiveTime == 0 {
+	if p.lastMsgReceiveTime == 0 {
 		return nil
 	}
 
@@ -373,18 +372,6 @@ func (p *Peer) resetIfStale() error {
 		p.staleChanErr <- StaleDisconnectErr
 		return err
 	}
-
-	//Max connect time per peer
-	start = p.firstMsgReceiveTime
-	diff = end - start
-	if diff > maxConnectTimeThreshold {
-		log.Debug("resetIfStale maxConnectTimeThreshold yes", "peer", p.ID().String(), "start", start, "end", end)
-		resetCounter.Add(1)
-		err := MaxTimeDisconnectErr
-		p.staleChanErr <- err
-		return err
-	}
-
 	return nil
 }
 
@@ -392,9 +379,6 @@ func (p *Peer) onReceiveStat() {
 	p.statLock.Lock()
 	defer p.statLock.Unlock()
 	p.lastMsgReceiveTime = time.Now().UnixNano() / int64(time.Millisecond)
-	if p.firstMsgReceiveTime == 0 {
-		p.firstMsgReceiveTime = p.lastMsgReceiveTime
-	}
 }
 
 func (p *Peer) handle(msg Msg) error {
