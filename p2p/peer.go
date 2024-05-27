@@ -327,7 +327,6 @@ loop:
 
 func (p *Peer) pingLoop() {
 	ping := time.NewTimer(pingInterval)
-	defer p.wg.Done()
 	defer ping.Stop()
 	for {
 		select {
@@ -464,6 +463,7 @@ outer:
 
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	p.wg.Add(len(p.running))
+	log.Trace("startProtocols", "peer", p.ID().String(), "running len", len(p.running))
 	for _, proto := range p.running {
 		proto := proto
 		proto.closed = p.closed
