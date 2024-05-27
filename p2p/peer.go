@@ -20,11 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"sort"
 	"sync"
 	"time"
 
+	"crypto/rand"
 	"github.com/DogeProtocol/dp/common/mclock"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/log"
@@ -45,7 +47,9 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval = 15 * time.Second
+	pingInterval                = 15 * time.Second
+	maxConnectTime              = 3600 * time.Second
+	maxConnectTimeJitterSeconds = 300 //seconds
 )
 
 const (
@@ -117,6 +121,8 @@ type Peer struct {
 	// events receives message send / receive events if set
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
+
+	disconnectTriggerTime time.Time
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -242,6 +248,16 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		reason     DiscReason // sent to the peer
 	)
 
+	jitterSeconds, err := rand.Int(rand.Reader, big.NewInt(maxConnectTimeJitterSeconds))
+	if err != nil {
+		log.Trace("Rand failed", "err", err)
+		p.disconnectTriggerTime = time.Now().Add(maxConnectTime + maxConnectTimeJitterSeconds*time.Second)
+	} else {
+		jitter := time.Duration(jitterSeconds.Uint64())
+		p.disconnectTriggerTime = time.Now().Add(maxConnectTime + jitter*time.Second)
+	}
+	log.Warn("disconnectTriggerTime", "peer", p.ID().String(), "disconnectTriggerTime", p.disconnectTriggerTime)
+
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
@@ -315,6 +331,12 @@ func (p *Peer) pingLoop() {
 				log.Trace("pingLoop error before", "peer", p.ID().String(), "error", err)
 				p.protoErr <- err
 				log.Trace("pingLoop error after", "peer", p.ID().String(), "error", err)
+				return
+			}
+			if time.Now().After(p.disconnectTriggerTime) {
+				log.Warn("disconnectTriggerTime before", "peer", p.ID().String(), "error", ErrShuttingDown)
+				p.protoErr <- ErrShuttingDown
+				log.Warn("disconnectTriggerTime after", "peer", p.ID().String(), "error", ErrShuttingDown)
 				return
 			}
 			ping.Reset(pingInterval)

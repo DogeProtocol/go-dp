@@ -112,6 +112,7 @@ type NewRoundReason byte
 
 var InvalidPacketErr = errors.New("invalid packet")
 var OutOfOrderPackerErr = errors.New("packet received out of order")
+var UnknownParentHashErr = errors.New("unknown parent hash")
 
 const (
 	BLOCK_STATE_UNKNOWN                   BlockRoundState = 0
@@ -694,6 +695,11 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	if err != nil {
 		log.Trace("HandleConsensusPacket error", "err", err)
 	}
+
+	if errors.Is(err, UnknownParentHashErr) {
+		return nil
+	}
+
 	return err
 }
 
@@ -1031,7 +1037,7 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 	log.Trace("validator proposal", "validator", validator, "self", cph.account.Address, "hash", packet.ParentHash)
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
-		return errors.New("unknown parentHash")
+		return UnknownParentHashErr
 	}
 
 	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
@@ -1145,7 +1151,7 @@ func (cph *ConsensusHandler) handleAckBlockProposalPacket(validator common.Addre
 
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
-		return errors.New("unknown parentHash")
+		return UnknownParentHashErr
 	}
 
 	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
@@ -1478,7 +1484,7 @@ func (cph *ConsensusHandler) handlePrecommitPacket(validator common.Address, pac
 
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
-		return errors.New("unknown parentHash")
+		return UnknownParentHashErr
 	}
 
 	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
@@ -1569,7 +1575,7 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
-		return errors.New("unknown parentHash")
+		return UnknownParentHashErr
 	}
 
 	_, ok = blockStateDetails.filteredValidatorsDepositMap[cph.account.Address]
@@ -2615,7 +2621,7 @@ func (cph *ConsensusHandler) HandleRequestConsensusDataPacket(packet *eth.Reques
 
 	blockStateDetails, ok := cph.blockStateDetailsMap[packet.ParentHash]
 	if ok == false {
-		return nil, errors.New("unknown parentHash")
+		return nil, UnknownParentHashErr
 	}
 
 	var packets []*eth.ConsensusPacket
