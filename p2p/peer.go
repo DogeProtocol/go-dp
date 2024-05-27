@@ -123,6 +123,7 @@ type Peer struct {
 	testPipe *MsgPipeRW // for testing
 
 	disconnectTriggerTime time.Time
+	peerLock              sync.Mutex
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -241,6 +242,11 @@ func (p *Peer) Log() log.Logger {
 }
 
 func (p *Peer) run() (remoteRequested bool, err error) {
+	log.Debug("peer run before unlock", "peer", p.ID().String())
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+	log.Debug("peer run after unlock", "peer", p.ID().String())
+
 	var (
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
@@ -330,32 +336,37 @@ func (p *Peer) pingLoop() {
 			if err := SendItems(p.rw, pingMsg); err != nil {
 				log.Trace("pingLoop error before", "peer", p.ID().String(), "error", err)
 				p.protoErr <- err
-				log.Trace("pingLoop error after", "peer", p.ID().String(), "error", err)
+				log.Trace("pingLoop error before done", "peer", p.ID().String(), "error", err)
+				p.wg.Done()
+				log.Trace("pingLoop error after done", "peer", p.ID().String(), "error", err)
 				return
 			}
-			if time.Now().After(p.disconnectTriggerTime) {
+			/*if time.Now().After(p.disconnectTriggerTime) {
 				log.Warn("disconnectTriggerTime before", "peer", p.ID().String(), "error", ErrShuttingDown)
 				p.protoErr <- ErrShuttingDown
 				log.Warn("disconnectTriggerTime after", "peer", p.ID().String(), "error", ErrShuttingDown)
 				return
-			}
+			}*/
 			ping.Reset(pingInterval)
 		case <-p.closed:
-			log.Debug("pingLoop done", "peer", p.ID().String())
+			log.Debug("pingLoop closed before done", "peer", p.ID().String())
+			p.wg.Done()
+			log.Debug("pingLoop closed after done", "peer", p.ID().String())
 			return
 		}
 	}
 }
 
 func (p *Peer) readLoop(errc chan<- error) {
-	defer p.wg.Done()
 	for {
 		log.Trace("readLoop ReadMsg", "peer", p.ID().String())
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
 			log.Trace("readLoop ReadMsg err before", "peer", p.ID().String(), "error", err)
 			errc <- err
-			log.Trace("readLoop ReadMsg err after", "peer", p.ID().String(), "error", err)
+			log.Trace("readLoop ReadMsg err before done", "peer", p.ID().String(), "error", err)
+			p.wg.Done()
+			log.Trace("readLoop ReadMsg err after done", "peer", p.ID().String(), "error", err)
 			return
 		}
 		log.Trace("readLoop handle", "peer", p.ID().String())
@@ -363,7 +374,9 @@ func (p *Peer) readLoop(errc chan<- error) {
 		if err = p.handle(msg); err != nil {
 			log.Debug("readLoop handle err before", "peer", p.ID().String(), "error", err)
 			errc <- err
-			log.Debug("readLoop handle err after", "peer", p.ID().String(), "error", err)
+			log.Debug("readLoop handle err before done", "peer", p.ID().String(), "error", err)
+			p.wg.Done()
+			log.Debug("readLoop handle err after done", "peer", p.ID().String(), "error", err)
 			return
 		}
 	}
