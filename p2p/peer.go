@@ -20,13 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net"
 	"sort"
 	"sync"
 	"time"
 
-	"crypto/rand"
 	"github.com/DogeProtocol/dp/common/mclock"
 	"github.com/DogeProtocol/dp/event"
 	"github.com/DogeProtocol/dp/log"
@@ -47,9 +45,7 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval                = 15 * time.Second
-	maxConnectTime              = 3600 * time.Second
-	maxConnectTimeJitterSeconds = 300 //seconds
+	pingInterval = 15 * time.Second
 )
 
 const (
@@ -253,16 +249,6 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		readErr    = make(chan error, 1)
 		reason     DiscReason // sent to the peer
 	)
-
-	jitterSeconds, err := rand.Int(rand.Reader, big.NewInt(maxConnectTimeJitterSeconds))
-	if err != nil {
-		log.Trace("Rand failed", "err", err)
-		p.disconnectTriggerTime = time.Now().Add(maxConnectTime + maxConnectTimeJitterSeconds*time.Second)
-	} else {
-		jitter := time.Duration(jitterSeconds.Uint64())
-		p.disconnectTriggerTime = time.Now().Add(maxConnectTime + jitter*time.Second)
-	}
-	log.Warn("disconnectTriggerTime", "peer", p.ID().String(), "disconnectTriggerTime", p.disconnectTriggerTime)
 
 	p.wg.Add(2)
 	go p.readLoop(readErr)
