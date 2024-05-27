@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	util "github.com/DogeProtocol/dp/tools"
 	"net"
 	"sort"
 	"sync"
@@ -66,10 +67,9 @@ const (
 	startPeerLookupInterval  = 10 * time.Second
 	peerLookupInterval       = 300 * time.Second
 
-	connectNodesLoopCount     = 10
-	startConnectNodesInterval = 30 * time.Second
-	connectnodesInterval      = 300 * time.Second
-	staleNodeMaxAgeInterval   = 72 * time.Hour
+	connectNodesInterval                = 30 * time.Second
+	staleNodeMaxAgeInterval             = 72 * time.Hour
+	minConnectNodesAtSteadyStateSeconds = 300
 )
 
 var errServerStopped = errors.New("server stopped")
@@ -211,8 +211,8 @@ type Server struct {
 	peerLoopCount  uint16
 	peerConnCh     chan *enode.Node
 
-	connectNodesTicker    *time.Ticker
-	connectNodesLoopCount uint16
+	connectNodesTicker  *time.Ticker
+	lastConnectNodeTime int64
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -775,32 +775,53 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 }
 
 func (srv *Server) connectNodes() {
-	srv.connectNodesTicker = time.NewTicker(startConnectNodesInterval)
+	srv.connectNodesTicker = time.NewTicker(connectNodesInterval)
 	defer srv.connectNodesTicker.Stop()
 	for {
 		select {
 		case <-srv.quit:
 			return
 		case <-srv.connectNodesTicker.C:
-			if len(srv.dialsched.peers) < srv.Config.MaxPeers {
+			shouldQuery := false
+			dialPeerCount := len(srv.dialsched.peers)
+			log.Trace("connectNodes start", "dialPeerCount", dialPeerCount, "lastConnectNodeTime", srv.lastConnectNodeTime)
+			if srv.lastConnectNodeTime == 0 {
+				log.Trace("connectNodes A", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else if dialPeerCount == 0 {
+				log.Trace("connectNodes B", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else if len(srv.dialsched.peers) < srv.Config.MaxPeers && util.ElapsedSeconds(srv.lastConnectNodeTime) >= minConnectNodesAtSteadyStateSeconds {
+				log.Trace("connectNodes C", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else {
+				log.Trace("connectNodes D", "dialPeerCount", dialPeerCount)
+			}
+
+			if shouldQuery {
+				log.Trace("connectNodesTicker start")
 				nodes := srv.nodedb.QueryNodes(srv.Config.MaxPeers, staleNodeMaxAgeInterval)
 				if nodes == nil {
 					log.Trace("QueryNodes is nil")
 					return
 				}
 
-				log.Trace("connectNodes", "count", len(nodes))
+				log.Trace("connectNodes range addNode", "count", len(nodes))
 				for _, node := range nodes {
-					log.Trace("Adding previously connected node", "IP", node.IP())
+					log.Trace("connectNodes before isDialingOrConnected", "node", node.ID().String(), "IP", node.IP().String())
+					if srv.dialsched.isDialingOrConnected(node) {
+						log.Trace("connectNodes isDialingOrConnected", "node", node.ID().String())
+						continue
+					}
+					log.Trace("connectNodes adding node for dialing", "node", node.ID().String())
 					srv.dialsched.addNode(node)
 				}
+				srv.lastConnectNodeTime = time.Now().UnixNano() / int64(time.Millisecond)
+			} else {
+				log.Trace("connectNodesTicker skip", "lastConnectNodesTime", srv.lastConnectNodeTime)
 			}
 
-			if srv.connectNodesLoopCount < connectNodesLoopCount {
-				srv.connectNodesLoopCount = srv.connectNodesLoopCount + 1
-			} else if srv.connectNodesLoopCount == connectNodesLoopCount { //less noisy
-				srv.connectNodesTicker.Reset(connectnodesInterval)
-			}
+			srv.connectNodesTicker.Reset(connectNodesInterval)
 		}
 	}
 }

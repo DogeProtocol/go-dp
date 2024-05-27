@@ -8,3 +8,9 @@ func Elapsed(startTime time.Time) int64 {
 	diff := end - start
 	return diff
 }
+
+func ElapsedSeconds(start int64) int64 {
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	diff := end - start
+	return diff / 1000
+}

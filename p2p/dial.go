@@ -456,6 +456,16 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	return nil
 }
 
+func (d *dialScheduler) isDialingOrConnected(n *enode.Node) bool {
+	if _, ok := d.dialing[n.ID()]; ok {
+		return true
+	}
+	if _, ok := d.peers[n.ID()]; ok {
+		return true
+	}
+	return false
+}
+
 // startStaticDials starts n static dial tasks.
 func (d *dialScheduler) startStaticDials(n int) (started int) {
 	for started = 0; started < n && len(d.staticPool) > 0; started++ {
