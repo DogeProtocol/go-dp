@@ -45,13 +45,8 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval            = 15 * time.Second
-	resetInterval           = 300 * time.Second
-	stalenessThreshold      = int64(180000 * time.Millisecond)
-	maxConnectTimeThreshold = int64(60 * 60 * time.Millisecond)
+	pingInterval = 15 * time.Second
 )
-
-var StaleDisconnectErr = errors.New("stale disconnect error")
 
 const (
 	// devp2p message codes

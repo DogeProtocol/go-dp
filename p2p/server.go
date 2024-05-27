@@ -216,9 +216,6 @@ type Server struct {
 
 	connectNodesTicker    *time.Ticker
 	connectNodesLoopCount uint16
-
-	peerMap     map[enode.ID]*Peer
-	peerMapLock sync.Mutex
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -666,9 +663,7 @@ func (srv *Server) run() {
 		trusted[n.ID()] = true
 	}
 	go srv.connectNodes()
-
-	srv.peerMap = make(map[enode.ID]*Peer)
-
+	
 running:
 	for {
 		select {
@@ -1066,18 +1061,10 @@ func (srv *Server) runPeer(p *Peer) {
 		LocalAddress:  p.LocalAddr().String(),
 	})
 
-	srv.peerMapLock.Lock()
-	srv.peerMap[p.ID()] = p
-	srv.peerMapLock.Unlock()
-
 	// Run the per-peer main loop.
-	log.Info("runPeer before", "peer", p.ID().String())
+	log.Debug("runPeer before", "peer", p.ID().String())
 	remoteRequested, err := p.run()
-	log.Info("runPeer after", "peer", p.ID().String())
-
-	srv.peerMapLock.Lock()
-	delete(srv.peerMap, p.ID())
-	srv.peerMapLock.Unlock()
+	log.Debug("runPeer after", "peer", p.ID().String())
 
 	// Announce disconnect on the main loop to update the peer set.
 	// The main loop waits for existing peers to be sent on srv.delpeer
