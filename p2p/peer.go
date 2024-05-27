@@ -272,6 +272,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
 	readClosed := false
+	protoClosed := false
 
 	// Wait for an error or disconnect.
 loop:
@@ -299,6 +300,7 @@ loop:
 		case err = <-p.protoErr:
 			log.Trace("peer run protoErr", "peer", p.ID().String())
 			reason = discReasonForError(err)
+			protoClosed = true
 			break loop
 		case err = <-p.disc:
 			log.Trace("peer run disc", "peer", p.ID().String())
@@ -313,10 +315,17 @@ loop:
 	p.rw.close(reason)
 	log.Trace("peer close 3", "peer", p.ID().String())
 	if readClosed == false {
-		log.Trace("peer close 4", "peer", p.ID().String())
+		log.Trace("peer readClosed 1", "peer", p.ID().String())
 		select {
 		case err = <-readErr:
-			log.Trace("peer close 5", "peer", p.ID().String(), "err", err)
+			log.Trace("peer readClosed 2", "peer", p.ID().String(), "err", err)
+		}
+	}
+	if protoClosed == false {
+		log.Trace("peer protoClosed 1", "peer", p.ID().String())
+		select {
+		case err = <-p.protoErr:
+			log.Trace("peer protoClosed 2", "peer", p.ID().String(), "err", err)
 		}
 	}
 	log.Trace("peer close wait", "peer", p.ID().String())
