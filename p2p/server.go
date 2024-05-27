@@ -61,10 +61,7 @@ const (
 	frameReadTimeout = 60 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 60 * time.Second
-
-	maxPeers = 32
-
+	frameWriteTimeout        = 60 * time.Second
 	startPeerLookupLoopCount = 30
 	startPeerLookupInterval  = 10 * time.Second
 	peerLookupInterval       = 300 * time.Second
@@ -462,6 +459,8 @@ func (srv *Server) Start() (err error) {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
 
+	log.Info("Starting server", "maxPeers", srv.Config.MaxPeers)
+
 	// static fields
 	if srv.PrivateKey == nil {
 		return errors.New("Server.PrivateKey must be set to a non-nil key")
@@ -663,7 +662,7 @@ func (srv *Server) run() {
 		trusted[n.ID()] = true
 	}
 	go srv.connectNodes()
-	
+
 running:
 	for {
 		select {
@@ -783,8 +782,8 @@ func (srv *Server) connectNodes() {
 		case <-srv.quit:
 			return
 		case <-srv.connectNodesTicker.C:
-			if len(srv.dialsched.peers) < maxPeers {
-				nodes := srv.nodedb.QueryNodes(maxPeers, staleNodeMaxAgeInterval)
+			if len(srv.dialsched.peers) < srv.Config.MaxPeers {
+				nodes := srv.nodedb.QueryNodes(srv.Config.MaxPeers, staleNodeMaxAgeInterval)
 				if nodes == nil {
 					log.Trace("QueryNodes is nil")
 					return
@@ -816,7 +815,7 @@ func (srv *Server) peerLoop() {
 		case <-srv.quit:
 			return
 		case <-srv.peerTicker.C:
-			if len(srv.dialsched.peers) < maxPeers {
+			if len(srv.dialsched.peers) < srv.Config.MaxPeers {
 				srv.requestPeersFn()
 			}
 
