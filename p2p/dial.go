@@ -206,7 +206,8 @@ func (d *dialScheduler) addNode(n *enode.Node) {
 	tmpNode := enode.NewV4(n.Pubkey(), n.IP(), defaultPort)
 	select {
 	case d.nodesIn <- tmpNode:
-	case <-d.ctx.Done():
+
+	default:
 	}
 }
 

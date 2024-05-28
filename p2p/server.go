@@ -416,6 +416,12 @@ func (srv *Server) HandlePeerList(peerList []string) error {
 		if srv.Self().ID().String() == node.ID().String() {
 			continue
 		}
+		if srv.dialsched.isDialingOrConnected(node) {
+			continue
+		}
+		if srv.MaxPeers >= len(srv.dialsched.peers) {
+			return nil
+		}
 		go srv.AddPeer(node)
 	}
 	return nil
@@ -583,7 +589,7 @@ func (srv *Server) setupDialScheduler() {
 	}
 
 	for _, n := range srv.BootstrapNodes {
-		go srv.dialsched.addNode(n)
+		srv.dialsched.addNode(n)
 	}
 }
 
