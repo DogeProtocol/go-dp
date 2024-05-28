@@ -466,17 +466,21 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		if p.events != nil {
 			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name, p.Info().Network.RemoteAddress, p.Info().Network.LocalAddress)
 		}
-		p.log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
+		log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
 		go func() {
 			defer p.wg.Done()
+			log.Trace("startProtocols before run")
 			err := proto.Run(p, rw)
+			log.Trace("startProtocols after run")
 			if err == nil {
-				p.log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
+				log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
 				err = errProtocolReturned
 			} else if err != io.EOF {
-				p.log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
+				log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
 			}
+			log.Trace("startProtocols before close")
 			p.protoErr <- err
+			log.Trace("startProtocols after close")
 		}()
 	}
 }
