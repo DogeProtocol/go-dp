@@ -416,7 +416,7 @@ func (srv *Server) HandlePeerList(peerList []string) error {
 		if srv.Self().ID().String() == node.ID().String() {
 			continue
 		}
-		srv.AddPeer(node)
+		go srv.AddPeer(node)
 	}
 	return nil
 }
@@ -583,7 +583,7 @@ func (srv *Server) setupDialScheduler() {
 	}
 
 	for _, n := range srv.BootstrapNodes {
-		srv.dialsched.addNode(n)
+		go srv.dialsched.addNode(n)
 	}
 }
 
@@ -814,7 +814,7 @@ func (srv *Server) connectNodes() {
 						continue
 					}
 					log.Trace("connectNodes adding node for dialing", "node", node.ID().String())
-					srv.dialsched.addNode(node)
+					go srv.dialsched.addNode(node)
 				}
 				srv.lastConnectNodeTime = time.Now().UnixNano() / int64(time.Millisecond)
 			} else {
