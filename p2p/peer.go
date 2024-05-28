@@ -305,6 +305,8 @@ loop:
 		select {
 		case err = <-readErr:
 			log.Trace("peer readClosed 2", "peer", p.ID().String(), "err", err)
+		default:
+			log.Trace("peer readClosed 3", "peer", p.ID().String())
 		}
 	}
 	if protoClosed == false {
@@ -312,6 +314,8 @@ loop:
 		select {
 		case err = <-p.protoErr:
 			log.Trace("peer protoClosed 2", "peer", p.ID().String(), "err", err)
+		default:
+			log.Trace("peer protoClosed 3", "peer", p.ID().String())
 		}
 	}
 	log.Trace("peer close wait", "peer", p.ID().String())
