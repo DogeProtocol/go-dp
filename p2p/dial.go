@@ -109,9 +109,13 @@ type dialScheduler struct {
 
 	// Everything below here belongs to loop and
 	// should only be accessed by code on the loop goroutine.
-	dialing   map[enode.ID]*dialTask // active tasks
-	peers     map[enode.ID]connFlag  // all connected peers
-	dialPeers int                    // current number of dialed peers
+	dialing        map[enode.ID]*dialTask // active tasks
+	dialingMapLock sync.Mutex
+
+	peers       map[enode.ID]connFlag // all connected peers
+	peerMapLock sync.Mutex
+
+	dialPeers int // current number of dialed peers
 
 	// The static map tracks all static dial tasks. The subset of usable static dial tasks
 	// (i.e. those passing checkDial) is kept in staticPool. The scheduler prefers
@@ -206,8 +210,7 @@ func (d *dialScheduler) addNode(n *enode.Node) {
 	tmpNode := enode.NewV4(n.Pubkey(), n.IP(), defaultPort)
 	select {
 	case d.nodesIn <- tmpNode:
-
-	default:
+	case <-d.ctx.Done():
 	}
 }
 
@@ -272,7 +275,7 @@ loop:
 		case task := <-d.doneCh:
 
 			id := task.dest.ID()
-			delete(d.dialing, id)
+			d.DeleteDialingMapItem(id)
 			d.updateStaticPool(id)
 			d.doneSinceLastLog++
 
@@ -282,7 +285,7 @@ loop:
 				d.dialPeers++
 			}
 			id := c.node.ID()
-			d.peers[id] = c.flags
+			d.SetPeerMapItem(id, c.flags)
 
 			// Remove from static pool because the node is now connected.
 			task := d.static[id]
@@ -298,7 +301,7 @@ loop:
 			if c.is(dynDialedConn) || c.is(staticDialedConn) {
 				d.dialPeers--
 			}
-			delete(d.peers, c.node.ID())
+			d.DeletePeerMapItem(c.node.ID())
 			d.updateStaticPool(c.node.ID())
 
 		case node := <-d.addStaticCh:
@@ -341,7 +344,8 @@ loop:
 
 	d.stopHistoryTimer(historyExp)
 
-	for range d.dialing {
+	dialingItems := d.ListDialingMapItems()
+	for range dialingItems {
 
 		<-d.doneCh
 
@@ -378,7 +382,7 @@ func (d *dialScheduler) logStats() {
 		case <-d.ctx.Done():
 			return
 		case <-d.statsTicker.C:
-			d.log.Info("Peer Stats", "peercount", len(d.peers), "tried recently", d.doneSinceLastLog, "static", len(d.static))
+			d.log.Info("Peer Stats", "peercount", d.GetPeerMapCount(), "tried recently", d.doneSinceLastLog, "static", len(d.static))
 			d.doneSinceLastLog = 0
 			if d.logStatCount < dialStatsResetCount {
 				d.logStatCount = d.logStatCount + 1
@@ -427,7 +431,7 @@ func (d *dialScheduler) freeDialSlots() int {
 	if slots > d.maxActiveDials {
 		slots = d.maxActiveDials
 	}
-	free := slots - len(d.dialing)
+	free := slots - d.GetDialingMapCount()
 	return free
 }
 
@@ -442,10 +446,10 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 		// node and the actual endpoint will be resolved later in dialTask.
 		return errNoPort
 	}
-	if _, ok := d.dialing[n.ID()]; ok {
+	if _, ok := d.GetDialingMapItem(n.ID()); ok {
 		return errAlreadyDialing
 	}
-	if _, ok := d.peers[n.ID()]; ok {
+	if _, ok := d.GetPeerMapItem(n.ID()); ok {
 		return errAlreadyConnected
 	}
 	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
@@ -458,10 +462,10 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 }
 
 func (d *dialScheduler) isDialingOrConnected(n *enode.Node) bool {
-	if _, ok := d.dialing[n.ID()]; ok {
+	if _, ok := d.GetDialingMapItem(n.ID()); ok {
 		return true
 	}
-	if _, ok := d.peers[n.ID()]; ok {
+	if _, ok := d.GetPeerMapItem(n.ID()); ok {
 		return true
 	}
 	return false
@@ -511,11 +515,74 @@ func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
 	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
-	d.dialing[task.dest.ID()] = task
+	d.SetDialingMapItem(task.dest.ID(), task)
 	go func() {
 		task.run(d)
 		d.doneCh <- task
 	}()
+}
+
+func (d *dialScheduler) GetDialingMapItem(id enode.ID) (*dialTask, bool) {
+	d.dialingMapLock.Lock()
+	defer d.dialingMapLock.Unlock()
+	c, ok := d.dialing[id]
+	return c, ok
+
+}
+
+func (d *dialScheduler) SetDialingMapItem(id enode.ID, item *dialTask) {
+	d.dialingMapLock.Lock()
+	defer d.dialingMapLock.Unlock()
+	d.dialing[id] = item
+}
+
+func (d *dialScheduler) GetDialingMapCount() int {
+	d.dialingMapLock.Lock()
+	defer d.dialingMapLock.Unlock()
+	return len(d.dialing)
+}
+
+func (d *dialScheduler) DeleteDialingMapItem(id enode.ID) {
+	d.dialingMapLock.Lock()
+	defer d.dialingMapLock.Unlock()
+	delete(d.dialing, id)
+}
+
+func (d *dialScheduler) ListDialingMapItems() map[enode.ID]*dialTask {
+	d.dialingMapLock.Lock()
+	defer d.dialingMapLock.Unlock()
+
+	tempMap := make(map[enode.ID]*dialTask)
+	for id, item := range d.dialing {
+		tempMap[id] = item
+	}
+
+	return tempMap
+}
+
+func (d *dialScheduler) GetPeerMapItem(id enode.ID) (connFlag, bool) {
+	d.peerMapLock.Lock()
+	defer d.peerMapLock.Unlock()
+	c, ok := d.peers[id]
+	return c, ok
+
+}
+func (d *dialScheduler) SetPeerMapItem(id enode.ID, item connFlag) {
+	d.peerMapLock.Lock()
+	defer d.peerMapLock.Unlock()
+	d.peers[id] = item
+}
+
+func (d *dialScheduler) GetPeerMapCount() int {
+	d.peerMapLock.Lock()
+	defer d.peerMapLock.Unlock()
+	return len(d.peers)
+}
+
+func (d *dialScheduler) DeletePeerMapItem(id enode.ID) {
+	d.peerMapLock.Lock()
+	defer d.peerMapLock.Unlock()
+	delete(d.peers, id)
 }
 
 // A dialTask generated for each node that is dialed.

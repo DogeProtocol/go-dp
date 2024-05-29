@@ -419,7 +419,7 @@ func (srv *Server) HandlePeerList(peerList []string) error {
 		if srv.dialsched.isDialingOrConnected(node) {
 			continue
 		}
-		if srv.MaxPeers >= len(srv.dialsched.peers) {
+		if srv.MaxPeers >= srv.dialsched.GetPeerMapCount() {
 			return nil
 		}
 		go srv.AddPeer(node)
@@ -589,7 +589,8 @@ func (srv *Server) setupDialScheduler() {
 	}
 
 	for _, n := range srv.BootstrapNodes {
-		srv.dialsched.addNode(n)
+		log.Debug("BootstrapNodes addNode", "BootstrapNode", n.ID().String())
+		go srv.dialsched.addNode(n)
 	}
 }
 
@@ -706,7 +707,7 @@ running:
 				// Ensure that the trusted flag is set before checking against MaxPeers.
 				c.flags |= trustedConn
 			}
-			// TODO: track in-progress inbound node IDs (pre-Peer) to avoid dialing them.
+			// TODO: track in-pr	ogress inbound node IDs (pre-Peer) to avoid dialing them.
 			c.cont <- srv.postHandshakeChecks(peers, inboundCount, c)
 
 		case c := <-srv.checkpointAddPeer:
@@ -789,7 +790,7 @@ func (srv *Server) connectNodes() {
 			return
 		case <-srv.connectNodesTicker.C:
 			shouldQuery := false
-			dialPeerCount := len(srv.dialsched.peers)
+			dialPeerCount := srv.dialsched.GetPeerMapCount()
 			log.Trace("connectNodes start", "dialPeerCount", dialPeerCount, "lastConnectNodeTime", srv.lastConnectNodeTime)
 			if srv.lastConnectNodeTime == 0 {
 				log.Trace("connectNodes A", "dialPeerCount", dialPeerCount)
@@ -797,7 +798,7 @@ func (srv *Server) connectNodes() {
 			} else if dialPeerCount == 0 {
 				log.Trace("connectNodes B", "dialPeerCount", dialPeerCount)
 				shouldQuery = true
-			} else if len(srv.dialsched.peers) < srv.Config.MaxPeers && util.ElapsedSeconds(srv.lastConnectNodeTime) >= minConnectNodesAtSteadyStateSeconds {
+			} else if dialPeerCount < srv.Config.MaxPeers && util.ElapsedSeconds(srv.lastConnectNodeTime) >= minConnectNodesAtSteadyStateSeconds {
 				log.Trace("connectNodes C", "dialPeerCount", dialPeerCount)
 				shouldQuery = true
 			} else {
@@ -805,7 +806,7 @@ func (srv *Server) connectNodes() {
 			}
 
 			if shouldQuery {
-				log.Trace("connectNodesTicker start")
+				log.Trace("connectNodesTicker start", "MaxPeers", srv.Config.MaxPeers)
 				nodes := srv.nodedb.QueryNodes(srv.Config.MaxPeers, staleNodeMaxAgeInterval)
 				if nodes == nil {
 					log.Trace("QueryNodes is nil")
@@ -842,7 +843,7 @@ func (srv *Server) peerLoop() {
 		case <-srv.quit:
 			return
 		case <-srv.peerTicker.C:
-			if len(srv.dialsched.peers) < srv.Config.MaxPeers {
+			if srv.dialsched.GetPeerMapCount() < srv.Config.MaxPeers {
 				srv.requestPeersFn()
 			}
 
