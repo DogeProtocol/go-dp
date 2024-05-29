@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"testing"
+	"time"
 )
 
 func Test_Temp(t *testing.T) {
@@ -15,4 +16,11 @@ func Test_Temp(t *testing.T) {
 	fmt.Println(tempData)
 
 	fmt.Println(common.Hex2Bytes("731f750d43dc0fb62f1251286479ed4f420f30d4ec593422dff43936b7df49a8036c6864"))
+}
+
+func Test_Util(t *testing.T) {
+	start := time.Now().UnixNano() / int64(time.Millisecond)
+	time.Sleep(15 * time.Second)
+	elapsedSeconds := ElapsedSeconds(start)
+	fmt.Println("elapsedSeconds", elapsedSeconds)
 }

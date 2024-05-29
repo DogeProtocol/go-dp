@@ -19,7 +19,6 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	util "github.com/DogeProtocol/dp/tools"
 	"io"
 	"net"
 	"sort"
@@ -46,9 +45,7 @@ const (
 
 	snappyProtocolVersion = 5
 
-	pingInterval       = 15 * time.Second
-	resetInterval      = 180 * time.Second
-	stalenessThreshold = int64(180000 * time.Millisecond)
+	pingInterval = 15 * time.Second
 )
 
 const (
@@ -121,9 +118,8 @@ type Peer struct {
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
 
-	lastMsgReceiveTime time.Time
-
-	statLock sync.Mutex
+	disconnectTriggerTime time.Time
+	peerLock              sync.Mutex
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -242,27 +238,34 @@ func (p *Peer) Log() log.Logger {
 }
 
 func (p *Peer) run() (remoteRequested bool, err error) {
+	log.Debug("peer run before unlock", "peer", p.ID().String())
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+	log.Debug("peer run after unlock", "peer", p.ID().String())
+
 	var (
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
 		readErr    = make(chan error, 1)
-		staleErr   = make(chan error, 1)
 		reason     DiscReason // sent to the peer
 	)
+
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
-	go p.resetLoop(staleErr)
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
+	readClosed := false
+	protoClosed := false
 
 	// Wait for an error or disconnect.
 loop:
 	for {
 		select {
 		case err = <-writeErr:
+			log.Trace("peer run writeErr", "peer", p.ID().String())
 			// A write finished. Allow the next write to start if
 			// there was no error.
 			if err != nil {
@@ -271,123 +274,129 @@ loop:
 			}
 			writeStart <- struct{}{}
 		case err = <-readErr:
+			log.Trace("peer run readErr", "peer", p.ID().String())
 			if r, ok := err.(DiscReason); ok {
 				remoteRequested = true
 				reason = r
 			} else {
 				reason = DiscNetworkError
 			}
-			break loop
-		case err = <-staleErr:
-			reason = DiscUselessPeer
+			readClosed = true
 			break loop
 		case err = <-p.protoErr:
+			log.Trace("peer run protoErr", "peer", p.ID().String())
 			reason = discReasonForError(err)
+			protoClosed = true
 			break loop
 		case err = <-p.disc:
+			log.Trace("peer run disc", "peer", p.ID().String())
 			reason = discReasonForError(err)
 			break loop
 		}
 	}
 
+	log.Trace("peer close 1", "peer", p.ID().String())
 	close(p.closed)
+	log.Trace("peer close 2", "peer", p.ID().String())
 	p.rw.close(reason)
+	log.Trace("peer close 3", "peer", p.ID().String())
+	if readClosed == false {
+		log.Trace("peer readClosed 1", "peer", p.ID().String())
+		select {
+		case err = <-readErr:
+			log.Trace("peer readClosed 2", "peer", p.ID().String(), "err", err)
+		default:
+			log.Trace("peer readClosed 3", "peer", p.ID().String())
+		}
+	}
+	if protoClosed == false {
+		log.Trace("peer protoClosed 1", "peer", p.ID().String())
+		select {
+		case err = <-p.protoErr:
+			log.Trace("peer protoClosed 2", "peer", p.ID().String(), "err", err)
+		default:
+			log.Trace("peer protoClosed 3", "peer", p.ID().String())
+		}
+	}
+	log.Trace("peer close wait", "peer", p.ID().String())
 	p.wg.Wait()
+	log.Trace("peer close done", "peer", p.ID().String())
 	return remoteRequested, err
 }
 
 func (p *Peer) pingLoop() {
 	ping := time.NewTimer(pingInterval)
-	defer p.wg.Done()
 	defer ping.Stop()
 	for {
 		select {
 		case <-ping.C:
+			log.Trace("pingLoop start", "peer", p.ID().String())
 			if err := SendItems(p.rw, pingMsg); err != nil {
-				log.Trace("pingLoop error", "peer", p.RemoteAddr().String(), "error", err)
+				log.Trace("pingLoop error before", "peer", p.ID().String(), "error", err)
 				p.protoErr <- err
+				log.Trace("pingLoop error before done", "peer", p.ID().String(), "error", err)
+				p.wg.Done()
+				log.Trace("pingLoop error after done", "peer", p.ID().String(), "error", err)
 				return
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
+			log.Debug("pingLoop closed before done", "peer", p.ID().String())
+			p.wg.Done()
+			log.Debug("pingLoop closed after done", "peer", p.ID().String())
 			return
 		}
 	}
 }
 
 func (p *Peer) readLoop(errc chan<- error) {
-	defer p.wg.Done()
 	for {
+		log.Trace("readLoop ReadMsg", "peer", p.ID().String())
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
-			log.Trace("readLoop ReadMsg err", "peer", p.RemoteAddr().String(), "error", err)
+			log.Trace("readLoop ReadMsg err before", "peer", p.ID().String(), "error", err)
 			errc <- err
+			log.Trace("readLoop ReadMsg err before done", "peer", p.ID().String(), "error", err)
+			p.wg.Done()
+			log.Trace("readLoop ReadMsg err after done", "peer", p.ID().String(), "error", err)
 			return
 		}
+		log.Trace("readLoop handle", "peer", p.ID().String())
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
-			log.Trace("readLoop handle err", "peer", p.RemoteAddr().String(), "error", err)
+			log.Debug("readLoop handle err before", "peer", p.ID().String(), "error", err)
 			errc <- err
-			return
-		}
-		p.onReceiveStat()
-	}
-}
-
-func (p *Peer) resetLoop(errc chan<- error) {
-	resetTimer := time.NewTimer(resetInterval)
-	defer resetTimer.Stop()
-	for {
-		select {
-		case <-resetTimer.C:
-			err := p.resetifStale()
-			if err != nil {
-				log.Warn("Peer Reset", "error", err, "peer", p.RemoteAddr().String())
-				errc <- err
-				return
-			}
-		case <-p.closed:
+			log.Debug("readLoop handle err before done", "peer", p.ID().String(), "error", err)
+			p.wg.Done()
+			log.Debug("readLoop handle err after done", "peer", p.ID().String(), "error", err)
 			return
 		}
 	}
-
-}
-
-func (p *Peer) resetifStale() error {
-	p.statLock.Lock()
-	defer p.statLock.Unlock()
-
-	if util.Elapsed(p.lastMsgReceiveTime) >= stalenessThreshold {
-		return errors.New("no messages received beyond staleness threshold")
-	}
-
-	return nil
-}
-
-func (p *Peer) onReceiveStat() {
-	p.statLock.Lock()
-	defer p.statLock.Unlock()
-	p.lastMsgReceiveTime = time.Now()
 }
 
 func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
+		log.Trace("hanndle pingMsg", "peer", p.ID().String())
 		msg.Discard()
 		go SendItems(p.rw, pongMsg)
 	case msg.Code == discMsg:
+		log.Trace("hanndle discMsg", "peer", p.ID().String())
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
 		rlp.Decode(msg.Payload, &reason)
 		return reason[0]
 	case msg.Code < baseProtocolLength:
+		log.Trace("hanndle baseProtocolLength", "peer", p.ID().String())
 		// ignore other base protocol messages
 		return msg.Discard()
 	default:
+		log.Trace("hanndle default", "peer", p.ID().String())
 		// it's a subprotocol message
 		proto, err := p.getProto(msg.Code)
 		if err != nil {
+			log.Trace("hanndle code out of rang", "peer", p.ID().String())
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
 		if metrics.Enabled {
@@ -397,11 +406,14 @@ func (p *Peer) handle(msg Msg) error {
 		}
 		select {
 		case proto.in <- msg:
+			log.Trace("handle in", "peer", p.ID().String())
 			return nil
 		case <-p.closed:
+			log.Trace("handle closed", "peer", p.ID().String())
 			return io.EOF
 		}
 	}
+	log.Trace("handle other", "peer", p.ID().String())
 	return nil
 }
 
@@ -444,6 +456,7 @@ outer:
 
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	p.wg.Add(len(p.running))
+	log.Trace("startProtocols", "peer", p.ID().String(), "running len", len(p.running))
 	for _, proto := range p.running {
 		proto := proto
 		proto.closed = p.closed
@@ -453,17 +466,21 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		if p.events != nil {
 			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name, p.Info().Network.RemoteAddress, p.Info().Network.LocalAddress)
 		}
-		p.log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
+		log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
 		go func() {
 			defer p.wg.Done()
+			log.Trace("startProtocols before run")
 			err := proto.Run(p, rw)
+			log.Trace("startProtocols after run")
 			if err == nil {
-				p.log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
+				log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
 				err = errProtocolReturned
 			} else if err != io.EOF {
-				p.log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
+				log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
 			}
+			log.Trace("startProtocols before close")
 			p.protoErr <- err
+			log.Trace("startProtocols after close")
 		}()
 	}
 }
@@ -490,8 +507,9 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
+	log.Trace("WriteMsg")
 	if msg.Code >= rw.Length {
-		fmt.Println("WriteMsg code", msg.Code, "length", rw.Length, "Version", rw.Version)
+		log.Trace("WriteMsg code", msg.Code, "length", rw.Length, "Version", rw.Version)
 		panic("unexpected msgcode") //todo: fix
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
@@ -509,17 +527,20 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 		// as well but we don't want to rely on that.
 		rw.werr <- err
 	case <-rw.closed:
+		log.Trace("WriteMsg closed")
 		err = ErrShuttingDown
 	}
 	return err
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
+	log.Trace("ReadMsg")
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset
 		return msg, nil
 	case <-rw.closed:
+		log.Trace("ReadMsg closed")
 		return Msg{}, io.EOF
 	}
 }
