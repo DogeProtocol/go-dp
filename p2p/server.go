@@ -411,17 +411,22 @@ func (srv *Server) HandlePeerList(peerList []string) error {
 	for _, peerEnr := range peerList {
 		node, err := enode.ParseNode(peerEnr)
 		if err != nil {
+			log.Trace("HandlePeerList ParseNode", "error", err)
 			continue
 		}
 		if srv.Self().ID().String() == node.ID().String() {
+			log.Trace("HandlePeerList self")
 			continue
 		}
 		if srv.dialsched.isDialingOrConnected(node) {
+			log.Trace("isDialingOrConnected yes", "peer", node.ID().String())
 			continue
 		}
-		if srv.MaxPeers >= srv.dialsched.GetPeerMapCount() {
+		if srv.dialsched.GetPeerMapCount() >= srv.MaxPeers {
+			log.Trace("isDialingOrConnected exceeds MaxPeers")
 			return nil
 		}
+		log.Trace("isDialingOrConnected exceeds MaxPeers", "AddPeer", node.ID().String())
 		go srv.AddPeer(node)
 	}
 	return nil
