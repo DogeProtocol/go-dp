@@ -48,7 +48,7 @@ const (
 	clientIdentifier = "geth" // Client identifier to advertise over the network
 )
 
-const VERSION_NUMBER = "v2.0.40"
+const VERSION_NUMBER = "v2.0.42"
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
