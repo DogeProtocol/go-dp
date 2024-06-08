@@ -1,0 +1,186 @@
+openapi: 3.0.1
+info:
+  title: QC Read API
+  version: v1
+paths:
+  '/accounts/{address}':
+    get:
+      tags:
+        - ReadApi
+      summary: Get account details
+      operationId: GetAccountDetails
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: the string representing the address
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailsResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '429':
+          description: Request was throttled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '503':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+
+  '/transaction/{hash}':
+    get:
+      tags:
+        - ReadApi
+      summary: Get Transaction
+      operationId: GetTransaction
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          description: The transaction hash
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '429':
+          description: Request was throttled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '503':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+
+components:
+  schemas:
+    AccountDetails:
+      type: object
+      properties:
+        balance:
+          type: string
+          nullable: true
+        nonce:
+          type: number
+          format: int64
+          nullable: false
+        blockNumber:
+          type: number
+          format: int64
+          nullable: false
+          description: The block number as of which the details were retrieved
+      additionalProperties: false
+    AccountDetailsResponse:
+      type: object
+      properties:
+        result:
+          allOf:
+            - $ref: '#/components/schemas/AccountDetails'
+      additionalProperties: false
+    TransactionDetails:
+      type: object
+      properties:
+        blockHash:
+          type: string
+          nullable: true
+          description: The hash of the block in which the transaction was executed. If this transaction is pending or was discarded, this will be null.
+        blockNumber:
+          type: number
+          format: int64
+          nullable: true
+          description: The number of the block in which the transaction was executed. If this transaction is pending or was discarded, this will be null.
+        from:
+          type: string
+          nullable: false
+        gas:
+          type: string
+          nullable: false
+        gasPrice:
+          type: string
+          nullable: false
+        hash:
+          type: string
+          nullable: false
+        input:
+          type: string
+          nullable: false
+        nonce:
+          type: object
+          format: int64
+          nullable: false
+        to:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: false
+        receipt:
+          $ref: '#/components/schemas/TransactionReceipt'
+      additionalProperties: false
+    TransactionResponse:
+      type: object
+      properties:
+        result:
+          $ref: '#/components/schemas/TransactionDetails'
+      additionalProperties: false
+    TransactionReceipt:
+      type: object
+      properties:
+        cumulativeGasUsed:
+          type: string
+          nullable: false
+        effectiveGasPrice:
+          type: string
+          nullable: false
+        gasUsed:
+          type: string
+          nullable: false
+        status:
+          type: string
+          nullable: false
+        hash:
+          type: string
+          nullable: false
+        type:
+          type: string
+          nullable: false
+      additionalProperties: false
+    ErrorResponseModel:
+      type: object
+      properties:
+        message:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+      additionalProperties: false
