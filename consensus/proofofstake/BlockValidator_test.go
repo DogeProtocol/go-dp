@@ -34,7 +34,7 @@ func largeNumber(megabytes int) *big.Int {
 	return bigint
 }
 
-func TestNilNegative(t *testing.T) {
+func TestBlock_NilNegative(t *testing.T) {
 
 	//Case 1
 	BlockNilTest(nil, nil, t, "ValidateBlockConsensusData nil")
@@ -101,7 +101,7 @@ func BlockNilTest(blockConsensusData *BlockConsensusData, blockAdditionalConsens
 
 	block := types.NewBlock(header, txs[:], receipts, trie.NewStackTrie(nil))
 	valMap := make(map[common.Address]*big.Int)
-	err := ValidateBlockConsensusData(block, &valMap)
+	err := ValidateBlockConsensusData(block, &valMap, nil)
 	if err == nil || strings.Compare(err.Error(), expectedError) != 0 {
 		debug.PrintStack()
 		t.Fatalf("BlockNilTest failed")

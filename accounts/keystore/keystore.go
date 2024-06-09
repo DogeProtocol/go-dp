@@ -272,6 +272,18 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 	return cryptobase.SigAlg.Sign(hash, unlockedKey.PrivateKey)
 }
 
+func (ks *KeyStore) SignHashWithContext(a accounts.Account, hash []byte, context []byte) ([]byte, error) {
+	// Look up the key to sign with and abort if it cannot be found
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	unlockedKey, found := ks.unlocked[a.Address]
+	if !found {
+		return nil, ErrLocked
+	}
+	return cryptobase.SigAlg.SignWithContext(hash, unlockedKey.PrivateKey, context)
+}
+
 // SignTx signs the given transaction with the requested account.
 func (ks *KeyStore) SignTx(a accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Look up the key to sign with and abort if it cannot be found

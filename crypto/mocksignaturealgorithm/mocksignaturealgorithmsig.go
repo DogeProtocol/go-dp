@@ -259,6 +259,10 @@ func (s MockSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (si
 	return common.CombineTwoParts(sigBytes, pubBytes), nil
 }
 
+func (s MockSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s MockSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {
@@ -275,6 +279,10 @@ func (s MockSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool
 	} else {
 		return false
 	}
+}
+
+func (s MockSig) VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool {
+	return false
 }
 
 func (s MockSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error) {
@@ -324,6 +332,10 @@ func (s MockSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signatu
 		return nil, err
 	}
 	return s.DeserializePublicKey(b)
+}
+
+func (s MockSig) PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*signaturealgorithm.PublicKey, error) {
+	return nil, errors.New("not implemented")
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with

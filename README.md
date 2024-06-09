@@ -1,6 +1,6 @@
 ## Go DP
 
-go-dp is a Golang implementation of the Doge Protocol blockchain node client. This is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with additions such as post quantum cryptography.
+go-dp is a Golang implementation of the Doge Protocol blockchain node client. This is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum). DP quantum coin is a quantum resistant blockchain.
 
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/bbbMPyzJTM)
 
@@ -63,36 +63,28 @@ Check the [documentation](https://dpdocs.org) portal for information on running 
 
 go-dp is a fork of the Go Ethereum Client (go-ethereum) with the following changes:
 
-1) Hybrid-PQC that uses a mix of EdDSA and Falcon which is a NIST standardized post-quantum digital signature scheme, is used to secure accounts. This is a change from using ECDSA which is vulnerable to quantum computers (Shor's algorithm).
+1) [Hybrid-PQC](https://github.com/DogeProtocol/hybrid-pqc) that uses a combiner of Dilithium, ed25519 and SPHINCS+ in breakglass mode, is used to secure accounts. This is a change from Ethereum which is vulnerable to quantum computers (Shor's algorithm).
 
 2) Kyber, which is a post-quantum KEM scheme, is used to secure inter-node communication.
 
 3) These cryptographic schemes have been added in the following package:
    (https://github.com/DogeProtocol/go-dp/tree/dogep/crypto)
 
-4) UDP Discovery Protocol has been updated to use session based error correction (Reed Solomon Codes) using the [KCP GO](https://github.com/xtaci/kcp-go) library.
-The discovery protocol in Ethereum relies on a single datagram packet size being smaller than commonly accepted MTU size. 
-Since post-quantum cryptography scheme public-keys such as that of Falcon are large, they will not fit into a single UDP packet. 
-Hence this change to session based UDP has been made in Doge Protocol. These changes are in (https://github.com/DogeProtocol/go-dp/tree/dogep/p2p/discover)
+4) Addresses are 32 bytes instead of 20 bytes in Ethereum, for increased security.
 
 5) RLPX Protocol has been completely rewritten and modularized, to use post-quantum cryptography model; the final client and server encryption keys 
-are derived similar to TLS as detailed in RFC 8446. NTRU HRSS is used for key exchange and the key material thus derived 
+are derived similar to TLS as detailed in RFC 8446. Kyber is used for key exchange and the key material thus derived 
 is used as input to HMAC HKDF functions (RFC 5869). However, unlike TLS, instead of trusting the certificate, 
-the key of the other node is instead trusted. The private key corresponds to the Falcon key-pair used to secure the account 
-using digital signatures. Since Falcon is susceptible to timing attacks, 
-future iterations may switch to Dilithium for securing inter-node communication, while account security is maintained with Falcon.
-These changes are at (https://github.com/DogeProtocol/go-dp/tree/dogep/p2p/rlpx)
+the key of the other node is instead trusted. The private key corresponds to the hybrid pqc key-pair used to secure the account 
+using digital signatures. These changes are at (https://github.com/DogeProtocol/go-dp/tree/dogep/p2p/rlpx)
 
-6) A new consensus engine (Proof-of-Stake) has been added, along with Withdraw and Deposit tools. Only part of the proof-of-stake implementation is complete, the remaining is work-in-progress. 
-
-7) Testnet command line tools for periodically creating test transactions, smart contracts etc. have been added.  
+6) A new consensus engine (Proof-of-Stake) has been added.  It uses 3 phase BFT consensus, for deterministic finality. The timeout values are adjusted to improve liveness, within the bounds of FLP theorm.
 
 ## Known Issues
 
 1) Commits to fix tests are pending sanitization, before merge.
-2) The transaction metadata contains values names 'v', 'r', 's'; these are specific to ECDSA, a carry-over from the Ethereum codebase.
+2) The transaction metadata contains values names 'v', 'r', 's'; these are specific to Ethereum.
 These values can be used for public key recovery from the transaction metadata in Ethereum. 
-These variables will be removed in forthcoming testnets because the cryptography scheme used in Doge Protocol is Falcon (for quantum resistance).
 
 ## Contributing
 

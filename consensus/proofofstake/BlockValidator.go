@@ -6,6 +6,7 @@ import (
 	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/crypto"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
+	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
@@ -21,7 +22,8 @@ type PacketMap struct {
 	commitDetailsMap      map[common.Address]*CommitDetails
 }
 
-func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.ConsensusPacket, filteredValidatorDepositMap map[common.Address]*big.Int) (packetRoundMap map[byte]*PacketMap, err error) {
+func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.ConsensusPacket, filteredValidatorDepositMap map[common.Address]*big.Int,
+	blockNumber uint64, validatorDetailsMap *map[common.Address]*ValidatorDetailsV2) (packetRoundMap map[byte]*PacketMap, err error) {
 	packetRoundMap = make(map[byte]*PacketMap)
 
 	packets := *consensusPackets
@@ -36,12 +38,27 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 
 		dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 		digestHash := crypto.Keccak256(dataToVerify)
-		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
-		if err != nil {
-			return nil, err
-		}
-		if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
-			return nil, InvalidPacketErr
+		var pubKey *signaturealgorithm.PublicKey
+		var err error
+
+		packetType := ConsensusPacketType(packet.ConsensusData[0])
+		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
+			pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
+			if err != nil {
+				return nil, InvalidPacketErr
+			}
+
+			if cryptobase.SigAlg.VerifyWithContext(pubKey.PubData, digestHash, packet.Signature, []byte{crypto.DILITHIUM_ED25519_SPHINCS_FULL_ID}) == false {
+				return nil, InvalidPacketErr
+			}
+		} else {
+			pubKey, err = cryptobase.SigAlg.PublicKeyFromSignature(digestHash, packet.Signature)
+			if err != nil {
+				return nil, err
+			}
+			if cryptobase.SigAlg.Verify(pubKey.PubData, digestHash, packet.Signature) == false {
+				return nil, InvalidPacketErr
+			}
 		}
 
 		validator, err := cryptobase.SigAlg.PublicKeyToAddress(pubKey)
@@ -55,7 +72,6 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 			return nil, errors.New("validator not part of block")
 		}
 
-		packetType := ConsensusPacketType(packet.ConsensusData[0])
 		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
 			details := ProposalDetails{}
 
@@ -68,7 +84,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 				return nil, errors.New("invalid round d")
 			}
 
-			blockProposer, err := getBlockProposer(parentHash, &filteredValidatorDepositMap, details.Round)
+			blockProposer, err := getBlockProposer(parentHash, &filteredValidatorDepositMap, details.Round, validatorDetailsMap, blockNumber)
 			if err != nil {
 				return nil, err
 			}
@@ -351,7 +367,7 @@ func ValidatePackets(parentHash common.Hash, round byte, packetMap *PacketMap, v
 }
 
 func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash, blockConsensusData *BlockConsensusData, blockAdditionalConsensusData *BlockAdditionalConsensusData,
-	validatorDepositMap *map[common.Address]*big.Int) error {
+	validatorDepositMap *map[common.Address]*big.Int, blockNumber uint64, valDetailsMap *map[common.Address]*ValidatorDetailsV2) error {
 	if blockConsensusData.Round < 1 {
 		return errors.New("ValidateBlockConsensusData round min")
 	}
@@ -397,9 +413,22 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 		filteredValidatorDepositMap[v] = valMap[v]
 	}
 
+	if blockNumber >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
+		for valAddr, valDetails := range *valDetailsMap {
+			if valDetails.IsValidationPaused {
+				delete(*valDetailsMap, valAddr)
+				continue
+			}
+			_, ok := filteredValidatorDepositMap[valAddr]
+			if ok == false {
+				delete(*valDetailsMap, valAddr)
+			}
+		}
+	}
+
 	roundBlockValidators := make(map[byte]common.Address)
 	for r := byte(1); r <= blockConsensusData.Round; r++ {
-		roundBlockValidators[r], err = getBlockProposer(parentHash, &filteredValidatorDepositMap, r)
+		roundBlockValidators[r], err = getBlockProposer(parentHash, &filteredValidatorDepositMap, r, valDetailsMap, blockNumber)
 		if err != nil {
 			return err
 		}
@@ -410,7 +439,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 		return errors.New("nil ConsensusPackets")
 	}
 
-	packetRoundMap, err := ParseConsensusPackets(parentHash, &blockAdditionalConsensusData.ConsensusPackets, filteredValidatorDepositMap)
+	packetRoundMap, err := ParseConsensusPackets(parentHash, &blockAdditionalConsensusData.ConsensusPackets, filteredValidatorDepositMap, blockNumber, valDetailsMap)
 	if err != nil {
 		return err
 	}
@@ -546,7 +575,7 @@ func ValidateBlockProposalTime(blockNumber uint64, proposedTime uint64) bool {
 	return true
 }
 
-func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[common.Address]*big.Int) error {
+func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[common.Address]*big.Int, valDetailsMap *map[common.Address]*ValidatorDetailsV2) error {
 	header := block.Header()
 
 	if header.ConsensusData == nil || header.UnhashedConsensusData == nil {
@@ -589,5 +618,5 @@ func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[com
 		return errors.New("ValidateBlockProposalTime failed")
 	}
 
-	return ValidateBlockConsensusDataInner(txnList, header.ParentHash, blockConsensusData, blockAdditionalConsensusData, validatorDepositMap)
+	return ValidateBlockConsensusDataInner(txnList, header.ParentHash, blockConsensusData, blockAdditionalConsensusData, validatorDepositMap, header.Number.Uint64(), valDetailsMap)
 }

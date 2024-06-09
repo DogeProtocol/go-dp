@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/crypto"
+	"github.com/DogeProtocol/dp/crypto/hybridedsfull"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"golang.org/x/crypto/sha3"
 	"io"
@@ -38,9 +39,12 @@ type HybridedsSig struct {
 	signatureLength              int
 	signatureWithPublicKeyLength int
 	NativeGolangVerify           bool
+	fullSigAlg                   *hybridedsfull.HybridedsfullSig
 }
 
 func CreateHybridedsSig(mativeGolangVerify bool) HybridedsSig {
+	fullSigAlg := hybridedsfull.CreateHybridedsfullSig()
+
 	return HybridedsSig{sigName: SIG_NAME,
 		publicKeyBytesIndexStart:     12,
 		publicKeyLength:              CRYPTO_PUBLICKEY_BYTES,
@@ -48,6 +52,7 @@ func CreateHybridedsSig(mativeGolangVerify bool) HybridedsSig {
 		signatureLength:              CRYPTO_SIGNATURE_BYTES,
 		signatureWithPublicKeyLength: CRYPTO_PUBLICKEY_BYTES + CRYPTO_SIGNATURE_BYTES + common.LengthByteSize + common.LengthByteSize,
 		NativeGolangVerify:           mativeGolangVerify,
+		fullSigAlg:                   &fullSigAlg,
 	}
 }
 
@@ -256,7 +261,16 @@ func (s HybridedsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey
 	return combinedSignature, nil
 }
 
+func (s HybridedsSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return s.fullSigAlg.SignWithContext(digestHash, prv, context)
+}
+
+func (s HybridedsSig) VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool {
+	return s.fullSigAlg.VerifyWithContext(pubKey, digestHash, signature, context)
+}
+
 func (s HybridedsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
+
 	if s.NativeGolangVerify {
 		return s.VerifyNative(pubKey, digestHash, signature)
 	}
@@ -402,6 +416,10 @@ func (s HybridedsSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*si
 		return nil, err
 	}
 	return s.DeserializePublicKey(b)
+}
+
+func (s HybridedsSig) PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*signaturealgorithm.PublicKey, error) {
+	return s.fullSigAlg.PublicKeyFromSignatureWithContext(digestHash, sig, context)
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with

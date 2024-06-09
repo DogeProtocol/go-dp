@@ -521,11 +521,6 @@ func handleConsensus(backend Backend, msg Decoder, peer *Peer) error {
 		return err
 	}
 
-	// Block Proposal Transactions arrived, make sure we have a valid and fresh chain to handle them
-	if !backend.AcceptTxs() {
-		return nil
-	}
-
 	// Transactions can be processed, parse all of them and deliver to the pool
 	var packet ConsensusPacket
 	if err := msg.Decode(&packet); err != nil {
@@ -542,11 +537,6 @@ func handleRequestConsensus(backend Backend, msg Decoder, peer *Peer) error {
 	_, err := peer.Node().Address()
 	if err != nil {
 		return err
-	}
-
-	// Block Proposal Transactions arrived, make sure we have a valid and fresh chain to handle them
-	if !backend.AcceptTxs() {
-		return nil
 	}
 
 	// Transactions can be processed, parse all of them and deliver to the pool

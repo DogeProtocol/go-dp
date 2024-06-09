@@ -78,6 +78,9 @@ type Engine interface {
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainHeaderReader, header *types.Header) error
 
+	//Changes a header befpre applying transactions on a downloaded block
+	PostPare(chain ChainHeaderReader, header *types.Header) error
+
 	// HandleTransactions selects the transactions for including in the block according to the consensus rules.
 	HandleTransactions(chain ChainHeaderReader, header *types.Header, state *state.StateDB, txnMap map[common.Address]types.Transactions) (map[common.Address]types.Transactions, error)
 

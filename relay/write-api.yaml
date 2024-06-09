@@ -1,0 +1,66 @@
+openapi: 3.0.1
+info:
+  title: QC Write API
+  version: v1
+paths:
+  '/transactions':
+    post:
+      tags:
+        - WriteApi
+      summary: Send Transaction
+      operationId: SendTransaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                txnData:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionSummaryResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '429':
+          description: The request was throttled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '503':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+components:
+  schemas:
+    TransactionSummaryResponse:
+      type: object
+      properties:
+        hash:
+          type: string
+          nullable: false
+        metadata:
+          type: object
+          nullable: false
+      additionalProperties: false
+    ErrorResponseModel:
+      type: object
+      properties:
+        message:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+      additionalProperties: false

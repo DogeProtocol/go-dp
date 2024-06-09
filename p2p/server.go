@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/DogeProtocol/dp/crypto/cryptobase"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
+	util "github.com/DogeProtocol/dp/tools"
 	"net"
 	"sort"
 	"sync"
@@ -61,18 +62,14 @@ const (
 	frameReadTimeout = 60 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 60 * time.Second
-
-	maxPeers = 32
-
+	frameWriteTimeout        = 60 * time.Second
 	startPeerLookupLoopCount = 30
 	startPeerLookupInterval  = 10 * time.Second
 	peerLookupInterval       = 300 * time.Second
 
-	connectNodesLoopCount     = 10
-	startConnectNodesInterval = 30 * time.Second
-	connectnodesInterval      = 300 * time.Second
-	staleNodeMaxAgeInterval   = 72 * time.Hour
+	connectNodesInterval                = 30 * time.Second
+	staleNodeMaxAgeInterval             = 72 * time.Hour
+	minConnectNodesAtSteadyStateSeconds = 300
 )
 
 var errServerStopped = errors.New("server stopped")
@@ -214,8 +211,8 @@ type Server struct {
 	peerLoopCount  uint16
 	peerConnCh     chan *enode.Node
 
-	connectNodesTicker    *time.Ticker
-	connectNodesLoopCount uint16
+	connectNodesTicker  *time.Ticker
+	lastConnectNodeTime int64
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -414,12 +411,23 @@ func (srv *Server) HandlePeerList(peerList []string) error {
 	for _, peerEnr := range peerList {
 		node, err := enode.ParseNode(peerEnr)
 		if err != nil {
+			log.Trace("HandlePeerList ParseNode", "error", err)
 			continue
 		}
 		if srv.Self().ID().String() == node.ID().String() {
+			log.Trace("HandlePeerList self")
 			continue
 		}
-		srv.AddPeer(node)
+		if srv.dialsched.isDialingOrConnected(node) {
+			log.Trace("isDialingOrConnected yes", "peer", node.ID().String())
+			continue
+		}
+		if srv.dialsched.GetPeerMapCount() >= srv.MaxPeers {
+			log.Trace("isDialingOrConnected exceeds MaxPeers")
+			return nil
+		}
+		log.Trace("isDialingOrConnected exceeds MaxPeers", "AddPeer", node.ID().String())
+		go srv.AddPeer(node)
 	}
 	return nil
 }
@@ -461,6 +469,8 @@ func (srv *Server) Start() (err error) {
 	if srv.NoDial && srv.ListenAddr == "" {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
+
+	log.Info("Starting server", "maxPeers", srv.Config.MaxPeers)
 
 	// static fields
 	if srv.PrivateKey == nil {
@@ -584,7 +594,8 @@ func (srv *Server) setupDialScheduler() {
 	}
 
 	for _, n := range srv.BootstrapNodes {
-		srv.dialsched.addNode(n)
+		log.Debug("BootstrapNodes addNode", "BootstrapNode", n.ID().String())
+		go srv.dialsched.addNode(n)
 	}
 }
 
@@ -646,6 +657,7 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 // run is the main loop of the server.
 func (srv *Server) run() {
 	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4())
+
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
 	defer srv.discmix.Close()
@@ -700,7 +712,7 @@ running:
 				// Ensure that the trusted flag is set before checking against MaxPeers.
 				c.flags |= trustedConn
 			}
-			// TODO: track in-progress inbound node IDs (pre-Peer) to avoid dialing them.
+			// TODO: track in-pr	ogress inbound node IDs (pre-Peer) to avoid dialing them.
 			c.cont <- srv.postHandshakeChecks(peers, inboundCount, c)
 
 		case c := <-srv.checkpointAddPeer:
@@ -711,7 +723,7 @@ running:
 				// The handshakes are done and it passed all checks.
 				p := srv.launchPeer(c)
 				peers[c.node.ID()] = p
-				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name())
+				log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID().String(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name())
 				srv.dialsched.peerAdded(c)
 				if p.Inbound() {
 					inboundCount++
@@ -723,7 +735,7 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
-			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err)
+			log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID().String(), "duration", d, "req", pd.requested, "err", pd.err)
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
 				inboundCount--
@@ -775,32 +787,53 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 }
 
 func (srv *Server) connectNodes() {
-	srv.connectNodesTicker = time.NewTicker(startConnectNodesInterval)
+	srv.connectNodesTicker = time.NewTicker(connectNodesInterval)
 	defer srv.connectNodesTicker.Stop()
 	for {
 		select {
 		case <-srv.quit:
 			return
 		case <-srv.connectNodesTicker.C:
-			if len(srv.dialsched.peers) < maxPeers {
-				nodes := srv.nodedb.QueryNodes(maxPeers, staleNodeMaxAgeInterval)
+			shouldQuery := false
+			dialPeerCount := srv.dialsched.GetPeerMapCount()
+			log.Trace("connectNodes start", "dialPeerCount", dialPeerCount, "lastConnectNodeTime", srv.lastConnectNodeTime)
+			if srv.lastConnectNodeTime == 0 {
+				log.Trace("connectNodes A", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else if dialPeerCount == 0 {
+				log.Trace("connectNodes B", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else if dialPeerCount < srv.Config.MaxPeers && util.ElapsedSeconds(srv.lastConnectNodeTime) >= minConnectNodesAtSteadyStateSeconds {
+				log.Trace("connectNodes C", "dialPeerCount", dialPeerCount)
+				shouldQuery = true
+			} else {
+				log.Trace("connectNodes D", "dialPeerCount", dialPeerCount)
+			}
+
+			if shouldQuery {
+				log.Trace("connectNodesTicker start", "MaxPeers", srv.Config.MaxPeers)
+				nodes := srv.nodedb.QueryNodes(srv.Config.MaxPeers, staleNodeMaxAgeInterval)
 				if nodes == nil {
 					log.Trace("QueryNodes is nil")
 					return
 				}
 
-				log.Trace("connectNodes", "count", len(nodes))
+				log.Trace("connectNodes range addNode", "count", len(nodes))
 				for _, node := range nodes {
-					log.Trace("Adding previously connected node", "IP", node.IP())
-					srv.dialsched.addNode(node)
+					log.Trace("connectNodes before isDialingOrConnected", "node", node.ID().String(), "IP", node.IP().String())
+					if srv.dialsched.isDialingOrConnected(node) {
+						log.Trace("connectNodes isDialingOrConnected", "node", node.ID().String())
+						continue
+					}
+					log.Trace("connectNodes adding node for dialing", "node", node.ID().String())
+					go srv.dialsched.addNode(node)
 				}
+				srv.lastConnectNodeTime = time.Now().UnixNano() / int64(time.Millisecond)
+			} else {
+				log.Trace("connectNodesTicker skip", "lastConnectNodesTime", srv.lastConnectNodeTime)
 			}
 
-			if srv.connectNodesLoopCount < connectNodesLoopCount {
-				srv.connectNodesLoopCount = srv.connectNodesLoopCount + 1
-			} else if srv.connectNodesLoopCount == connectNodesLoopCount { //less noisy
-				srv.connectNodesTicker.Reset(connectnodesInterval)
-			}
+			srv.connectNodesTicker.Reset(connectNodesInterval)
 		}
 	}
 }
@@ -815,7 +848,7 @@ func (srv *Server) peerLoop() {
 		case <-srv.quit:
 			return
 		case <-srv.peerTicker.C:
-			if len(srv.dialsched.peers) < maxPeers {
+			if srv.dialsched.GetPeerMapCount() < srv.Config.MaxPeers {
 				srv.requestPeersFn()
 			}
 
@@ -1044,6 +1077,7 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 		// to the peer.
 		p.events = &srv.peerFeed
 	}
+	log.Debug("launchPeer", "peer", p.ID().String())
 	go srv.runPeer(p)
 	return p
 }
@@ -1061,7 +1095,9 @@ func (srv *Server) runPeer(p *Peer) {
 	})
 
 	// Run the per-peer main loop.
+	log.Debug("runPeer before", "peer", p.ID().String())
 	remoteRequested, err := p.run()
+	log.Debug("runPeer after", "peer", p.ID().String())
 
 	// Announce disconnect on the main loop to update the peer set.
 	// The main loop waits for existing peers to be sent on srv.delpeer

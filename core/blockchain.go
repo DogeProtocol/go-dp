@@ -2536,7 +2536,7 @@ type revertError struct {
 	reason string // revert reason hex encoded
 }
 
-func newRevertError(result *ExecutionResult) *revertError {
+func NewRevertError(result *ExecutionResult) *revertError {
 	reason, errUnpack := abi.UnpackRevert(result.Revert())
 	err := errors.New("execution reverted")
 	if errUnpack == nil {
@@ -2562,7 +2562,7 @@ func (bc *BlockChain) ExecuteNoGas(msg Message, state *state.StateDB, header *ty
 
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(result.Revert()) > 0 {
-		return nil, newRevertError(result)
+		return nil, NewRevertError(result)
 	}
 
 	return result.Return(), result.Err

@@ -242,6 +242,10 @@ func (s OqsSig) Sign(digestHash []byte, prv *signaturealgorithm.PrivateKey) (sig
 	return common.CombineTwoParts(sigBytes, pubBytes), nil
 }
 
+func (s OqsSig) SignWithContext(digestHash []byte, prv *signaturealgorithm.PrivateKey, context []byte) (sig []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s OqsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool {
 	sigBytes, pubKeyBytes, err := common.ExtractTwoParts(signature)
 	if err != nil {
@@ -253,6 +257,10 @@ func (s OqsSig) Verify(pubKey []byte, digestHash []byte, signature []byte) bool 
 	}
 
 	return VerifySignature(s.sigName, pubKey, digestHash, sigBytes)
+}
+
+func (s OqsSig) VerifyWithContext(pubKey []byte, digestHash []byte, signature []byte, context []byte) bool {
+	return false
 }
 
 func (s OqsSig) PublicKeyAndSignatureFromCombinedSignature(digestHash []byte, sig []byte) (signature []byte, pubKey []byte, err error) {
@@ -299,6 +307,10 @@ func (s OqsSig) PublicKeyFromSignature(digestHash []byte, sig []byte) (*signatur
 		return nil, err
 	}
 	return s.DeserializePublicKey(b)
+}
+
+func (s OqsSig) PublicKeyFromSignatureWithContext(digestHash []byte, sig []byte, context []byte) (*signaturealgorithm.PublicKey, error) {
+	return nil, errors.New("not implemented")
 }
 
 // ValidateSignatureValues verifies whether the signature values are valid with
