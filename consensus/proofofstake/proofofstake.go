@@ -86,6 +86,9 @@ var (
 
 	VALIDATOR_NIL_BLOCK_START_BLOCK      = STAKING_CONTRACT_V2_CUTOFF_BLOCK + 1
 	BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK = VALIDATOR_NIL_BLOCK_START_BLOCK + 16
+
+	CONTEXT_BASED_START_BLOCK     = uint64(500000)
+	CONTEXT_BASED_BLOCK_THRESHOLD = uint64(64000)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -230,7 +233,8 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 
 	proofofstake.consensusHandler.getValidatorsFn = proofofstake.GetValidators
 	proofofstake.consensusHandler.listValidatorsFn = proofofstake.ListValidatorsAsMap
-	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExistFn
+	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExist
+	proofofstake.consensusHandler.getBlockConsensusContext = proofofstake.GetConsensusContext
 
 	return proofofstake
 }
@@ -249,7 +253,7 @@ func (c *ProofOfStake) Author(header *types.Header) (common.Address, error) {
 	return ZERO_ADDRESS, nil
 }
 
-func (c *ProofOfStake) DoesFinalizedTransactionExistFn(txnHash common.Hash) (bool, error) {
+func (c *ProofOfStake) DoesFinalizedTransactionExist(txnHash common.Hash) (bool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
@@ -606,7 +610,7 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 		}
 	}
 
-	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap)
+	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap, c.GetConsensusContext)
 	if err != nil {
 		log.Trace("ValidateBlockConsensusData", "err", err)
 	}
@@ -796,9 +800,9 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	if header.Number.Uint64() > CONSENSUS_CONTEXT_START_BLOCK {
-		key, err := GetBlockConsensusContextKey(header.Number.Uint64())
+		key, err := GetConsensusContextKey(header.Number.Uint64())
 		if err != nil {
-			log.Error("GetBlockConsensusContext err", "err", err)
+			log.Error("GetBlockConsensusContextFn err", "err", err)
 			return err
 		}
 		var consensuscontext [32]byte
@@ -811,7 +815,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 		//Remove the oldest key
 		if header.Number.Uint64() > (CONSENSUS_CONTEXT_START_BLOCK + CONSENSUS_CONTEXT_MAX_BLOCK_COUNT) {
-			oldKey, err := GetBlockConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
+			oldKey, err := GetConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
 			if err != nil {
 				log.Error("GetBlockConsensusContextKey oldKey err", "err", err)
 				return err

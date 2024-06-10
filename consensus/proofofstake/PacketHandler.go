@@ -21,10 +21,12 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
 
+type GetBlockConsensusContextFn func(key string, blockHash common.Hash) ([32]byte, error)
 type GetValidatorsFn func(blockHash common.Hash) (map[common.Address]*big.Int, error)
 type DoesFinalizedTransactionExistFn func(txnHash common.Hash) (bool, error)
 type ListValidatorsAsMapFn func(blockHash common.Hash) (map[common.Address]*ValidatorDetailsV2, error)
@@ -46,6 +48,7 @@ type ConsensusHandler struct {
 	p2pLock                         sync.Mutex
 	getValidatorsFn                 GetValidatorsFn
 	listValidatorsFn                ListValidatorsAsMapFn
+	getBlockConsensusContext        GetBlockConsensusContextFn
 	doesFinalizedTransactionExistFn DoesFinalizedTransactionExistFn
 	currentParentHash               common.Hash
 
@@ -223,6 +226,7 @@ type BlockStateDetails struct {
 	currentRound                      byte
 	parentHash                        common.Hash
 	highestProposalRoundSeen          byte
+	consensusContext                  common.Hash
 
 	//stats
 	proposalTime    int64
@@ -332,7 +336,12 @@ func (cph *ConsensusHandler) isValidator(parentHash common.Hash) (bool, error) {
 	return found, nil
 }
 
-func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte, validatorDetailsMap *map[common.Address]*ValidatorDetailsV2, blockNumber uint64) (common.Address, error) {
+func getBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte,
+	validatorDetailsMap *map[common.Address]*ValidatorDetailsV2, blockNumber uint64, contextHash common.Hash) (common.Address, error) {
+	if blockNumber >= CONTEXT_BASED_START_BLOCK {
+		return getBlockProposerV2(contextHash, validatorDetailsMap, round, blockNumber) //passing contextHash instead of parentHash
+	}
+
 	if blockNumber >= BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK {
 		return getBlockProposerV2(parentHash, validatorDetailsMap, round, blockNumber)
 	}
@@ -381,7 +390,7 @@ func canPropose(valDetails *ValidatorDetailsV2, currentBlockNumber uint64) bool 
 	return result
 }
 
-func getBlockProposerV2(parentHash common.Hash, validatorMap *map[common.Address]*ValidatorDetailsV2, round byte, blockNumber uint64) (common.Address, error) {
+func getBlockProposerV2(contextHash common.Hash, validatorMap *map[common.Address]*ValidatorDetailsV2, round byte, blockNumber uint64) (common.Address, error) {
 	var proposer common.Address
 
 	if len(*validatorMap) < MIN_VALIDATORS {
@@ -411,8 +420,8 @@ func getBlockProposerV2(parentHash common.Hash, validatorMap *map[common.Address
 	}
 
 	sort.Slice(validators, func(i, j int) bool {
-		vi := crypto.Keccak256Hash(parentHash.Bytes(), validators[i].Bytes(), []byte{round}).Bytes()
-		vj := crypto.Keccak256Hash(parentHash.Bytes(), validators[j].Bytes(), []byte{round}).Bytes()
+		vi := crypto.Keccak256Hash(contextHash.Bytes(), validators[i].Bytes(), []byte{round}).Bytes()
+		vj := crypto.Keccak256Hash(contextHash.Bytes(), validators[j].Bytes(), []byte{round}).Bytes()
 		return bytes.Compare(vi, vj) == -1
 	})
 
@@ -546,6 +555,8 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return err
 	}
 
+	preFilterValidatorCount := len(validators)
+
 	var filteredValidators map[common.Address]bool
 	filteredValidators, blockStateDetails.totalBlockDepositValue, blockStateDetails.blockMinWeightedProposalsRequired, err = filterValidators(parentHash, &validators)
 	if err != nil {
@@ -587,11 +598,24 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		log.Error("Not a validator in this block")
 	}
 
-	log.Debug("blockStateDetails", "totalBlockDepositValue", blockStateDetails.totalBlockDepositValue,
-		"blockMinWeightedProposalsRequired", blockStateDetails.blockMinWeightedProposalsRequired)
-
 	cph.blockStateDetailsMap[parentHash] = blockStateDetails
 	cph.currentParentHash = parentHash
+
+	//Consensus Context
+	if blockNumber >= CONTEXT_BASED_START_BLOCK {
+		contextKey, err := GetBlockConsensusContextKeyForBlock(blockNumber)
+		if err != nil {
+			return err
+		}
+		blockContext, err := cph.getBlockConsensusContext(contextKey, cph.currentParentHash)
+		if err != nil {
+			return err
+		}
+		blockStateDetails.consensusContext = crypto.Keccak256Hash(blockContext[:], []byte(strconv.Itoa(preFilterValidatorCount)))
+	}
+
+	log.Debug("blockStateDetails", "totalBlockDepositValue", blockStateDetails.totalBlockDepositValue,
+		"blockMinWeightedProposalsRequired", blockStateDetails.blockMinWeightedProposalsRequired, "consensusContext", blockStateDetails.consensusContext)
 
 	err = cph.initializeNewBlockRound(NEW_ROUND_REASON_START)
 	if err != nil {
@@ -626,7 +650,8 @@ func (cph *ConsensusHandler) initializeNewBlockRound(newRoundReason NewRoundReas
 		log.Trace("initializeNewBlockRound", "currentRound", blockStateDetails.currentRound, "Address", cph.account.Address)
 	}
 
-	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.filteredValidatorsDepositMap, blockRoundDetails.Round, blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
+	proposer, err := getBlockProposer(cph.currentParentHash, &blockStateDetails.filteredValidatorsDepositMap, blockRoundDetails.Round,
+		blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber, blockStateDetails.consensusContext)
 	if err != nil {
 		return err
 	}
@@ -641,7 +666,7 @@ func (cph *ConsensusHandler) initializeNewBlockRound(newRoundReason NewRoundReas
 }
 
 func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, filteredValidatorDepositMap *map[common.Address]*big.Int, round byte, blockStateDetails *BlockStateDetails) (bool, error) {
-	blockProposer, err := getBlockProposer(parentHash, filteredValidatorDepositMap, round, blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
+	blockProposer, err := getBlockProposer(parentHash, filteredValidatorDepositMap, round, blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber, blockStateDetails.consensusContext)
 
 	if err != nil {
 		log.Trace("isBlockProposer", "err", err)
@@ -896,7 +921,7 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 		}
 
 		roundProposer, err := getBlockProposer(parentHash, &blockStateDetails.filteredValidatorsDepositMap, r,
-			blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber)
+			blockStateDetails.validatorDetailsMap, blockStateDetails.blockNumber, blockStateDetails.consensusContext)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -927,9 +952,11 @@ func (cph *ConsensusHandler) getBlockConsensusData(parentHash common.Hash) (bloc
 	}
 
 	if blockConsensusData.VoteType == VOTE_TYPE_NIL {
-		err = ValidateBlockConsensusDataInner(nil, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap)
+		err = ValidateBlockConsensusDataInner(nil, parentHash, blockConsensusData, blockAdditionalConsensusData,
+			&blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap, blockStateDetails.consensusContext)
 	} else {
-		err = ValidateBlockConsensusDataInner(blockRoundDetails.proposalTxns, parentHash, blockConsensusData, blockAdditionalConsensusData, &blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap)
+		err = ValidateBlockConsensusDataInner(blockRoundDetails.proposalTxns, parentHash, blockConsensusData, blockAdditionalConsensusData,
+			&blockStateDetails.filteredValidatorsDepositMap, blockStateDetails.blockNumber, blockStateDetails.validatorDetailsMap, blockStateDetails.consensusContext)
 	}
 
 	if err != nil {
