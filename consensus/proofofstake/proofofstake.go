@@ -89,6 +89,7 @@ var (
 
 	CONTEXT_BASED_START_BLOCK     = uint64(500000)
 	CONTEXT_BASED_BLOCK_THRESHOLD = uint64(64000)
+	BLOCK_TIME_ORIG_START_BLOCK   = uint64(CONTEXT_BASED_START_BLOCK + 1)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -831,7 +832,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	//Fix blocktime
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if (header.Number.Uint64() == 1 || header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0) && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
+	if (header.Number.Uint64() == 1 || header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0 || header.Number.Uint64() >= BLOCK_TIME_ORIG_START_BLOCK) && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
 		header.Time = blockConsensusData.BlockTime
 	} else {
 		header.Time = parent.Time + c.config.Period

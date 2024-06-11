@@ -1728,7 +1728,7 @@ func Elapsed(startTime time.Time) int64 {
 }
 
 func GetProposalTime(blockNumber uint64) uint64 {
-	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 || blockNumber >= BLOCK_TIME_ORIG_START_BLOCK {
 		blockTime := uint64(time.Now().UTC().Unix())
 		if blockTime%60 != 0 {
 			blockTime = blockTime - (blockTime % 60)
@@ -1741,7 +1741,7 @@ func GetProposalTime(blockNumber uint64) uint64 {
 }
 
 func ValidateBlockProposalTimeConsensus(blockNumber uint64, proposedTime uint64) bool {
-	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 || blockNumber >= BLOCK_TIME_ORIG_START_BLOCK {
 		if proposedTime == 0 {
 			return false
 		}

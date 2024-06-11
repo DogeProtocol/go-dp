@@ -1918,6 +1918,10 @@ func TestValidateBlockProposalTime(t *testing.T) {
 	if ValidateBlockProposalTime(1, GetProposalTime(1)+1) == true {
 		t.Fatalf("failed 4")
 	}
+
+	if ValidateBlockProposalTime(BLOCK_TIME_ORIG_START_BLOCK, GetProposalTime(BLOCK_TIME_ORIG_START_BLOCK)) == false {
+		t.Fatalf("failed 5")
+	}
 }
 
 func TestValidateBlockProposalTimeConsensus(t *testing.T) {
@@ -2003,6 +2007,14 @@ func TestValidateBlockProposalTimeConsensus(t *testing.T) {
 	}
 	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == true {
 		t.Fatalf("failed 13")
+	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(1)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(BLOCK_TIME_ORIG_START_BLOCK, uint64(tm)) == false {
+		t.Fatalf("failed 14")
 	}
 }
 
@@ -2269,15 +2281,15 @@ func TestPacketHandler_getBlockProposerV3(t *testing.T) {
 		validatorMap[v.Validator] = v
 	}
 
-	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000059"), 500000) == false {
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000052"), 500000) == false {
 		t.Fatalf("failed")
 	}
 
-	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000056"), 500001) == false {
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x000000000000000000000000000000000000000000000000000000000000003F"), 500001) == false {
 		t.Fatalf("failed")
 	}
 
-	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x000000000000000000000000000000000000000000000000000000000000005a"), 500002) == false {
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000035"), 500002) == false {
 		t.Fatalf("failed")
 	}
 
@@ -2300,7 +2312,7 @@ func TestPacketHandler_getBlockProposerV3(t *testing.T) {
 		}
 	}
 
-	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000001"), 500003) == false {
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000000"), 500003) == false {
 		t.Fatalf("failed")
 	}
 

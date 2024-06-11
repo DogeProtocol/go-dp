@@ -558,7 +558,7 @@ func ValidateBlockConsensusDataInner(txns []common.Hash, parentHash common.Hash,
 // In this function, absolute time cannot be validated, since this function can get called at a different time, for example when new node is created and is reading old blocks
 // Hence only basic checks are allowed
 func ValidateBlockProposalTime(blockNumber uint64, proposedTime uint64) bool {
-	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 {
+	if blockNumber == 1 || blockNumber%BLOCK_PERIOD_TIME_CHANGE == 0 || blockNumber >= BLOCK_TIME_ORIG_START_BLOCK {
 		if proposedTime == 0 {
 			return true
 		}
