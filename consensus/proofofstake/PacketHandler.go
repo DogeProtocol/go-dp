@@ -725,7 +725,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 		return nil
 	}
 
-	return err
+	return nil
 }
 
 func shouldSignFull(blockNumber uint64) bool {
