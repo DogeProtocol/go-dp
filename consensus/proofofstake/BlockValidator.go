@@ -42,7 +42,14 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 		var pubKey *signaturealgorithm.PublicKey
 		var err error
 
-		packetType := ConsensusPacketType(packet.ConsensusData[0])
+		var startIndex int
+		if packet.ConsensusData[0] >= MinConsensusNetworkProtocolVersion {
+			startIndex = 2
+		} else {
+			startIndex = 1
+		}
+
+		packetType := ConsensusPacketType(packet.ConsensusData[startIndex-1])
 		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && len(packet.Signature) != cryptobase.SigAlg.SignatureWithPublicKeyLength() { //for verify, it is ok not to check the blockNumber for full
 			pubKey, err = cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 			if err != nil {
@@ -76,7 +83,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 		if packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK {
 			details := ProposalDetails{}
 
-			err := rlp.DecodeBytes(packet.ConsensusData[1:], &details)
+			err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], &details)
 			if err != nil {
 				return nil, err
 			}
@@ -124,7 +131,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 		} else if packetType == CONSENSUS_PACKET_TYPE_ACK_BLOCK_PROPOSAL {
 			details := ProposalAckDetails{}
 
-			err := rlp.DecodeBytes(packet.ConsensusData[1:], &details)
+			err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], &details)
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +177,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 		} else if packetType == CONSENSUS_PACKET_TYPE_PRECOMMIT_BLOCK {
 			details := PreCommitDetails{}
 
-			err := rlp.DecodeBytes(packet.ConsensusData[1:], &details)
+			err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], &details)
 			if err != nil {
 				return nil, err
 			}
@@ -206,7 +213,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 		} else if packetType == CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
 			details := CommitDetails{}
 
-			err := rlp.DecodeBytes(packet.ConsensusData[1:], &details)
+			err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], &details)
 			if err != nil {
 				return nil, err
 			}

@@ -91,6 +91,8 @@ type HandlerConfig struct {
 type ConsensusHandler interface {
 	HandleConsensusPacket(packet *eth.ConsensusPacket) error
 	HandleRequestConsensusDataPacket(packet *eth.RequestConsensusDataPacket) ([]*eth.ConsensusPacket, error)
+	OnPeerConnected(peerId string) error
+	OnPeerDisconnected(peerId string) error
 }
 
 type ConsensusPacketHandler struct {
@@ -290,7 +292,7 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 }
 
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
-// various subsistems and starts handling messages.
+// various subsystems and starts handling messages.
 func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	// TODO(karalabe): Not sure why this is needed
 	if !h.chainSync.handlePeerEvent(peer) {
@@ -326,6 +328,10 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	if err := h.peers.registerPeer(peer); err != nil {
 		peer.Log().Error("Ethereum peer registration failed", "err", err)
 		return err
+	}
+	err := h.consensusHandler.Handler.OnPeerConnected(peer.ID())
+	if err != nil {
+		log.Debug("OnPeerConnected", "error", err)
 	}
 	defer h.unregisterPeer(peer.ID())
 
@@ -405,6 +411,11 @@ func (h *P2PHandler) unregisterPeer(id string) {
 
 	if err := h.peers.unregisterPeer(id); err != nil {
 		logger.Error("Ethereum peer removal failed", "err", err)
+	}
+
+	err := h.consensusHandler.Handler.OnPeerDisconnected(id)
+	if err != nil {
+		log.Debug("OnPeerDisconnected", "error", err)
 	}
 }
 

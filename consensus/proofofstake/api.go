@@ -267,8 +267,15 @@ func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, er
 			consensusData.ExtendedConsensusPackets = append(consensusData.ExtendedConsensusPackets, &ExtendedConsensusPacket{})
 			continue
 		}
+		var startIndex int
+		if packet.ConsensusData[0] >= MinConsensusNetworkProtocolVersion {
+			startIndex = 2
+		} else {
+			startIndex = 1
+		}
+
 		ePacket := ExtendedConsensusPacket{
-			PacketType: packet.ConsensusData[0],
+			PacketType: packet.ConsensusData[startIndex],
 			Round:      round,
 		}
 		ePacket.Signer.CopyFrom(signer)

@@ -90,6 +90,7 @@ var (
 	CONTEXT_BASED_START_BLOCK     = uint64(500000)
 	CONTEXT_BASED_BLOCK_THRESHOLD = uint64(64000)
 	BLOCK_TIME_ORIG_START_BLOCK   = uint64(CONTEXT_BASED_START_BLOCK + 1)
+	PACKET_PROTOCOL_START_BLOCK   = uint64(BLOCK_TIME_ORIG_START_BLOCK + 32)
 )
 
 // Various error messages to mark blocks invalid. These should be private to

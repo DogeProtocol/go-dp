@@ -328,7 +328,6 @@ func geth(ctx *cli.Context) error {
 	passphrase := ""
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	if len(inputs) > 0 && len(inputs[0]) > 0 {
-		fmt.Println("inputs", len(inputs), inputs)
 		passphrase = os.Getenv("DP_ACC_PWD")
 		if len(passphrase) == 0 {
 			passphrase = utils.GetPassPhrase("Enter the passphrase for decrypting the wallet:", false)
