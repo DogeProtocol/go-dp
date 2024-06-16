@@ -90,13 +90,13 @@ components:
           type: string
           nullable: true
         nonce:
-          type: number
+          type: integer
           format: int64
-          nullable: false
+          nullable: true
         blockNumber:
-          type: number
+          type: integer
           format: int64
-          nullable: false
+          nullable: true
           description: The block number as of which the details were retrieved
       additionalProperties: false
     AccountDetailsResponse:
@@ -114,7 +114,7 @@ components:
           nullable: true
           description: The hash of the block in which the transaction was executed. If this transaction is pending or was discarded, this will be null.
         blockNumber:
-          type: number
+          type: integer
           format: int64
           nullable: true
           description: The number of the block in which the transaction was executed. If this transaction is pending or was discarded, this will be null.
@@ -134,7 +134,7 @@ components:
           type: string
           nullable: false
         nonce:
-          type: object
+          type: integer
           format: int64
           nullable: false
         to:
