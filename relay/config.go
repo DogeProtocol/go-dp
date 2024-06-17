@@ -32,6 +32,5 @@ var (
 	ErrInvalidAddress = errors.New("invalid address")
 	ErrEmptyHash      = errors.New("empty hash")
 	ErrInvalidHash    = errors.New("invalid hash")
-
-	ErrEmptyRawTxHex = errors.New("empty raw tx")
+	ErrEmptyRawTxHex  = errors.New("empty raw tx")
 )

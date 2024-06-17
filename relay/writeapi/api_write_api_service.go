@@ -12,12 +12,9 @@ package write
 
 import (
 	"context"
-	"encoding/hex"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/relay"
 	"github.com/DogeProtocol/dp/common"
-	"github.com/DogeProtocol/dp/core/types"
-	"github.com/DogeProtocol/dp/rlp"
 	"github.com/DogeProtocol/dp/rpc"
 	"net/http"
 	"errors"
@@ -57,7 +54,9 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 		return  Response(http.StatusBadRequest, nil), relay.ErrEmptyRawTxHex
 	}
 
-	rawTxData, err := hex.DecodeString(rawTxHex[2:])
+	/*
+
+		rawTxData, err := hex.DecodeString(rawTxHex[2:])
 	if err != nil {
 		log.Error(relay.MsgRawRawTxHex, http.StatusUnprocessableEntity, errors.New(err.Error()))
 		return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
@@ -70,7 +69,6 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 		return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
-/*
 	fmt.Println(tx.Hash().Hex())        // 0x5d49fcaa394c97ec8a9c3e7bd9e8388d420fb050a52083ca52ff24b3b65bc9c2
 	fmt.Println(tx.Value().String())    // 10000000000000000
 	fmt.Println(tx.Gas())               // 105000
@@ -82,8 +80,7 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 	if msg, err := tx.AsMessage(types.NewLondonSignerDefaultChain(); err == nil {
 		fromAddress = msg.From().Hex()
 	}
-*/
-
+	*/
 
 	var txHash *common.Hash
 	err = client.CallContext(ctx, &txHash, "eth_sendRawTransaction", rawTxHex)
