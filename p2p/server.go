@@ -51,7 +51,7 @@ const (
 	discmixTimeout = 15 * time.Second
 
 	// Connectivity defaults.
-	defaultMaxPendingPeers = 50
+	defaultMaxPendingPeers = 128
 	defaultDialRatio       = 3
 
 	// This time limits inbound connection attempts per source IP.

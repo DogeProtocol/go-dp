@@ -21,7 +21,6 @@ import (
 	"github.com/DogeProtocol/dp/rpc"
 	"net/http"
 	"errors"
-	"strings"
 )
 
 // ReadApiAPIService is a service that implements the logic for the ReadApiAPIServicer
@@ -59,12 +58,7 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 	}
 	defer client.Close()
 
-	if len(strings.TrimSpace(address)) == 0 {
-		log.Error(relay.MsgAddress, http.StatusBadRequest, relay.ErrEmptyAddress)
-		return Response(http.StatusBadRequest, nil), relay.ErrEmptyAddress
-	}
-
-	if !common.IsHexAddress(address)  || len(strings.TrimSpace(address)) == 0 {
+	if !common.IsHexAddress(address) {
 		log.Error(relay.MsgAddress, http.StatusBadRequest, relay.ErrInvalidAddress)
 		return Response(http.StatusBadRequest, nil), relay.ErrInvalidAddress
 	}
@@ -130,12 +124,7 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 	}
 	defer client.Close()
 
-	if(len(strings.TrimSpace(hash)) == 0) {
-		log.Error(relay.MsgHash, http.StatusBadRequest, relay.ErrEmptyHash)
-		return  Response(http.StatusBadRequest, nil), relay.ErrEmptyHash
-	}
-
-	if !common.IsHex(hash)  {
+	if !common.IsHexAddress(hash)  {
 		log.Error(relay.MsgHash, http.StatusBadRequest, relay.ErrInvalidHash)
 		return  Response(http.StatusBadRequest, nil), relay.ErrInvalidHash
 	}
@@ -200,5 +189,5 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 			transactionReceipt}}),	nil
 	}
 	log.Info(relay.InfoTitleTransaction, hash, http.StatusNoContent)
-	return  Response(http.StatusNoContent, nil), errors.New(err.Error())
+	return  Response(http.StatusNoContent,nil), nil
 }

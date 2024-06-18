@@ -12,6 +12,7 @@ package write
 
 import (
 	"context"
+	"fmt"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/relay"
 	"github.com/DogeProtocol/dp/common"
@@ -20,8 +21,6 @@ import (
 	"errors"
 	"strings"
 )
-
-
 
 // WriteApiAPIService is a service that implements the logic for the WriteApiAPIServicer
 // This service should implement the business logic for every endpoint for the WriteApiAPI API.
@@ -55,40 +54,55 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 	}
 
 	/*
-
-		rawTxData, err := hex.DecodeString(rawTxHex[2:])
+	rawTxData, err := hex.DecodeString(rawTxHex[2:])
 	if err != nil {
+		fmt.Println("rawTxData errors.New(err.Error())", errors.New(err.Error()))
+
 		log.Error(relay.MsgRawRawTxHex, http.StatusUnprocessableEntity, errors.New(err.Error()))
 		return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
-	var tx *types.Transaction
-	err = rlp.DecodeBytes(rawTxData, &tx)
+	tx := &types.Transaction{}
+	err = tx.UnmarshalBinary(rawTxData)
 	if err != nil {
-		log.Error(relay.MsgTransaction, http.StatusUnprocessableEntity, errors.New(err.Error()))
+		fmt.Println("tx errors.New(err.Error())", errors.New(err.Error()))
+
+		log.Error(relay.MsgRawRawTxHex, http.StatusUnprocessableEntity, errors.New(err.Error()))
 		return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
-	fmt.Println(tx.Hash().Hex())        // 0x5d49fcaa394c97ec8a9c3e7bd9e8388d420fb050a52083ca52ff24b3b65bc9c2
-	fmt.Println(tx.Value().String())    // 10000000000000000
-	fmt.Println(tx.Gas())               // 105000
-	fmt.Println(tx.GasPrice().Uint64()) // 102000000000
-	fmt.Println(tx.Nonce())             // 110644
-	fmt.Println(tx.Data())              // []
-	fmt.Println(tx.To().Hex())          // 0x55fE59D8Ad77035154dDd0AD0388D09Dd4047A8e
+	fmt.Println("Hash : ", tx.Hash().Hex())
+	fmt.Println("Value : ", tx.Value().String())
+	fmt.Println("Gas : ", tx.Gas())
+	fmt.Println("Gas Price : ", tx.GasPrice().Uint64())
+	fmt.Println("Nonce : ", tx.Nonce())
+	fmt.Println("Data : ", tx.Data())
+	fmt.Println("To ",  tx.To().Hex())
 
-	if msg, err := tx.AsMessage(types.NewLondonSignerDefaultChain(); err == nil {
-		fromAddress = msg.From().Hex()
+	chainId := big.NewInt(123123)
+
+	if msg, err := tx.AsMessage(types.NewLondonSigner(chainId)); err == nil {
+		fromAddress := msg.From().Hex()
+		fmt.Println(" From", fromAddress)
 	}
+	if err != nil {
+		fmt.Println("from errors.New(err.Error())", errors.New(err.Error()))
+
+		log.Error(relay.MsgRawRawTxHex, http.StatusUnprocessableEntity, errors.New(err.Error()))
+		return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+	}
+
 	*/
 
 	var txHash *common.Hash
-	err = client.CallContext(ctx, &txHash, "eth_sendRawTransaction", rawTxHex)
+	err = client.CallContext(ctx, nil, "eth_sendRawTransaction", rawTxHex)
+
 	if err != nil {
+		fmt.Println("errors.New(err.Error())", errors.New(err.Error()))
 		log.Error(relay.MsgSend, relay.MsgTransaction, http.StatusMethodNotAllowed, errors.New(err.Error()))
 		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
-	log.Info(relay.MsgSend, relay.MsgTransaction, relay.MsgHash, txHash, http.StatusOK)
-	return Response(http.StatusOK, txHash), nil
+	log.Info(relay.MsgSend, relay.MsgTransaction, relay.MsgHash, txHash.String(), http.StatusOK)
+	return Response(http.StatusOK, txHash.String()), nil
 }
