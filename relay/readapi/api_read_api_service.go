@@ -17,7 +17,6 @@ import (
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
 	"github.com/DogeProtocol/dp/core/types"
-	"github.com/DogeProtocol/dp/internal/ethapi"
 	"github.com/DogeProtocol/dp/rpc"
 	"net/http"
 	"errors"
@@ -106,7 +105,6 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 	n := accountNonce.Int64()
 	l := latestBlockNumber.Int64()
 
-
 	log.Info(relay.InfoTitleAccountDetails,  address, http.StatusOK)
 	return Response(http.StatusOK, AccountDetailsResponse{
 		AccountDetails{&b,&n,&l}}), nil
@@ -129,26 +127,35 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 		return  Response(http.StatusBadRequest, nil), relay.ErrInvalidHash
 	}
 
-	var transaction *ethapi.RPCTransaction
-	err =  client.CallContext(ctx, &transaction, "eth_getTransactionByHash", common.HexToHash(hash))
+	var json *rpcTransaction
+	err =  client.CallContext(ctx, &json, "eth_getTransactionByHash", common.HexToHash(hash))
 	if err != nil {
 		log.Error(relay.MsgTransaction, http.StatusMethodNotAllowed, errors.New(err.Error()))
 		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
-	if transaction != nil {
-		blochHash := transaction.BlockHash.String()
-		b := transaction.BlockNumber.ToInt()
-		from := transaction.From.String()
-		gas := transaction.Gas.String()
-		gasPrice := transaction.GasPrice.String()
-		hash = transaction.Hash.String()
-		input := transaction.Input.String()
-		transNonce := transaction.Nonce
-		to := transaction.To.String()
-		value := transaction.Value.String()
+	if json == nil {
+		if _, r, _ := json.tx.RawSignatureValues(); r == nil {
+			log.Error(relay.MsgTransaction, http.StatusMethodNotAllowed, relay.ErrTransWithoutSign)
+			return  Response(http.StatusMethodNotAllowed, nil), relay.ErrTransWithoutSign
+		}
 
-		blockNumber := b.Int64()
+		tx := json.tx
+
+		var blochHash string
+		var blockNumber  int64
+
+		var signer types.Signer
+		signer = types.LatestSignerForChainID(tx.ChainId())
+		from, _ := types.Sender(signer, tx)
+
+		gas :=  hexutil.Uint64(tx.Gas())
+		gasPrice := (*hexutil.Big)(tx.GasPrice())
+		input := hexutil.Bytes(tx.Data())
+		transNonce := hexutil.Uint64(tx.Nonce())
+		to := tx.To().Hex()
+		value := (*hexutil.Big)(tx.Value())
+
 		n, err := hexutil.DecodeBig(transNonce.String())
 		if err != nil {
 			log.Error(relay.MsgNonce, http.StatusUnprocessableEntity, errors.New(err.Error()))
@@ -156,7 +163,8 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 		}
 		nonce := n.Int64()
 
-		var receipt map[string]interface{}
+		//var receipt map[string]interface{}
+		var receipt *types.Receipt
 		err =  client.CallContext(ctx, &receipt, "eth_getTransactionReceipt", common.HexToHash(hash))
 		if err != nil {
 			log.Error(relay.MsgTransactionReceipt, http.StatusMethodNotAllowed, errors.New(err.Error()))
@@ -165,29 +173,42 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 		var transactionReceipt  TransactionReceipt
 		if receipt != nil {
-			cumulativeGasUsed := receipt["cumulativeGasUsed"].(string)
-			effectiveGasPrice := receipt["effectiveGasPrice"].(string)
-			gasUsed := receipt["gasUsed"].(string)
-			status := receipt["status"].(string)
-			txHash := receipt["transactionHash"].(string)
-			t := receipt["type"].(string)
+			//	blochHash =  receipt["cumulativeGasUsed"].(string)
+			//	blockNumber = receipt["cumulativeGasUsed"].(string)
+			//	cumulativeGasUsed := receipt["cumulativeGasUsed"].(string)
+			//	effectiveGasPrice := receipt["effectiveGasPrice"].(string)
+			//	gasUsed := receipt["gasUsed"].(string)
+			//	status := receipt["status"].(string)
+			//	txHash := receipt["transactionHash"].(string)
+			//	t := receipt["type"].(string)
+
+			blochHash =  receipt.BlockHash.String()
+			blockNumber =  receipt.BlockNumber.Int64()
+			cumulativeGasUsed := hexutil.Uint64(receipt.CumulativeGasUsed)
+			effectiveGasPrice :=  hexutil.Uint64(tx.GasPrice().Uint64())
+			gasUsed := hexutil.Uint64(receipt.GasUsed)
+			status := hexutil.Uint(receipt.Status)
+			t :=  hexutil.Uint(tx.Type())
+			txHash := receipt.TxHash
+
 			transactionReceipt =  TransactionReceipt{
-				cumulativeGasUsed, effectiveGasPrice, gasUsed,
-				status, txHash, t}
+				cumulativeGasUsed.String(), effectiveGasPrice.String(), gasUsed.String(),
+				status.String(), txHash.String(), t.String()}
 		} else {
 			log.Info(relay.InfoTitleTransaction, hash, http.StatusPartialContent)
 			return  Response(http.StatusPartialContent, TransactionResponse{TransactionDetails{
-				&blochHash, &blockNumber, from,gas, gasPrice, hash,
-				input, nonce , &to,value,
+				&blochHash, &blockNumber, from.String(),gas.String(), gasPrice.String(), hash,
+				input.String(), nonce , &to,value.String(),
 				transactionReceipt}}),	nil
 		}
 
 		log.Info(relay.InfoTitleTransaction, hash, http.StatusOK)
 		return Response(http.StatusOK,TransactionResponse{TransactionDetails{
-			&blochHash, &blockNumber, from,gas, gasPrice, hash,
-			input, nonce , &to,value,
+			&blochHash, &blockNumber, from.String(),gas.String(), gasPrice.String(), hash,
+			input.String(), nonce , &to,value.String(),
 			transactionReceipt}}),	nil
 	}
+
 	log.Info(relay.InfoTitleTransaction, hash, http.StatusNoContent)
 	return  Response(http.StatusNoContent,nil), nil
 }

@@ -12,10 +12,9 @@ package write
 
 import (
 	"context"
-	"fmt"
+	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/relay"
-	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/rpc"
 	"net/http"
 	"errors"
@@ -95,14 +94,15 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 	*/
 
 	var txHash *common.Hash
-	err = client.CallContext(ctx, nil, "eth_sendRawTransaction", rawTxHex)
+	err = client.CallContext(ctx, &txHash, "eth_sendRawTransaction", rawTxHex)
 
 	if err != nil {
-		fmt.Println("errors.New(err.Error())", errors.New(err.Error()))
 		log.Error(relay.MsgSend, relay.MsgTransaction, http.StatusMethodNotAllowed, errors.New(err.Error()))
 		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
 	log.Info(relay.MsgSend, relay.MsgTransaction, relay.MsgHash, txHash.String(), http.StatusOK)
 	return Response(http.StatusOK, txHash.String()), nil
+
+
 }
