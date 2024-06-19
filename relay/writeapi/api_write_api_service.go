@@ -19,8 +19,8 @@ import (
 	"net/http"
 	"errors"
 	"github.com/mattn/go-colorable"
-	"strconv"
 	"strings"
+	"time"
 )
 
 // WriteApiAPIService is a service that implements the logic for the WriteApiAPIServicer
@@ -38,11 +38,13 @@ func NewWriteApiAPIService() *WriteApiAPIService {
 // SendTransaction - Send Transaction
 func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactionRequest SendTransactionRequest) (ImplResponse, error) {
 
+	startTime := time.Now()
+
 	log.Info(relay.InfoTitleSendTransaction, relay.MsgDial, relay.DIAL_WRITE_URL)
 
 	client, err := rpc.Dial(relay.DIAL_WRITE_URL)
 	if err != nil {
-		log.Error(relay.MsgDial, strconv.Itoa(http.StatusInternalServerError), errors.New(err.Error()))
+		log.Error(relay.MsgDial, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 	defer client.Close()
@@ -50,7 +52,7 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 	rawTxHex := sendTransactionRequest.TxnData
 
 	if(len(strings.TrimSpace(rawTxHex)) == 0) {
-		log.Error(relay.MsgRawRawTxHex, strconv.Itoa(http.StatusBadRequest), relay.ErrEmptyRawTxHex)
+		log.Error(relay.MsgRawRawTxHex, relay.MsgError, relay.ErrEmptyRawTxHex, relay.MsgStatus, http.StatusBadRequest)
 		return  Response(http.StatusBadRequest, nil), relay.ErrEmptyRawTxHex
 	}
 
@@ -58,10 +60,13 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 	err = client.CallContext(ctx, &txHash, "eth_sendRawTransaction", rawTxHex)
 
 	if err != nil {
-		log.Error(relay.MsgSend + " " + relay.MsgTransaction, strconv.Itoa(http.StatusMethodNotAllowed),  errors.New(err.Error()))
+		log.Error(relay.MsgSend + " " + relay.MsgTransaction, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
 		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
-	log.Info(relay.MsgSend + " " + relay.MsgTransaction + " " + relay.MsgHash, txHash.String(), http.StatusOK)
+	duration := time.Now().Sub(startTime)
+
+	log.Info(relay.MsgSend + " " + relay.MsgTransaction, relay.MsgHash, txHash.String(), relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusOK)
+
 	return Response(http.StatusOK, txHash.String()), nil
 }

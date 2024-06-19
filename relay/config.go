@@ -3,8 +3,8 @@ package relay
 import "errors"
 
 var (
-	DIAL_READ_URL  = "http://127.0.0.1:8545" //"//./pipe/geth.ipc"
-	DIAL_WRITE_URL = "http://127.0.0.1:8545" //"//./pipe/geth.ipc"
+	DIAL_READ_URL  = "//./pipe/geth.ipc" //"http://127.0.0.1:8545" ,  "//./pipe/geth.ipc"
+	DIAL_WRITE_URL = "//./pipe/geth.ipc" //"http://127.0.0.1:8545" , "//./pipe/geth.ipc"
 )
 
 var (
@@ -25,6 +25,9 @@ var (
 	MsgSend               = "Send"
 	MsgRawRawTxHex        = "Raw tx hex"
 	MsgRawTxData          = "Raw tx data"
+	MsgTimeDuration       = "Time Duration"
+	MsgStatus             = "Status"
+	MsgError              = "Error"
 )
 
 var (
