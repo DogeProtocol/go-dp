@@ -21,8 +21,8 @@ import (
 
 func printHelp() {
 	fmt.Println("===========")
-	fmt.Println("relay readapi READ_PORT")
-	fmt.Println("relay writeapi WRITE_PORT")
+	fmt.Println("relay readapi READ_URL")
+	fmt.Println("relay writeapi WRITE_URL")
 	fmt.Println("===========")
 }
 

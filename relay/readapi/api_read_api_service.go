@@ -12,14 +12,16 @@ package read
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/relay"
 	"github.com/DogeProtocol/dp/common"
 	"github.com/DogeProtocol/dp/common/hexutil"
-	"github.com/DogeProtocol/dp/core/types"
 	"github.com/DogeProtocol/dp/rpc"
 	"net/http"
 	"errors"
+	"github.com/mattn/go-colorable"
+	"strconv"
 )
 
 // ReadApiAPIService is a service that implements the logic for the ReadApiAPIServicer
@@ -29,75 +31,81 @@ type ReadApiAPIService struct {
 
 }
 
-type rpcTransaction struct {
-	tx *types.Transaction
-	TxExtraInfo
-}
-
-type TxExtraInfo struct {
-	BlockNumber *string         `json:"blockNumber,omitempty"`
-	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
-	From        *common.Address `json:"from,omitempty"`
+type RPCTransaction struct {
+	BlockHash        *common.Hash      `json:"blockHash"`
+	BlockNumber      *hexutil.Big      `json:"blockNumber"`
+	From             common.Address    `json:"from"`
+	Gas              hexutil.Uint64    `json:"gas"`
+	GasPrice         *hexutil.Big      `json:"gasPrice"`
+	GasFeeCap        *hexutil.Big      `json:"maxFeePerGas,omitempty"`
+	Hash             common.Hash       `json:"hash"`
+	Input            hexutil.Bytes     `json:"input"`
+	Nonce            hexutil.Uint64    `json:"nonce"`
+	To               *common.Address   `json:"to"`
+	TransactionIndex *hexutil.Uint64   `json:"transactionIndex"`
+	Value            *hexutil.Big      `json:"value"`
+	Type             hexutil.Uint64    `json:"type"`
 }
 
 // NewReadApiAPIService creates a default api service
 func NewReadApiAPIService() *ReadApiAPIService {
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(3), log.StreamHandler(colorable.NewColorableStderr(), log.TerminalFormat(true))))
 	return &ReadApiAPIService{}
 }
 
 // GetAccountDetails - Get account details
 func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address string) (ImplResponse, error) {
 
-	log.Info(relay.InfoTitleAccountDetails, "-", relay.MsgDial, relay.DIAL_READ_URL)
+	log.Info(relay.InfoTitleAccountDetails, relay.MsgDial, relay.DIAL_READ_URL)
 
 	client, err := rpc.Dial(relay.DIAL_READ_URL)
 	if err != nil {
-		log.Error(relay.MsgDial, http.StatusInternalServerError, errors.New(err.Error()))
+		log.Error(relay.MsgDial,  strconv.Itoa(http.StatusInternalServerError), errors.New(err.Error()))
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 	defer client.Close()
 
 	if !common.IsHexAddress(address) {
-		log.Error(relay.MsgAddress, http.StatusBadRequest, relay.ErrInvalidAddress)
+		log.Error(relay.MsgAddress,  strconv.Itoa(http.StatusBadRequest), relay.ErrInvalidAddress,)
 		return Response(http.StatusBadRequest, nil), relay.ErrInvalidAddress
 	}
 
 	var balance *hexutil.Big
 	err = client.CallContext(ctx, &balance, "eth_getBalance", common.HexToAddress(address), "latest")
 	if err != nil {
-		log.Error(relay.MsgBalance, http.StatusMethodNotAllowed, errors.New(err.Error()))
+		log.Error(relay.MsgBalance,  strconv.Itoa(http.StatusMethodNotAllowed), errors.New(err.Error()))
 		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
 	var nonce *hexutil.Big
 	err = client.CallContext(ctx, &nonce, "eth_getTransactionCount", common.HexToAddress(address), "latest")
 	if err != nil {
-		log.Error(relay.MsgNonce, http.StatusMethodNotAllowed, errors.New(err.Error()))
+		log.Error(relay.MsgNonce,   strconv.Itoa(http.StatusMethodNotAllowed), errors.New(err.Error()))
 		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
 	var blockNumber *hexutil.Uint64
 	err = client.CallContext(ctx, &blockNumber, "eth_blockNumber")
 	if err != nil {
-		log.Error(relay.MsgBlockNumber, http.StatusMethodNotAllowed, errors.New(err.Error()))
+		log.Error(relay.MsgBlockNumber,   strconv.Itoa(http.StatusMethodNotAllowed), errors.New(err.Error()))
 		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
 	accountBalance, err := hexutil.DecodeBig(balance.String())
 	if err != nil {
-		log.Error(relay.MsgBalance, http.StatusUnprocessableEntity, errors.New(err.Error()))
+		log.Error(relay.MsgBalance,  strconv.Itoa(http.StatusUnprocessableEntity),  errors.New(err.Error()))
 		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
 	accountNonce, err := hexutil.DecodeBig(nonce.String())
 	if err != nil {
-		log.Error(relay.MsgNonce, http.StatusUnprocessableEntity, errors.New(err.Error()))
+		log.Error(relay.MsgNonce,   strconv.Itoa(http.StatusUnprocessableEntity), errors.New(err.Error()))
 		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
 	latestBlockNumber, err := hexutil.DecodeBig(blockNumber.String())
 	if err != nil {
-		log.Error(relay.MsgBlockNumber, http.StatusUnprocessableEntity, errors.New(err.Error()))
+		log.Error(relay.MsgBlockNumber, strconv.Itoa(http.StatusUnprocessableEntity), errors.New(err.Error()))
 		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 	}
 
@@ -106,6 +114,7 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 	l := latestBlockNumber.Int64()
 
 	log.Info(relay.InfoTitleAccountDetails,  address, http.StatusOK)
+
 	return Response(http.StatusOK, AccountDetailsResponse{
 		AccountDetails{&b,&n,&l}}), nil
 }
@@ -117,95 +126,96 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 	client, err := rpc.Dial(relay.DIAL_READ_URL)
 	if err != nil {
-		log.Error(relay.MsgDial, http.StatusInternalServerError, errors.New(err.Error()))
+		log.Error(relay.MsgDial, strconv.Itoa(http.StatusInternalServerError), errors.New(err.Error()))
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 	defer client.Close()
 
 	if !common.IsHexAddress(hash)  {
-		log.Error(relay.MsgHash, http.StatusBadRequest, relay.ErrInvalidHash)
+		log.Error(relay.MsgHash, strconv.Itoa(http.StatusBadRequest), relay.ErrInvalidHash)
 		return  Response(http.StatusBadRequest, nil), relay.ErrInvalidHash
 	}
 
-	var json *rpcTransaction
-	err =  client.CallContext(ctx, &json, "eth_getTransactionByHash", common.HexToHash(hash))
+	var raw json.RawMessage
+	err =  client.CallContext(ctx, &raw, "eth_getTransactionByHash", common.HexToHash(hash))
 	if err != nil {
-		log.Error(relay.MsgTransaction, http.StatusMethodNotAllowed, errors.New(err.Error()))
+		log.Error(relay.MsgTransaction, strconv.Itoa(http.StatusMethodNotAllowed), errors.New(err.Error()))
 		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 	}
 
-	if json == nil {
-		if _, r, _ := json.tx.RawSignatureValues(); r == nil {
-			log.Error(relay.MsgTransaction, http.StatusMethodNotAllowed, relay.ErrTransWithoutSign)
-			return  Response(http.StatusMethodNotAllowed, nil), relay.ErrTransWithoutSign
-		}
+	if raw != nil {
 
-		tx := json.tx
+		var rpcTxn  *RPCTransaction
+
+		err = json.Unmarshal(raw, &rpcTxn);
+		if err != nil {
+			log.Error(relay.MsgNonce, strconv.Itoa(http.StatusUnprocessableEntity), errors.New(err.Error()))
+			return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+		}
 
 		var blochHash string
-		var blockNumber  int64
+		var blockNumber int64
+		var from, gas, gasPrice, txnHash, input, to string
 
-		var signer types.Signer
-		signer = types.LatestSignerForChainID(tx.ChainId())
-		from, _ := types.Sender(signer, tx)
+		if rpcTxn.BlockHash != nil{
+			blochHash = rpcTxn.BlockHash.String()
+		}
+		if rpcTxn.BlockNumber != nil {
+			b := rpcTxn.BlockNumber.ToInt()
+			blockNumber = b.Int64()
+		}
 
-		gas :=  hexutil.Uint64(tx.Gas())
-		gasPrice := (*hexutil.Big)(tx.GasPrice())
-		input := hexutil.Bytes(tx.Data())
-		transNonce := hexutil.Uint64(tx.Nonce())
-		to := tx.To().Hex()
-		value := (*hexutil.Big)(tx.Value())
+		from = rpcTxn.From.String()
+		gas = rpcTxn.Gas.String()
+		gasPrice = rpcTxn.GasPrice.String()
+		txnHash = rpcTxn.Hash.String()
+		input = rpcTxn.Input.String()
 
+		if rpcTxn.To != nil {
+			to = rpcTxn.To.String()
+		}
+
+		transNonce := rpcTxn.Nonce
 		n, err := hexutil.DecodeBig(transNonce.String())
 		if err != nil {
-			log.Error(relay.MsgNonce, http.StatusUnprocessableEntity, errors.New(err.Error()))
+			log.Error(relay.MsgNonce, strconv.Itoa(http.StatusUnprocessableEntity), errors.New(err.Error()))
 			return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
 		}
+
 		nonce := n.Int64()
 
-		//var receipt map[string]interface{}
-		var receipt *types.Receipt
+		value := rpcTxn.Value.String()
+
+		var receipt map[string]interface{}
 		err =  client.CallContext(ctx, &receipt, "eth_getTransactionReceipt", common.HexToHash(hash))
 		if err != nil {
-			log.Error(relay.MsgTransactionReceipt, http.StatusMethodNotAllowed, errors.New(err.Error()))
+			log.Error(relay.MsgTransactionReceipt, strconv.Itoa(http.StatusMethodNotAllowed), errors.New(err.Error()))
 			return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
 		}
 
 		var transactionReceipt  TransactionReceipt
 		if receipt != nil {
-			//	blochHash =  receipt["cumulativeGasUsed"].(string)
-			//	blockNumber = receipt["cumulativeGasUsed"].(string)
-			//	cumulativeGasUsed := receipt["cumulativeGasUsed"].(string)
-			//	effectiveGasPrice := receipt["effectiveGasPrice"].(string)
-			//	gasUsed := receipt["gasUsed"].(string)
-			//	status := receipt["status"].(string)
-			//	txHash := receipt["transactionHash"].(string)
-			//	t := receipt["type"].(string)
-
-			blochHash =  receipt.BlockHash.String()
-			blockNumber =  receipt.BlockNumber.Int64()
-			cumulativeGasUsed := hexutil.Uint64(receipt.CumulativeGasUsed)
-			effectiveGasPrice :=  hexutil.Uint64(tx.GasPrice().Uint64())
-			gasUsed := hexutil.Uint64(receipt.GasUsed)
-			status := hexutil.Uint(receipt.Status)
-			t :=  hexutil.Uint(tx.Type())
-			txHash := receipt.TxHash
-
+			cumulativeGasUsed := receipt["cumulativeGasUsed"].(string)
+			effectiveGasPrice := receipt["effectiveGasPrice"].(string)
+			gasUsed := receipt["gasUsed"].(string)
+			status := receipt["status"].(string)
+			txnReceiptHash := receipt["transactionHash"].(string)
+			t := receipt["type"].(string)
 			transactionReceipt =  TransactionReceipt{
-				cumulativeGasUsed.String(), effectiveGasPrice.String(), gasUsed.String(),
-				status.String(), txHash.String(), t.String()}
+				cumulativeGasUsed, effectiveGasPrice, gasUsed,
+				status, txnReceiptHash, t}
 		} else {
 			log.Info(relay.InfoTitleTransaction, hash, http.StatusPartialContent)
 			return  Response(http.StatusPartialContent, TransactionResponse{TransactionDetails{
-				&blochHash, &blockNumber, from.String(),gas.String(), gasPrice.String(), hash,
-				input.String(), nonce , &to,value.String(),
+				&blochHash, &blockNumber, from,gas, gasPrice, txnHash,
+				input, nonce , &to,value,
 				transactionReceipt}}),	nil
 		}
 
 		log.Info(relay.InfoTitleTransaction, hash, http.StatusOK)
 		return Response(http.StatusOK,TransactionResponse{TransactionDetails{
-			&blochHash, &blockNumber, from.String(),gas.String(), gasPrice.String(), hash,
-			input.String(), nonce , &to,value.String(),
+			&blochHash, &blockNumber, from,gas, gasPrice, txnHash,
+			input, nonce , &to,value,
 			transactionReceipt}}),	nil
 	}
 
