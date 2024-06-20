@@ -8,7 +8,7 @@
  * API version: v1
  */
 
-package read
+package qcreadapi
 
 import (
 	"net/http"

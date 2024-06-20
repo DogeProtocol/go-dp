@@ -8,7 +8,7 @@
  * API version: v1
  */
 
-package write
+package qcwriteapi
 
 import (
 	"reflect"
