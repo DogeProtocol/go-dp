@@ -1,0 +1,20 @@
+﻿{
+  "Queue": {
+    "Connectionstring": "server=localhost;user=root;password=Test123$$;database=dptransaction;port=3306;Pooling=True;default command timeout=120;SslMode=none;"
+  },
+  "HttpDpClient": {
+    "UrlorIpc": "http://172.31.52.35:8545", // Url = "http://172.31.52.35:8545", Ipc ="./geth.ipc"
+    "Status": "0" // Default 0-Url, 1-Ipc
+  },
+  "State": {
+    "Pending": "Pending",
+    "Marked": "Marked",
+    "Process": "Process",
+    "Error": "Error",
+    "Success": "Success"
+  },
+  "Loging": {
+    "Level": "Warn",
+    "LevelConsole": "Debug"
+  }
+}
