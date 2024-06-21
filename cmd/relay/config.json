@@ -1,11 +1,11 @@
 ﻿[
   {
-    "api": "qcreadapi",
+    "api": "read",
     "ip": "127.0.0.1",
     "port": "8080"
   },
   {
-    "api": "qcwriteapi",
+    "api": "write",
     "ip": "127.0.0.1",
     "port": "8081"
   }

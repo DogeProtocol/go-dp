@@ -12,15 +12,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	qcreadapi "github.com/DogeProtocol/dp/relay/qcreadapi"
 	qcwriteapi "github.com/DogeProtocol/dp/relay/qcwriteapi"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -39,69 +40,45 @@ func main() {
 		return
 	}
 
-	if os.Args[1] == "qcreadapi" {
+	file := os.Args[1]
+	configs, err := readConfigJsonDataFile(file)
 
-		configs := readConfigJsonDataFile("config.json")
-
-		if len(configs) < 2{
-			fmt.Println("Check config json file")
-			return
-		}
-
-		qcApi := configs[0].Api
-		ip := configs[0].Ip
-		port := configs[0].Port
-
-		if qcApi  != "qcreadapi" {
-			fmt.Println("Check configuration qcApi value ", qcApi)
-			return
-		}
-
-		if net.ParseIP(ip) == nil {
-			fmt.Println("Check configuration ip value ", ip)
-			return
-		}
-
-		if _, err := strconv.Atoi(port); err != nil {
-			fmt.Println("Check configuration port value ", port)
-			return
-		}
-
-		qcReadApi(ip, port)
-
-	} else if os.Args[1] == "qcwriteapi" {
-
-		configs := readConfigJsonDataFile("config.json")
-
-		if len(configs) < 2{
-			fmt.Println("Check config json file")
-			return
-		}
-
-		qcApi := configs[1].Api
-		ip := configs[1].Ip
-		port := configs[1].Port
-
-		if qcApi  != "qcwriteapi" {
-			fmt.Println("Check configuration qcApi value ", qcApi)
-			return
-		}
-
-		if net.ParseIP(ip) == nil {
-			fmt.Println("Check configuration ip value ", ip)
-			return
-		}
-
-		if _, err := strconv.Atoi(port); err != nil {
-			fmt.Println("Check configuration port value ", port)
-			return
-		}
-
-		qcWriteApi(ip, port)
-
-	} else {
-		printHelp()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
+
+	if len(configs) < 1 {
+		fmt.Println("Check config json file")
+		return
+	}
+
+	for _, config := range configs{
+		api := config.Api
+		ip := config.Ip
+		port := config.Port
+
+		if net.ParseIP(ip) == nil {
+			fmt.Println("Check configuration ip value ", ip)
+			return
+		}
+
+		if _, err := strconv.Atoi(port); err != nil {
+			fmt.Println("Check configuration port value ", port)
+			return
+		}
+
+		if strings.EqualFold(api ,"read") {
+			go qcReadApi(ip, port)
+		}
+
+		if strings.EqualFold(api ,"write") {
+			go qcWriteApi(ip, port)
+		}
+	}
+
+	fmt.Println("Relay listen and server...")
+	<-make(chan int)
 }
 
 func qcReadApi(ip string, port string) {
@@ -122,16 +99,21 @@ func qcWriteApi(ip string, port string) {
 	http.ListenAndServe(ip + ":" + port,  writeRouter)
 }
 
-func readConfigJsonDataFile(filename string) (c []Config) {
+func readConfigJsonDataFile(filename string)  ([]Config, error) {
+
+	if _, err := os.Stat(filename); err != nil {
+		return nil, errors.New("File not found " + filename)
+	}
+
 	fileContent, err := os.Open(filename)
 	if err != nil {
-		log.Println(err.Error())
+		return nil, err
 	}
 	defer fileContent.Close()
 
 	byteResult, err  := ioutil.ReadAll(fileContent)
 	if err != nil {
-		fmt.Println("readall ", err)
+		return nil, err
 	}
 
 	byteResult = bytes.TrimPrefix(byteResult, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
@@ -139,15 +121,14 @@ func readConfigJsonDataFile(filename string) (c []Config) {
 	var configs []Config
 	err = json.Unmarshal([]byte(byteResult), &configs)
 	if err != nil {
-		fmt.Println("unmarshal ", err)
+		return nil, err
 	}
 
-	return configs
+	return configs, nil
 }
 
 func printHelp() {
 	fmt.Println("===========")
-	fmt.Println("relay qcreadapi")
-	fmt.Println("relay qcwriteapi")
+	fmt.Println("relay config.json")
 	fmt.Println("===========")
 }
