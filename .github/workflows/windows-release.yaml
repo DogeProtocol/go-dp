@@ -52,6 +52,8 @@ jobs:
          mkdir ${{ github.workspace }}\build\dp
          copy ${{ github.workspace }}\build\dp.exe ${{ github.workspace }}\build\dp\dp.exe
          copy ${{ github.workspace }}\build\dputil.exe ${{ github.workspace }}\build\dp\dputil.exe
+         copy ${{ github.workspace }}\build\relay.exe ${{ github.workspace }}\build\dp\relay.exe
+         copy ${{ github.workspace }}\cmd\relay\config.json ${{ github.workspace }}\cmd\relay\config.json
          copy ${{ github.workspace }}\templibs\liboqs\oqs.dll ${{ github.workspace }}\build\dp\oqs.dll
          copy ${{ github.workspace }}\templibs\hybrid-pqc\hybridpqc.dll ${{ github.workspace }}\build\dp\hybridpqc.dll
          copy ${{ github.workspace }}\consensus\proofofstake\genesis\genesis.json ${{ github.workspace }}\build\dp\genesis.json

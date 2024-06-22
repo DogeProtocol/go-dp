@@ -40,6 +40,8 @@ jobs:
          mkdir ${{ github.workspace }}/build/dp-release
          cp ${{ github.workspace }}/build/dp ${{ github.workspace }}/build/dp-release/dp
          cp ${{ github.workspace }}/build/dputil ${{ github.workspace }}/build/dp-release/dputil
+         cp ${{ github.workspace }}\build\relay.exe ${{ github.workspace }}\build\dp\relay.exe
+         cp ${{ github.workspace }}\cmd\relay\config.json ${{ github.workspace }}\cmd\relay\config.json
          cp ${{ github.workspace }}/templibs/liboqs/liboqs.so.5 ${{ github.workspace }}/build/dp-release/liboqs.so.5
          cp ${{ github.workspace }}/templibs/hybrid-pqc/libhybridpqc.so.2 ${{ github.workspace }}/build/dp-release/libhybridpqc.so.2
          cp ${{ github.workspace }}/consensus/proofofstake/genesis/genesis.json ${{ github.workspace }}/build/dp-release/genesis.json
