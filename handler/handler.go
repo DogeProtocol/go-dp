@@ -89,10 +89,11 @@ type HandlerConfig struct {
 }
 
 type ConsensusHandler interface {
-	HandleConsensusPacket(packet *eth.ConsensusPacket) error
+	HandleConsensusPacket(packet *eth.ConsensusPacket, fromPeerId string) error
 	HandleRequestConsensusDataPacket(packet *eth.RequestConsensusDataPacket) ([]*eth.ConsensusPacket, error)
 	OnPeerConnected(peerId string) error
 	OnPeerDisconnected(peerId string) error
+	ShouldRebroadCast(packet *eth.ConsensusPacket, fromPeerId string) bool
 }
 
 type ConsensusPacketHandler struct {
@@ -141,6 +142,8 @@ type P2PHandler struct {
 
 	handlePeerListFn HandlePeerList
 
+	localPeerId string
+
 	rebroadcastCount int
 
 	rebroadcastMap map[common.Hash]int64 //packetHash to unixnano of packet first-time-received-time hash
@@ -167,10 +170,11 @@ func (h *P2PHandler) SetConsensusHandler(handler ConsensusHandler) {
 	h.consensusHandler = consensusHandler
 }
 
-func (h *P2PHandler) SetPeerHandler(handleFn HandlePeerList) {
+func (h *P2PHandler) SetPeerHandler(handleFn HandlePeerList, localPeerId string) {
 	lock.Lock()
 	defer lock.Unlock()
 	h.handlePeerListFn = handleFn
+	h.localPeerId = localPeerId
 }
 
 // NewHandler returns a P2PHandler for all Ethereum chain management protocol.
@@ -554,6 +558,21 @@ func (h *P2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPacket
 	}
 
 	return nil
+}
+
+func (h *P2PHandler) SendConsensusPacket(peerList []string, packet *eth.ConsensusPacket) error {
+	for _, peerId := range peerList {
+		peer, ok := h.peers.getPeer(peerId)
+		if ok == false {
+			return errors.New("peer not found")
+		}
+		peer.AsyncSendConsensusPacket(packet)
+	}
+	return nil
+}
+
+func (h *P2PHandler) GetLocalPeerId() string {
+	return h.localPeerId
 }
 
 func (h *P2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {

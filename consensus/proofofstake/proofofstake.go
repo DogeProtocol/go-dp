@@ -241,8 +241,9 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 	return proofofstake
 }
 
-func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler) {
-	c.consensusHandler.p2pHandler = handler
+func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler, localPeerId string) {
+	c.consensusHandler.SetP2PHandler(handler, localPeerId)
+	c.consensusHandler.peerHandler.SetP2PHandler(handler, localPeerId)
 }
 
 func (c *ProofOfStake) SetBlockchain(blockchain *core.BlockChain) {
@@ -918,6 +919,8 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 	c.consensusHandler.signFn = signFn
 	c.consensusHandler.signFnWithContext = signFnWithContext
 	c.consensusHandler.account = account
+
+	c.consensusHandler.peerHandler.SetSignFn(signFn, account)
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using

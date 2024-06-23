@@ -59,7 +59,7 @@ const (
 
 	// minRecommitInterval is the minimal time interval to recreate the mining block with
 	// any newly arrived transactions.
-	minRecommitInterval = 1 * time.Second
+	minRecommitInterval = 500 * time.Millisecond
 
 	// maxRecommitInterval is the maximum time interval to recreate the mining block with
 	// any newly arrived transactions.
@@ -229,10 +229,10 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 
 	// Sanitize blockTimerPhaseInterval interval if the user-specified one is too short.
 	blockTimerPhaseInterval := worker.config.Recommit
-	log.Trace("newWorker chain", "ParentHash", worker.chain.CurrentBlock().ParentHash(), "blockTimerPhaseInterval", blockTimerPhaseInterval)
+	log.Info("newWorker chain", "ParentHash", worker.chain.CurrentBlock().ParentHash(), "blockTimerPhaseInterval", blockTimerPhaseInterval)
 
 	if blockTimerPhaseInterval < minRecommitInterval {
-		log.Warn("Sanitizing miner blockTimerPhaseInterval interval", "provided", blockTimerPhaseInterval, "updated", minRecommitInterval, "worker.config.Recommit", worker.config.Recommit)
+		log.Info("Sanitizing miner blockTimerPhaseInterval interval", "provided", blockTimerPhaseInterval, "updated", minRecommitInterval, "worker.config.Recommit", worker.config.Recommit)
 		blockTimerPhaseInterval = minRecommitInterval
 	}
 

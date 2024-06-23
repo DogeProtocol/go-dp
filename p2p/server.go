@@ -40,6 +40,7 @@ import (
 	"github.com/DogeProtocol/dp/p2p/enr"
 	"github.com/DogeProtocol/dp/p2p/nat"
 	"github.com/DogeProtocol/dp/p2p/netutil"
+	"math/rand"
 )
 
 const (
@@ -398,9 +399,13 @@ func (srv *Server) Self() *enode.Node {
 	srv.lock.Unlock()
 
 	if ln == nil {
-		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0)
+		return enode.NewV4(&srv.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 30303)
 	}
 	return ln.Node()
+}
+
+func (srv *Server) GetLocalPeerId() string {
+	return srv.Self().ID().String()
 }
 
 func (srv *Server) SetRequestPeersFn(fun RequestPeers) {
@@ -408,6 +413,16 @@ func (srv *Server) SetRequestPeersFn(fun RequestPeers) {
 }
 
 func (srv *Server) HandlePeerList(peerList []string) error {
+	//Shuffle so that peers are not connected in the same order
+	for i := len(peerList) - 1; i > 0; i-- { //Fisher Yates shuffle.
+		minVal := 0
+		maxVal := i
+		j := rand.Intn(maxVal-minVal) + minVal //non-crypto rand is ok for this purpose
+		temp := peerList[i]
+		peerList[i] = peerList[j]
+		peerList[j] = temp
+	}
+
 	for _, peerEnr := range peerList {
 		node, err := enode.ParseNode(peerEnr)
 		if err != nil {
@@ -589,8 +604,30 @@ func (srv *Server) setupDialScheduler() {
 	}
 	srv.peerConnCh = make(chan *enode.Node)
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn, srv.peerConnCh)
+
+	//Shuffle so that peers are not connected in the same order each time
+	for i := len(srv.StaticNodes) - 1; i > 0; i-- { //Fisher Yates shuffle.
+		minVal := 0
+		maxVal := i
+		j := rand.Intn(maxVal-minVal) + minVal //non-crypto rand is ok for this purpose
+		temp := srv.StaticNodes[i]
+		srv.StaticNodes[i] = srv.StaticNodes[j]
+		srv.StaticNodes[j] = temp
+	}
+
 	for _, n := range srv.StaticNodes {
-		srv.dialsched.addStatic(n)
+		log.Debug("StaticNodes addNode", "StaticNode", n.ID().String())
+		go srv.dialsched.addStatic(n)
+	}
+
+	//Shuffle so that peers are not connected in the same order each time
+	for i := len(srv.BootstrapNodes) - 1; i > 0; i-- { //Fisher Yates shuffle.
+		minVal := 0
+		maxVal := i
+		j := rand.Intn(maxVal-minVal) + minVal //non-crypto rand is ok for this purpose
+		temp := srv.BootstrapNodes[i]
+		srv.BootstrapNodes[i] = srv.BootstrapNodes[j]
+		srv.BootstrapNodes[j] = temp
 	}
 
 	for _, n := range srv.BootstrapNodes {
@@ -1004,7 +1041,6 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 
 	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
 	if err != nil {
-
 		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
@@ -1032,7 +1068,6 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	}
 
 	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
-
 		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID))
 		return DiscUnexpectedIdentity
 	}

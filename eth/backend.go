@@ -226,14 +226,14 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	if eng, ok := eth.engine.(*proofofstake.ProofOfStake); ok {
-		eng.SetP2PHandler(eth.handler)
+		eng.SetP2PHandler(eth.handler, eth.handler.GetLocalPeerId())
 		var consensusHandler handler.ConsensusHandler = eng.GetConsensusPacketHandler()
 		eth.handler.SetConsensusHandler(consensusHandler)
 		eng.SetBlockchain(eth.blockchain)
 	}
 
 	eth.p2pServer.SetRequestPeersFn(eth.handler.RequestPeerList)
-	eth.handler.SetPeerHandler(eth.p2pServer.HandlePeerList)
+	eth.handler.SetPeerHandler(eth.p2pServer.HandlePeerList, eth.p2pServer.GetLocalPeerId())
 
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))

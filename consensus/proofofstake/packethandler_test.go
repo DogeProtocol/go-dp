@@ -60,6 +60,7 @@ type MockP2PHandler struct {
 	consensusHandler *ConsensusHandler
 	validatorDetails *ValidatorDetailsTest
 	networkDetails   MockNetworkDetails
+	localPeerId      string
 }
 
 func (m *MockP2PManager) DoesFinalizedTransactionExistFn(txnHash common.Hash) (bool, error) {
@@ -195,6 +196,14 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	}
 }
 
+func (p *MockP2PHandler) SendConsensusPacket(peerList []string, packet *eth.ConsensusPacket) error {
+	return nil
+}
+
+func (p *MockP2PHandler) GetLocalPeerId() string {
+	return p.localPeerId
+}
+
 func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {
 	for _, val := range p.mockP2pManager.mockP2pHandlers {
 		handler := val.consensusHandler
@@ -227,7 +236,7 @@ func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) err
 			if p.mockP2pManager.ArePacketsBetweenValidatorsBlocked(p.validator, signer) {
 				continue
 			}
-			err = handler.HandleConsensusPacket(packet)
+			err = handler.HandleConsensusPacket(packet, val.localPeerId)
 			if err != nil {
 				continue
 			}
@@ -309,7 +318,7 @@ func (p *MockP2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPa
 			}
 
 			for _, pkt := range consensusPackets {
-				p.consensusHandler.HandleConsensusPacket(pkt)
+				p.consensusHandler.HandleConsensusPacket(pkt, val.localPeerId)
 			}
 		}
 	}
@@ -2033,13 +2042,13 @@ func Test_consensuspacket_negative(t *testing.T) {
 		h := handler
 
 		var p0 eth.ConsensusPacket
-		err := h.consensusHandler.HandleConsensusPacket(&p0)
+		err := h.consensusHandler.HandleConsensusPacket(&p0, handler.localPeerId)
 		if err == nil {
 			t.Fatalf("failed1")
 		}
 
 		p1 := eth.ConsensusPacket{}
-		err = h.consensusHandler.HandleConsensusPacket(&p1)
+		err = h.consensusHandler.HandleConsensusPacket(&p1, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed2")
@@ -2049,7 +2058,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			Signature: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p2)
+		err = h.consensusHandler.HandleConsensusPacket(&p2, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed3")
@@ -2059,7 +2068,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p3)
+		err = h.consensusHandler.HandleConsensusPacket(&p3, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed4")
@@ -2070,7 +2079,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 0),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p4)
+		err = h.consensusHandler.HandleConsensusPacket(&p4, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed5")
@@ -2081,7 +2090,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p5)
+		err = h.consensusHandler.HandleConsensusPacket(&p5, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed6")

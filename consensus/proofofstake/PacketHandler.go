@@ -10,6 +10,7 @@ import (
 	"github.com/DogeProtocol/dp/crypto/hybrideds"
 	"github.com/DogeProtocol/dp/crypto/signaturealgorithm"
 	"github.com/DogeProtocol/dp/eth/protocols/eth"
+	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/node"
 	"github.com/DogeProtocol/dp/params"
@@ -17,6 +18,7 @@ import (
 	"io/ioutil"
 	"math"
 	"math/big"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -30,9 +32,6 @@ type GetBlockConsensusContextFn func(key string, blockHash common.Hash) ([32]byt
 type GetValidatorsFn func(blockHash common.Hash) (map[common.Address]*big.Int, error)
 type DoesFinalizedTransactionExistFn func(txnHash common.Hash) (bool, error)
 type ListValidatorsAsMapFn func(blockHash common.Hash) (map[common.Address]*ValidatorDetailsV2, error)
-
-const MinConsensusNetworkProtocolVersion = byte(5)
-const ConsensusNetworkProtocolVersion = byte(5)
 
 type OutOfOrderPacket struct {
 	ReceivedTime time.Time
@@ -74,6 +73,8 @@ type ConsensusHandler struct {
 
 	latestBlockNumber uint64 //temporary variable
 	latestBlockMutex  sync.RWMutex
+
+	peerHandler *PeerHandler
 }
 
 type PacketStats struct {
@@ -138,10 +139,14 @@ const (
 	CONSENSUS_PACKET_TYPE_PRECOMMIT_BLOCK    ConsensusPacketType = 2
 	CONSENSUS_PACKET_TYPE_COMMIT_BLOCK       ConsensusPacketType = 3
 
+	CONSENSUS_PACKET_TYPE_CAPABILITY ConsensusPacketType = 6
+	CONSENSUS_PACKET_TYPE_SYNC       ConsensusPacketType = 7
+
 	PROPOSAL_KEY_PREFIX     = "proposal"
 	ACK_PROPOSAL_KEY_PREFIX = "ackProposal"
 	PRECOMMIT_KEY_PREFIX    = "precommit"
 	COMMIT_KEY_PREFIX       = "commit"
+	TOTAL_KEY_PREFIX        = "total"
 )
 
 const (
@@ -272,12 +277,14 @@ type RequestConsensusPacketDetails struct {
 	Round                 byte             `json:"Round" gencodec:"required"`
 }
 
-func GetTimeStateBucket(state string, ms int64) string {
+func GetTimeStatBucket(state string, ms int64) string {
 	key := state + "-"
 	if ms < 1000 {
 		return key + "-0s-to-1s"
+	} else if ms > 1000 && ms < 5000 {
+		return key + "-1s-to-5s"
 	} else if ms > 1000 && ms < 10000 {
-		return key + "-1s-to-10s"
+		return key + "-5s-to-10s"
 	} else if ms > 10000 && ms < 30000 {
 		return key + "-10s-to-30s"
 	} else {
@@ -291,30 +298,50 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 	timeStatMap := make(map[string]int)
 
 	timeStatMap[PROPOSAL_KEY_PREFIX+"-0s-to-1s"] = 0
-	timeStatMap[PROPOSAL_KEY_PREFIX+"-1s-to-10s"] = 0
+	timeStatMap[PROPOSAL_KEY_PREFIX+"-1s-to-5s"] = 0
+	timeStatMap[PROPOSAL_KEY_PREFIX+"-5s-to-10s"] = 0
 	timeStatMap[PROPOSAL_KEY_PREFIX+"-10s-to-30s"] = 0
 	timeStatMap[PROPOSAL_KEY_PREFIX+"-30s+"] = 0
 
 	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-0s-to-1s"] = 0
-	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-1s-to-10s"] = 0
+	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-1s-to-5s"] = 0
+	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-5s-to-10s"] = 0
 	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-10s-to-30s"] = 0
 	timeStatMap[ACK_PROPOSAL_KEY_PREFIX+"-30s+"] = 0
 
 	timeStatMap[PRECOMMIT_KEY_PREFIX+"-0s-to-1s"] = 0
-	timeStatMap[PRECOMMIT_KEY_PREFIX+"-1s-to-10s"] = 0
+	timeStatMap[PRECOMMIT_KEY_PREFIX+"-1s-to-5s"] = 0
+	timeStatMap[PRECOMMIT_KEY_PREFIX+"-5s-to-10s"] = 0
 	timeStatMap[PRECOMMIT_KEY_PREFIX+"-10s-to-30s"] = 0
 	timeStatMap[PRECOMMIT_KEY_PREFIX+"-30s+"] = 0
 
 	timeStatMap[COMMIT_KEY_PREFIX+"-0s-to-1s"] = 0
-	timeStatMap[COMMIT_KEY_PREFIX+"-1s-to-10s"] = 0
+	timeStatMap[COMMIT_KEY_PREFIX+"-1s-to-5s"] = 0
+	timeStatMap[COMMIT_KEY_PREFIX+"-5s-to-10s"] = 0
 	timeStatMap[COMMIT_KEY_PREFIX+"-10s-to-30s"] = 0
 	timeStatMap[COMMIT_KEY_PREFIX+"-30s+"] = 0
 
-	return &ConsensusHandler{
+	timeStatMap[TOTAL_KEY_PREFIX+"-0s-to-1s"] = 0
+	timeStatMap[TOTAL_KEY_PREFIX+"-1s-to-5s"] = 0
+	timeStatMap[TOTAL_KEY_PREFIX+"-5s-to-10s"] = 0
+	timeStatMap[TOTAL_KEY_PREFIX+"-10s-to-30s"] = 0
+	timeStatMap[TOTAL_KEY_PREFIX+"-30s+"] = 0
+
+	isRelay := false
+	relayEnv := os.Getenv("IS_RELAY")
+	if len(relayEnv) > 0 {
+		isRelay = true
+	}
+
+	cph := &ConsensusHandler{
 		blockStateDetailsMap: make(map[common.Hash]*BlockStateDetails),
 		outOfOrderPacketsMap: make(map[common.Hash]map[common.Hash]*OutOfOrderPacket),
 		timeStatMap:          timeStatMap,
 	}
+
+	cph.peerHandler = NewPeerHandler(isRelay, cph.GetLatestBlockNumber)
+
+	return cph
 }
 
 func (cph *ConsensusHandler) SetValidatorsFunction(getValidatorsFn GetValidatorsFn) {
@@ -629,6 +656,8 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return errors.New("min block deposit not met")
 	}
 
+	cph.peerHandler.SetCurrentParentHash(parentHash)
+
 	return cph.SaveHash(parentHash)
 }
 
@@ -681,13 +710,13 @@ func (cph *ConsensusHandler) isBlockProposer(parentHash common.Hash, filteredVal
 	return blockProposer.IsEqualTo(cph.account.Address), nil
 }
 
-func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) error {
-	log.Debug("HandleConsensusPacket", "ParentHash", packet.ParentHash)
+func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPeerId string) error {
+	log.Debug("HandleConsensusPacket", "ParentHash", packet.ParentHash, "fromPeerId", fromPeerId)
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
 	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
-		log.Debug("HandleConsensusPacket nil")
+		log.Debug("HandleConsensusPacket nil", "fromPeerId", fromPeerId)
 		return errors.New("invalid packet, nil data")
 	}
 
@@ -701,7 +730,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	}
 
 	cph.LogIncomingPacketStats()
-	err := cph.processPacket(packet)
+	err := cph.processPacket(packet, fromPeerId)
 	if errors.Is(err, OutOfOrderPackerErr) {
 		pkt := eth.NewConsensusPacket(packet)
 		packetMap, ok := cph.outOfOrderPacketsMap[packet.ParentHash]
@@ -724,7 +753,13 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket) 
 	}
 
 	if err != nil {
-		log.Trace("HandleConsensusPacket error", "err", err)
+		log.Trace("HandleConsensusPacket error", "err", err, "fromPeerId", fromPeerId)
+	} else {
+		err = cph.peerHandler.HandleConsensusPacket(packet, fromPeerId)
+		if err != nil {
+			log.Trace("HandleConsensusPacket peerHandler", "error", err, "fromPeerId", fromPeerId)
+			return err
+		}
 	}
 
 	if errors.Is(err, UnknownParentHashErr) {
@@ -741,7 +776,7 @@ func shouldSignFull(blockNumber uint64) bool {
 	return false
 }
 
-func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
+func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket, fromPeerId string) error {
 	if packet == nil || packet.ConsensusData == nil || len(packet.ConsensusData) < 1 || packet.Signature == nil || len(packet.Signature) < hybrideds.CRYPTO_SIGNATURE_BYTES {
 		log.Debug("processPacket nil")
 		return errors.New("nil packet")
@@ -799,6 +834,8 @@ func (cph *ConsensusHandler) processPacket(packet *eth.ConsensusPacket) error {
 		return cph.handlePrecommitPacket(validator, packet, false)
 	} else if packetType == CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
 		return cph.handleCommitPacket(validator, packet, false)
+	} else if cph.GetLatestBlockNumber() >= PACKET_PROTOCOL_START_BLOCK && packetType >= CONSENSUS_PACKET_TYPE_CAPABILITY {
+		return nil
 	}
 
 	log.Debug("processPacket unknown packet type")
@@ -811,7 +848,7 @@ func (cph *ConsensusHandler) processOutOfOrderPackets(parentHash common.Hash) er
 	for key, pktList := range cph.outOfOrderPacketsMap {
 		for _, pkt := range pktList {
 			if pkt.Packet.ParentHash.IsEqualTo(parentHash) {
-				err := cph.processPacket(pkt.Packet)
+				err := cph.processPacket(pkt.Packet, "")
 				if err != nil {
 					unprocessedPackets = append(unprocessedPackets, &OutOfOrderPacket{
 						Packet:       pkt.Packet,
@@ -1099,7 +1136,7 @@ func (cph *ConsensusHandler) handleProposeBlockPacket(validator common.Address, 
 
 	err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], &proposalDetails)
 	if err != nil {
-		log.Trace("handleProposeTransactionsPacket8", err)
+		log.Trace("handleProposeTransactionsPacket8", "error", err)
 		return err
 	}
 
@@ -1598,7 +1635,7 @@ func (cph *ConsensusHandler) handlePrecommitPacket(validator common.Address, pac
 
 	err := rlp.DecodeBytes(packet.ConsensusData[startIndex:], precommitDetails)
 	if err != nil {
-		log.Trace("handlePrecommitPacket err5", err)
+		log.Trace("handlePrecommitPacket err5", "error", err)
 		return err
 	}
 
@@ -1738,15 +1775,16 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 			blockStateDetails.commitTime = Elapsed(blockStateDetails.initTime)
 
 			//stats
-			cph.timeStatMap[GetTimeStateBucket(PROPOSAL_KEY_PREFIX, blockStateDetails.proposalTime)]++
-			cph.timeStatMap[GetTimeStateBucket(ACK_PROPOSAL_KEY_PREFIX, blockStateDetails.ackProposalTime-blockStateDetails.proposalTime)]++
-			cph.timeStatMap[GetTimeStateBucket(PRECOMMIT_KEY_PREFIX, blockStateDetails.precommitTime-blockStateDetails.ackProposalTime)]++
-			cph.timeStatMap[GetTimeStateBucket(COMMIT_KEY_PREFIX, blockStateDetails.commitTime-blockStateDetails.precommitTime)]++
+			cph.timeStatMap[GetTimeStatBucket(PROPOSAL_KEY_PREFIX, blockStateDetails.proposalTime)]++
+			cph.timeStatMap[GetTimeStatBucket(ACK_PROPOSAL_KEY_PREFIX, blockStateDetails.ackProposalTime-blockStateDetails.proposalTime)]++
+			cph.timeStatMap[GetTimeStatBucket(PRECOMMIT_KEY_PREFIX, blockStateDetails.precommitTime-blockStateDetails.ackProposalTime)]++
+			cph.timeStatMap[GetTimeStatBucket(COMMIT_KEY_PREFIX, blockStateDetails.commitTime-blockStateDetails.precommitTime)]++
+			cph.timeStatMap[GetTimeStatBucket(TOTAL_KEY_PREFIX, blockStateDetails.commitTime)]++
 
-			log.Trace("BlockStats", "maxTxnsInBlock", cph.maxTransactionsInBlock, "totalTxns", cph.totalTransactions, "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks)
+			log.Info("BlockStats", "maxTxnsInBlock", cph.maxTransactionsInBlock, "totalTxns", cph.totalTransactions, "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks)
 			for statKey, statVal := range cph.timeStatMap {
 				if statVal > 0 {
-					log.Trace("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
+					log.Info("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
 				}
 			}
 
@@ -2455,11 +2493,24 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.processOutOfOrderPackets(parentHash)
 
 	err = errors.New("not ready yet")
-	log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
-		"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
-		"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
-		"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime,
-		"pending txns", len(txns), "TotalIncomingPackets", cph.packetStats.TotalIncomingPacketCount, "newRoundReason", blockRoundDetails.newRoundReason)
+	const MaxRand = 3
+	const minRand = 1
+
+	rndVal := rand.Intn(MaxRand-minRand) + minRand
+
+	if rndVal == 1 {
+		log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
+			"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
+			"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
+			"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime,
+			"pending txns", len(txns), "TotalIncomingPackets", cph.packetStats.TotalIncomingPacketCount, "newRoundReason", blockRoundDetails.newRoundReason)
+	} else {
+		log.Debug("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
+			"selfAckProposalVoteType", blockRoundDetails.selfAckProposalVoteType,
+			"shouldPropose", shouldPropose, "currTxns", len(txns), "okVoteBlocks", cph.okVoteBlocks, "nilVoteBlocks", cph.nilVoteBlocks,
+			"totalTransactions", cph.totalTransactions, "maxTransactionsInBlock", cph.maxTransactionsInBlock, "maxTransactionsBlockTime", cph.maxTransactionsBlockTime,
+			"pending txns", len(txns), "TotalIncomingPackets", cph.packetStats.TotalIncomingPacketCount, "newRoundReason", blockRoundDetails.newRoundReason)
+	}
 
 	if blockRoundDetails.state == BLOCK_STATE_WAITING_FOR_PROPOSAL {
 		for _, txn := range txns {
@@ -2593,6 +2644,9 @@ func (cph *ConsensusHandler) broadCast(packet *eth.ConsensusPacket) error {
 	}
 
 	cph.cleanupBroadcast()
+	if cph.latestBlockNumber >= PACKET_PROTOCOL_START_BLOCK {
+		go cph.peerHandler.BroadcastLocalPacketToSyncPeers(packet)
+	}
 	go cph.p2pHandler.BroadcastConsensusData(packet)
 	return nil
 }
@@ -2832,10 +2886,38 @@ func (cph *ConsensusHandler) GetLatestBlockNumber() uint64 {
 
 func (cph *ConsensusHandler) OnPeerConnected(peerId string) error {
 	log.Debug("OnPeerConnected", "peerId", peerId)
+	cph.peerHandler.OnPeerConnected(peerId)
 	return nil
 }
 
 func (cph *ConsensusHandler) OnPeerDisconnected(peerId string) error {
 	log.Debug("OnPeerDisconnected", "peerId", peerId)
+	cph.peerHandler.OnPeerConnected(peerId)
 	return nil
+}
+
+func (cph *ConsensusHandler) SetP2PHandler(handler *handler.P2PHandler, localPeerId string) {
+	cph.p2pHandler = handler
+	cph.peerHandler.SetP2PHandler(handler, localPeerId)
+}
+
+func (cph *ConsensusHandler) ShouldRebroadCast(packet *eth.ConsensusPacket, fromPeerId string) bool {
+	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
+		return false
+	}
+
+	var startIndex int
+	if packet.ConsensusData[0] >= MinConsensusNetworkProtocolVersion {
+		startIndex = 2
+	} else {
+		startIndex = 1
+	}
+
+	packetType := ConsensusPacketType(packet.ConsensusData[startIndex-1])
+
+	if packetType < CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK || packetType > CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
+		return false
+	}
+
+	return true
 }
