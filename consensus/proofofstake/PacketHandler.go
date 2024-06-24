@@ -327,10 +327,10 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 	timeStatMap[TOTAL_KEY_PREFIX+"-10s-to-30s"] = 0
 	timeStatMap[TOTAL_KEY_PREFIX+"-30s+"] = 0
 
-	isRelay := false
-	relayEnv := os.Getenv("IS_RELAY")
-	if len(relayEnv) > 0 {
-		isRelay = true
+	isConsensusRelay := false
+	isConsensusRelayEnv := os.Getenv("IS_CONSENSUS_RELAY")
+	if len(isConsensusRelayEnv) > 0 && isConsensusRelayEnv == "1" {
+		isConsensusRelay = true
 	}
 
 	cph := &ConsensusHandler{
@@ -339,7 +339,7 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 		timeStatMap:          timeStatMap,
 	}
 
-	cph.peerHandler = NewPeerHandler(isRelay, cph.GetLatestBlockNumber)
+	cph.peerHandler = NewPeerHandler(isConsensusRelay, cph.GetLatestBlockNumber)
 
 	return cph
 }
@@ -656,7 +656,7 @@ func (cph *ConsensusHandler) initializeBlockStateIfRequired(parentHash common.Ha
 		return errors.New("min block deposit not met")
 	}
 
-	cph.peerHandler.SetCurrentParentHash(parentHash)
+	cph.peerHandler.SetCurrentParentHash(parentHash, blockNumber)
 
 	return cph.SaveHash(parentHash)
 }
@@ -726,6 +726,7 @@ func (cph *ConsensusHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, 
 
 	if cph.initialized == false || HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
 		log.Trace("received consensus packet, but consensus is not ready yet")
+		cph.peerHandler.HandleConsensusPacket(packet, fromPeerId)
 		return nil
 	}
 
@@ -2615,6 +2616,13 @@ func (cph *ConsensusHandler) broadCast(packet *eth.ConsensusPacket) error {
 		return errors.New("packet is nil")
 	}
 
+	if cph.latestBlockNumber >= PACKET_PROTOCOL_START_BLOCK {
+		sendCount := cph.peerHandler.BroadcastLocalPacket(packet)
+		if sendCount > 8 {
+			return nil
+		}
+	}
+
 	dataToHash := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToHash)
 	var hash common.Hash
@@ -2644,10 +2652,8 @@ func (cph *ConsensusHandler) broadCast(packet *eth.ConsensusPacket) error {
 	}
 
 	cph.cleanupBroadcast()
-	if cph.latestBlockNumber >= PACKET_PROTOCOL_START_BLOCK {
-		go cph.peerHandler.BroadcastLocalPacketToSyncPeers(packet)
-	}
 	go cph.p2pHandler.BroadcastConsensusData(packet)
+
 	return nil
 }
 

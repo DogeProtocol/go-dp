@@ -226,7 +226,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	if eng, ok := eth.engine.(*proofofstake.ProofOfStake); ok {
-		eng.SetP2PHandler(eth.handler, eth.handler.GetLocalPeerId())
+		eng.SetP2PHandler(eth.handler, eth.p2pServer.GetLocalPeerId())
 		var consensusHandler handler.ConsensusHandler = eng.GetConsensusPacketHandler()
 		eth.handler.SetConsensusHandler(consensusHandler)
 		eng.SetBlockchain(eth.blockchain)

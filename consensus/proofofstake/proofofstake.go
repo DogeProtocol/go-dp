@@ -242,8 +242,12 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 }
 
 func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler, localPeerId string) {
+	log.Info("ProofOfStake SetP2PHandler", "localPeerId", localPeerId)
+	if localPeerId == "" || len(localPeerId) == 0 {
+		panic("invalid local peer id")
+	}
+
 	c.consensusHandler.SetP2PHandler(handler, localPeerId)
-	c.consensusHandler.peerHandler.SetP2PHandler(handler, localPeerId)
 }
 
 func (c *ProofOfStake) SetBlockchain(blockchain *core.BlockChain) {

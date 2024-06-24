@@ -8,6 +8,7 @@ import (
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
+	"runtime/debug"
 	"sync"
 )
 
@@ -16,7 +17,7 @@ const ConsensusNetworkProtocolVersion = byte(5)
 
 type GetLatestBlockNumberFn func() uint64
 
-var isRelay = true
+var isConsensusRelay = true
 
 type PeerDetails struct {
 	capabilityDetails *CapabilityDetails
@@ -35,35 +36,39 @@ type PeerHandler struct {
 	p2pHandler             *handler.P2PHandler
 	signFn                 SignerFn
 	account                accounts.Account
-	isRelay                bool
+	isConsensusRelay       bool
 	getLatestBlockNumberFn GetLatestBlockNumberFn
 	localPeerId            string
-	relayMap               map[string]bool                    //List of connected relays
-	syncPeerMap            map[string]bool                    //List of peers who have requested for consensus sync (i.e. relaying consensus packets)
+	consensusRelayMap      map[string]bool                    //List of connected ConsensusRelays
+	syncPeerMap            map[string]bool                    //List of peers who have requested for consensus sync (i.e. ConsensusRelaying consensus packets)
 	packetSyncMap          map[common.Hash]*PacketSyncDetails //packet hash is the key
 
-	parentHashLock    sync.Mutex
-	currentParentHash common.Hash
+	parentHashLock     sync.Mutex
+	currentParentHash  common.Hash
+	currentBlockNumber uint64
 }
 
-// Sent by a Relay to another node
+// Sent by a ConsensusRelay to another node
 type CapabilityDetails struct {
-	IsRelay bool   `json:"IsRelay" gencodec:"required"` //should always be true
-	PeerId  string `json:"PeerId" gencodec:"required"`  //PeerId of the original sender
+	IsConsensusRelay bool   `json:"IsConsensusRelay" gencodec:"required"` //should always be true
+	PeerId           string `json:"PeerId" gencodec:"required"`           //PeerId of the original sender
 }
 
-// Send by a node to a relay, to request consensus packets
+// Send by a node to a ConsensusRelay, to request consensus packets
 type RequestConsensusSyncDetails struct {
-	IsRelay bool   `json:"IsRelay" gencodec:"required"` //Whether requester is also a relay
-	PeerId  string `json:"PeerId" gencodec:"required"`  //PeerId of the original sender (requester)
+	IsConsensusRelay bool   `json:"IsConsensusRelay" gencodec:"required"` //Whether requester is also a ConsensusRelay
+	PeerId           string `json:"PeerId" gencodec:"required"`           //PeerId of the original sender (requester)
 }
 
-func NewPeerHandler(isRelay bool, getLatestBlockNumberFn GetLatestBlockNumberFn) *PeerHandler {
+func NewPeerHandler(isConsensusRelay bool, getLatestBlockNumberFn GetLatestBlockNumberFn) *PeerHandler {
+	if isConsensusRelay {
+		log.Trace("NewPeerHandler isConsensusRelay")
+	}
 	return &PeerHandler{
-		isRelay:                isRelay,
+		isConsensusRelay:       isConsensusRelay,
 		getLatestBlockNumberFn: getLatestBlockNumberFn,
 		peerMap:                make(map[string]*PeerDetails),
-		relayMap:               make(map[string]bool),
+		consensusRelayMap:      make(map[string]bool),
 		syncPeerMap:            make(map[string]bool),
 		packetSyncMap:          make(map[common.Hash]*PacketSyncDetails),
 	}
@@ -88,8 +93,8 @@ func (p *PeerHandler) OnPeerConnected(peerId string) error {
 		peerId: peerId,
 	}
 
-	if p.isRelay {
-		go p.SendCapabilityPacket(peerId)
+	if p.isConsensusRelay {
+		go p.SendCapabilityPacket([]string{peerId})
 	}
 
 	log.Debug("OnPeerConnected done", "peerId", peerId)
@@ -102,11 +107,11 @@ func (p *PeerHandler) OnPeerDisconnected(peerId string) error {
 	defer p.peerLock.Unlock()
 
 	delete(p.peerMap, peerId)
-	delete(p.relayMap, peerId)
+	delete(p.consensusRelayMap, peerId)
 	delete(p.syncPeerMap, peerId)
 
-	if len(p.relayMap) == 0 {
-		go p.ConnectAvailableRelay()
+	if len(p.consensusRelayMap) == 0 {
+		go p.ConnectAvailableConsensusRelay()
 	}
 
 	log.Debug("OnPeerDisconnected done", "peerId", peerId)
@@ -114,7 +119,7 @@ func (p *PeerHandler) OnPeerDisconnected(peerId string) error {
 }
 
 func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPeerId string) error {
-	log.Debug("PeerHandler HandleConsensusPacket", "fromPeerId", fromPeerId)
+	log.Trace("PeerHandler HandleConsensusPacket", "fromPeerId", fromPeerId)
 	if packet == nil || packet.Signature == nil || packet.ConsensusData == nil || len(packet.Signature) == 0 || len(packet.ConsensusData) == 0 {
 		log.Debug("HandleConsensusPacket nil", "fromPeerId", fromPeerId)
 		return InvalidPacketErr
@@ -150,7 +155,9 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 
 		go p.HandleRequestConsensusSync(&requestConsensusSyncDetails, fromPeerId)
 	} else if packetType >= CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packetType <= CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
-		go p.BroadcastToSyncPeers(packet, fromPeerId)
+		if p.isConsensusRelay {
+			go p.BroadcastToSyncPeers(packet, fromPeerId)
+		}
 	} else {
 		log.Debug("PeerHandler unhandled packet type", "packetType", packetType, "fromPeerId", fromPeerId)
 	}
@@ -159,26 +166,32 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 }
 
 func (p *PeerHandler) HandleCapabilityPacket(capabilityDetails *CapabilityDetails, fromPeerId string) {
-	log.Debug("PeerHandler HandleCapabilityPacket", "fromPeerId", fromPeerId)
-	if capabilityDetails.IsRelay == false || fromPeerId != capabilityDetails.PeerId {
+	log.Trace("PeerHandler HandleCapabilityPacket", "fromPeerId", fromPeerId)
+	debug.PrintStack()
+	if capabilityDetails.IsConsensusRelay == false || fromPeerId != capabilityDetails.PeerId {
+		log.Debug("PeerHandler HandleCapabilityPacket", "fromPeerId", fromPeerId, "capabilityDetails peeerId", capabilityDetails.PeerId)
 		return
 	}
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
+
+	log.Trace("PeerHandler HandleCapabilityPacket unlock", "fromPeerId", fromPeerId)
 
 	p.peerMap[capabilityDetails.PeerId] = &PeerDetails{
 		peerId:            capabilityDetails.PeerId,
 		capabilityDetails: capabilityDetails,
 	}
 
-	if p.isRelay || len(p.relayMap) == 0 {
+	if p.isConsensusRelay || len(p.consensusRelayMap) == 0 {
 		go p.SendRequestConsensusSyncPacket(capabilityDetails.PeerId)
 	}
 }
 
 func (p *PeerHandler) HandleRequestConsensusSync(requestConsensusSyncDetails *RequestConsensusSyncDetails, fromPeerId string) {
-	log.Debug("PeerHandler HandleRequestConsensusSync", "fromPeerId", fromPeerId)
+	log.Trace("PeerHandler HandleRequestConsensusSync", "fromPeerId", fromPeerId)
+	debug.PrintStack()
 	if fromPeerId != requestConsensusSyncDetails.PeerId {
+		log.Debug("PeerHandler HandleRequestConsensusSync", "fromPeerId", fromPeerId, "requestConsensusSyncDetails", requestConsensusSyncDetails.PeerId)
 		return
 	}
 	p.peerLock.Lock()
@@ -221,21 +234,21 @@ func (p *PeerHandler) CreateConsensusPacket(data []byte) (*eth.ConsensusPacket, 
 	return packet, nil
 }
 
-func (p *PeerHandler) SendCapabilityPacket(peerId string) error {
-	log.Debug("PeerHandler SendCapabilityPacket", "peerId", peerId)
-	if p.p2pHandler == nil || p.isRelay == false || p.getLatestBlockNumberFn() < PACKET_PROTOCOL_START_BLOCK {
+func (p *PeerHandler) SendCapabilityPacket(peerList []string) error {
+	log.Debug("PeerHandler SendCapabilityPacket", "peer count", len(peerList))
+	if p.p2pHandler == nil || p.isConsensusRelay == false || p.getLatestBlockNumberFn() < PACKET_PROTOCOL_START_BLOCK {
 		return nil
 	}
 
 	capabilityDetails := &CapabilityDetails{
-		IsRelay: true,
-		PeerId:  p.localPeerId,
+		IsConsensusRelay: true,
+		PeerId:           p.localPeerId,
 	}
 
 	data, err := rlp.EncodeToBytes(capabilityDetails)
 
 	if err != nil {
-		log.Debug("PeerHandler SendCapabilityPacket EncodeToBytes", "error", err, "peer", peerId)
+		log.Debug("PeerHandler SendCapabilityPacket EncodeToBytes", "error")
 		return err
 	}
 
@@ -244,27 +257,28 @@ func (p *PeerHandler) SendCapabilityPacket(peerId string) error {
 
 	packet, err := p.CreateConsensusPacket(dataToSend)
 	if err != nil {
-		log.Debug("PeerHandler SendCapabilityPacket CreateConsensusPacket", "error", err, "peer", peerId)
+		log.Debug("PeerHandler SendCapabilityPacket CreateConsensusPacket", "error", err)
 		return err
 	}
 
-	err = p.p2pHandler.SendConsensusPacket([]string{peerId}, packet)
+	err = p.p2pHandler.SendConsensusPacket(peerList, packet)
 	if err != nil {
-		log.Debug("PeerHandler SendCapabilityPacket SendConsensusPacket", "error", err, "peer", peerId)
+		log.Debug("PeerHandler SendCapabilityPacket SendConsensusPacket", "error", err)
 		return err
 	}
 
+	log.Trace("PeerHandler SendCapabilityPacket", "peer count", len(peerList))
 	return nil
 }
 
-func (p *PeerHandler) ConnectAvailableRelay() {
-	log.Trace("PeerHandler ConnectRelay lock")
+func (p *PeerHandler) ConnectAvailableConsensusRelay() {
+	log.Trace("PeerHandler ConnectConsensusRelay lock")
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
-	log.Trace("PeerHandler ConnectRelay Unlock")
+	log.Trace("PeerHandler ConnectConsensusRelay Unlock")
 
 	for k, v := range p.peerMap {
-		if v.capabilityDetails.IsRelay {
+		if v.capabilityDetails.IsConsensusRelay {
 			go p.SendRequestConsensusSyncPacket(k)
 			break
 		}
@@ -273,13 +287,14 @@ func (p *PeerHandler) ConnectAvailableRelay() {
 
 func (p *PeerHandler) SendRequestConsensusSyncPacket(peerId string) error {
 	log.Trace("PeerHandler SendRequestConsensusSyncPacket", "peerId", peerId)
-	if p.p2pHandler == nil || p.isRelay == false || p.getLatestBlockNumberFn() < PACKET_PROTOCOL_START_BLOCK {
+	if p.p2pHandler == nil || p.getLatestBlockNumberFn() < PACKET_PROTOCOL_START_BLOCK {
+		log.Debug("PeerHandler SendRequestConsensusSyncPacket return", "peerId", peerId)
 		return nil
 	}
 
 	consensusSyncDetails := &RequestConsensusSyncDetails{
-		IsRelay: p.isRelay,
-		PeerId:  p.localPeerId,
+		IsConsensusRelay: p.isConsensusRelay,
+		PeerId:           p.localPeerId,
 	}
 
 	data, err := rlp.EncodeToBytes(consensusSyncDetails)
@@ -306,8 +321,8 @@ func (p *PeerHandler) SendRequestConsensusSyncPacket(peerId string) error {
 
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
-	p.relayMap[peerId] = true
-
+	p.consensusRelayMap[peerId] = true
+	log.Trace("PeerHandler SendRequestConsensusSyncPacket done", "peerId", peerId)
 	return nil
 }
 
@@ -315,20 +330,41 @@ func (p *PeerHandler) ShouldRebroadCast(packet *eth.ConsensusPacket, fromPeerId 
 	return false
 }
 
-func (p *PeerHandler) BroadcastLocalPacketToSyncPeers(packet *eth.ConsensusPacket) {
-	p.BroadcastToSyncPeers(packet, p.localPeerId)
+func (p *PeerHandler) BroadcastLocalPacket(packet *eth.ConsensusPacket) int {
+	if p.isConsensusRelay == true {
+		return p.BroadcastToSyncPeers(packet, p.localPeerId)
+	} else {
+		return p.BroadcastToConsensusRelays(packet, p.localPeerId)
+	}
 }
 
-func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeerId string) {
-	if p.isRelay == false {
-		return
-	}
-
+func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fromPeerId string) int {
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
 
+	sendList := make([]string, 0)
+
+	for k, v := range p.consensusRelayMap {
+		if v == true {
+			sendList = append(sendList, []string{k}...)
+		}
+	}
+
+	log.Trace("BroadcastToConsensusRelays", "num peers", len(sendList), "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	p.p2pHandler.SendConsensusPacket(sendList, packet)
+
+	return len(sendList)
+}
+
+func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeerId string) int {
+	log.Trace("BroadcastToSyncPeers", "fromPeerId", fromPeerId, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+	log.Trace("BroadcastToSyncPeers unlock")
+
 	if packet.ParentHash.IsEqualTo(p.GetCurrentParentHash()) == false {
-		return
+		log.Trace("BroadcastToSyncPeers unlock parentHash not matched")
+		return 0
 	}
 
 	var packetSyncDetails *PacketSyncDetails
@@ -365,7 +401,11 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 	packetSyncDetails.sendPeerMap = sendPeerMap
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
+	log.Debug("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+
 	go p.p2pHandler.SendConsensusPacket(sendPeerList, packet)
+
+	return len(sendPeerList)
 }
 
 func (p *PeerHandler) GetCurrentParentHash() common.Hash {
@@ -374,7 +414,7 @@ func (p *PeerHandler) GetCurrentParentHash() common.Hash {
 	return p.currentParentHash
 }
 
-func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash) {
+func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockNumber uint64) {
 	p.parentHashLock.Lock()
 	defer p.parentHashLock.Unlock()
 
@@ -382,6 +422,7 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash) {
 	defer p.peerLock.Unlock()
 
 	p.currentParentHash = parentHash
+	p.currentBlockNumber = currentBlockNumber
 
 	//Cleanup old packets
 	for k, v := range p.packetSyncMap {
@@ -390,4 +431,23 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash) {
 		}
 		delete(p.packetSyncMap, k)
 	}
+
+	if currentBlockNumber == PACKET_PROTOCOL_START_BLOCK { //Special case, to trigger on-going connections
+		if p.isConsensusRelay {
+			go p.SendCapabilityToAllPeers()
+		}
+	}
+}
+
+func (p *PeerHandler) SendCapabilityToAllPeers() {
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+
+	peerList := make([]string, 0)
+
+	for peerId, _ := range p.peerMap {
+		peerList = append(peerList, []string{peerId}...)
+	}
+
+	p.SendCapabilityPacket(peerList)
 }

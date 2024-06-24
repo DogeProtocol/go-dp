@@ -568,6 +568,7 @@ func (h *P2PHandler) SendConsensusPacket(peerList []string, packet *eth.Consensu
 		}
 		peer.AsyncSendConsensusPacket(packet)
 	}
+	log.Trace("SendConsensusPacket", "send peer count", len(peerList), "packetHash", packet.Hash())
 	return nil
 }
 
