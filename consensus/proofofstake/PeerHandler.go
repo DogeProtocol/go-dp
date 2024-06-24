@@ -332,7 +332,9 @@ func (p *PeerHandler) ShouldRebroadCast(packet *eth.ConsensusPacket, fromPeerId 
 
 func (p *PeerHandler) BroadcastLocalPacket(packet *eth.ConsensusPacket) int {
 	if p.isConsensusRelay == true {
-		return p.BroadcastToSyncPeers(packet, p.localPeerId)
+		syncPeerCount := p.BroadcastToSyncPeers(packet, p.localPeerId)
+		consensusRelayCount := p.BroadcastToConsensusRelays(packet, p.localPeerId)
+		return syncPeerCount + consensusRelayCount
 	} else {
 		return p.BroadcastToConsensusRelays(packet, p.localPeerId)
 	}
@@ -344,14 +346,35 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 
 	sendList := make([]string, 0)
 
-	for k, v := range p.consensusRelayMap {
-		if v == true {
-			sendList = append(sendList, []string{k}...)
+	var packetSyncDetails *PacketSyncDetails
+	packetSyncDetails, ok := p.packetSyncMap[packet.Hash()]
+	if ok == false {
+		packetSyncDetails = &PacketSyncDetails{
+			incomingPeerMap: make(map[string]bool),
+			packet:          packet,
+			sendPeerMap:     make(map[string]bool),
 		}
+		p.packetSyncMap[packet.Hash()] = packetSyncDetails
 	}
 
-	log.Trace("BroadcastToConsensusRelays", "num peers", len(sendList), "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
-	p.p2pHandler.SendConsensusPacket(sendList, packet)
+	sendPeerMap := packetSyncDetails.sendPeerMap
+
+	alreadySentCount := 0
+	for k, _ := range p.consensusRelayMap {
+		_, ok := sendPeerMap[k]
+		if ok {
+			alreadySentCount = alreadySentCount + 1
+			continue
+		}
+		sendList = append(sendList, []string{k}...)
+		sendPeerMap[k] = true
+	}
+
+	packetSyncDetails.sendPeerMap = sendPeerMap
+	p.packetSyncMap[packet.Hash()] = packetSyncDetails
+
+	log.Info("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	go p.p2pHandler.SendConsensusPacket(sendList, packet)
 
 	return len(sendList)
 }
@@ -385,12 +408,14 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 
 	sendPeerList := make([]string, 0)
 
+	alreadySentCount := 0
 	for peerId, _ := range p.syncPeerMap {
 		if peerId == fromPeerId {
 			continue
 		}
 		_, ok := sendPeerMap[peerId]
 		if ok {
+			alreadySentCount = alreadySentCount + 1
 			continue
 		}
 		sendPeerList = append(sendPeerList, []string{peerId}...)
@@ -401,7 +426,8 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 	packetSyncDetails.sendPeerMap = sendPeerMap
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
-	log.Debug("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	log.Info("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "alreadySentCount", alreadySentCount,
+		"packetHash", packet.Hash(), "parentHash", packet.ParentHash)
 
 	go p.p2pHandler.SendConsensusPacket(sendPeerList, packet)
 
