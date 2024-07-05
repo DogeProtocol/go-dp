@@ -1782,10 +1782,10 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 			cph.timeStatMap[GetTimeStatBucket(COMMIT_KEY_PREFIX, blockStateDetails.commitTime-blockStateDetails.precommitTime)]++
 			cph.timeStatMap[GetTimeStatBucket(TOTAL_KEY_PREFIX, blockStateDetails.commitTime)]++
 
-			log.Info("BlockStats", "maxTxnsInBlock", cph.maxTransactionsInBlock, "totalTxns", cph.totalTransactions, "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks)
+			log.Debug("BlockStats", "maxTxnsInBlock", cph.maxTransactionsInBlock, "totalTxns", cph.totalTransactions, "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks)
 			for statKey, statVal := range cph.timeStatMap {
 				if statVal > 0 {
-					log.Info("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
+					log.Debug("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
 				}
 			}
 

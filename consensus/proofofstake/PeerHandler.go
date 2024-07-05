@@ -8,7 +8,6 @@ import (
 	"github.com/DogeProtocol/dp/handler"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/rlp"
-	"runtime/debug"
 	"sync"
 )
 
@@ -167,7 +166,6 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 
 func (p *PeerHandler) HandleCapabilityPacket(capabilityDetails *CapabilityDetails, fromPeerId string) {
 	log.Trace("PeerHandler HandleCapabilityPacket", "fromPeerId", fromPeerId)
-	debug.PrintStack()
 	if capabilityDetails.IsConsensusRelay == false || fromPeerId != capabilityDetails.PeerId {
 		log.Debug("PeerHandler HandleCapabilityPacket", "fromPeerId", fromPeerId, "capabilityDetails peeerId", capabilityDetails.PeerId)
 		return
@@ -189,7 +187,6 @@ func (p *PeerHandler) HandleCapabilityPacket(capabilityDetails *CapabilityDetail
 
 func (p *PeerHandler) HandleRequestConsensusSync(requestConsensusSyncDetails *RequestConsensusSyncDetails, fromPeerId string) {
 	log.Trace("PeerHandler HandleRequestConsensusSync", "fromPeerId", fromPeerId)
-	debug.PrintStack()
 	if fromPeerId != requestConsensusSyncDetails.PeerId {
 		log.Debug("PeerHandler HandleRequestConsensusSync", "fromPeerId", fromPeerId, "requestConsensusSyncDetails", requestConsensusSyncDetails.PeerId)
 		return
@@ -373,7 +370,7 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 	packetSyncDetails.sendPeerMap = sendPeerMap
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
-	log.Info("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	log.Debug("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
 	go p.p2pHandler.SendConsensusPacket(sendList, packet)
 
 	return len(sendList)
@@ -426,7 +423,7 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 	packetSyncDetails.sendPeerMap = sendPeerMap
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
-	log.Info("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "alreadySentCount", alreadySentCount,
+	log.Debug("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "alreadySentCount", alreadySentCount,
 		"packetHash", packet.Hash(), "parentHash", packet.ParentHash)
 
 	go p.p2pHandler.SendConsensusPacket(sendPeerList, packet)
