@@ -2433,7 +2433,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
-	const MaxRand = 3
+	const MaxRand = 5
 	const minRand = 1
 
 	rndVal := rand.Intn(MaxRand-minRand) + minRand
