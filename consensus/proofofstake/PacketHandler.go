@@ -2433,17 +2433,22 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
+	const MaxRand = 3
+	const minRand = 1
+
+	rndVal := rand.Intn(MaxRand-minRand) + minRand
+
 	cph.SetLatestBlockNumber(blockNumber)
 
 	if cph.initialized == false {
 
 		matched, err := cph.DoesPreviousHashMatch(parentHash)
 		if err != nil {
-			log.Warn("DoesPreviousHashMatch on parent hash failed")
+			log.Warn("DoesPreviousHashMatch on parent hash failed", "error", err)
 			return err
 		}
 
-		if matched {
+		if matched && rndVal == 1 {
 			log.Warn("Previous block hash before restart matches current parentHash. Will wait for one block to get mined before starting.", "parentHash", parentHash)
 			return errors.New("Waiting for previous block to mine")
 		}
@@ -2453,12 +2458,11 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		cph.packetHashLastSentMap = make(map[common.Hash]time.Time)
 		cph.packetStats = PacketStats{}
 
-		log.Info("Starting up...")
 		return errors.New("starting up")
 	}
 
 	if cph.lastBlockNumber == blockNumber {
-		if Elapsed(cph.lastBlockNumberChangeTime) >= STALE_BLOCK_WARN_TIME {
+		if Elapsed(cph.lastBlockNumberChangeTime) >= STALE_BLOCK_WARN_TIME && rndVal == 1 {
 			log.Warn("Stale Block. Please check your connection.", "blockNumber", blockNumber, "lastBlockChangeTime", cph.lastBlockNumberChangeTime)
 		}
 	} else {
@@ -2466,7 +2470,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 		cph.lastBlockNumberChangeTime = time.Now()
 	}
 
-	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false {
+	if HasExceededTimeThreshold(cph.initTime, STARTUP_DELAY_MS) == false && rndVal == 1 {
 		log.Info("Waiting to startup...", "elapsed ms", Elapsed(cph.initTime), "pending txn count", len(txns), "STARTUP_DELAY_MS", STARTUP_DELAY_MS)
 		return errors.New("starting up")
 	}
@@ -2494,10 +2498,6 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.processOutOfOrderPackets(parentHash)
 
 	err = errors.New("not ready yet")
-	const MaxRand = 3
-	const minRand = 1
-
-	rndVal := rand.Intn(MaxRand-minRand) + minRand
 
 	if rndVal == 1 {
 		log.Info("HandleConsensus", "parentHash", parentHash, "blockNumber", blockNumber, "currentRound", blockStateDetails.currentRound, "state", blockRoundDetails.state, "blockVoteType", blockRoundDetails.blockVoteType,
