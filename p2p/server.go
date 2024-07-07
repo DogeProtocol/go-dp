@@ -592,7 +592,7 @@ func (srv *Server) setupDiscovery() error {
 func (srv *Server) setupDialScheduler() {
 	config := dialConfig{
 		self:           srv.localnode.ID(),
-		maxDialPeers:   srv.maxDialedConns(),
+		maxDialPeers:   srv.MaxPeers,
 		maxActiveDials: srv.MaxPendingPeers,
 		log:            srv.Logger,
 		netRestrict:    srv.NetRestrict,
@@ -637,7 +637,7 @@ func (srv *Server) setupDialScheduler() {
 }
 
 func (srv *Server) maxInboundConns() int {
-	return srv.MaxPeers - srv.maxDialedConns()
+	return srv.MaxPeers
 }
 
 func (srv *Server) maxDialedConns() (limit int) {
