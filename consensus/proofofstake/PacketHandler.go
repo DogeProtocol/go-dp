@@ -459,7 +459,7 @@ func getBlockProposerV2(contextHash common.Hash, validatorMap *map[common.Addres
 	})
 
 	proposer = validators[0]
-	log.Trace("getBlockProposerV2", "proposer", proposer, "round", round)
+	log.Debug("getBlockProposerV2", "proposer", proposer, "round", round, "contextHash", contextHash, "valCount", len(validators))
 
 	return proposer, nil
 }
@@ -2433,7 +2433,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
-	const MaxRand = 5
+	const MaxRand = 6
 	const minRand = 1
 
 	rndVal := rand.Intn(MaxRand-minRand) + minRand

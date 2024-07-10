@@ -97,6 +97,7 @@ func ParseConsensusPackets(parentHash common.Hash, consensusPackets *[]eth.Conse
 				return nil, err
 			}
 			if blockProposer.IsEqualTo(validator) == false {
+				log.Warn("invalid block proposer", "expected", blockProposer, "actual", validator)
 				return nil, errors.New("invalid block proposer")
 			}
 			log.Trace("parseconsensuspackets propose", "details.Round", details.Round)
@@ -583,7 +584,8 @@ func ValidateBlockProposalTime(blockNumber uint64, proposedTime uint64) bool {
 	return true
 }
 
-func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[common.Address]*big.Int, valDetailsMap *map[common.Address]*ValidatorDetailsV2, getBlockConsensusContext GetBlockConsensusContextFn) error {
+func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[common.Address]*big.Int,
+	valDetailsMap *map[common.Address]*ValidatorDetailsV2, getBlockConsensusContext GetBlockConsensusContextFn, getValidatorsFn GetValidatorsFn) error {
 	header := block.Header()
 
 	if header.ConsensusData == nil || header.UnhashedConsensusData == nil {
@@ -630,7 +632,13 @@ func ValidateBlockConsensusData(block *types.Block, validatorDepositMap *map[com
 	var consensusContext common.Hash
 	blockNumber := header.Number.Uint64()
 	if blockNumber >= CONTEXT_BASED_START_BLOCK {
-		preFilterValidatorCount := len(*valDetailsMap)
+		validators, err := getValidatorsFn(header.ParentHash)
+		if err != nil {
+			return err
+		}
+
+		preFilterValidatorCount := len(validators)
+
 		contextKey, err := GetBlockConsensusContextKeyForBlock(blockNumber)
 		if err != nil {
 			return err
