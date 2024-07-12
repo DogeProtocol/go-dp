@@ -48,7 +48,7 @@ const (
 	clientIdentifier = "geth" // Client identifier to advertise over the network
 )
 
-const VERSION_NUMBER = "v2.0.42"
+const VERSION_NUMBER = "v2.0.43"
 
 var (
 	// Git SHA1 commit hash of the release (set via linker flags)
@@ -328,7 +328,6 @@ func geth(ctx *cli.Context) error {
 	passphrase := ""
 	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
 	if len(inputs) > 0 && len(inputs[0]) > 0 {
-		fmt.Println("inputs", len(inputs), inputs)
 		passphrase = os.Getenv("DP_ACC_PWD")
 		if len(passphrase) == 0 {
 			passphrase = utils.GetPassPhrase("Enter the passphrase for decrypting the wallet:", false)

@@ -1401,7 +1401,7 @@ func pauseValidation(key *signaturealgorithm.PrivateKey) error {
 		}
 	}
 
-	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
+	fmt.Println("Your request to pause validation has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 
@@ -1466,7 +1466,7 @@ func resumeValidation(key *signaturealgorithm.PrivateKey) error {
 		}
 	}
 
-	fmt.Println("Your request to complete withdrawal has been added to the queue for processing.")
+	fmt.Println("Your request to resume validation has been added to the queue for processing.")
 	fmt.Println("The transaction hash for tracking this request is: ", tx.Hash())
 	fmt.Println()
 

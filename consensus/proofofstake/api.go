@@ -267,8 +267,15 @@ func (api *API) GetBlockConsensusData(blockNumberHex string) (*ConsensusData, er
 			consensusData.ExtendedConsensusPackets = append(consensusData.ExtendedConsensusPackets, &ExtendedConsensusPacket{})
 			continue
 		}
+		var startIndex int
+		if packet.ConsensusData[0] >= MinConsensusNetworkProtocolVersion {
+			startIndex = 2
+		} else {
+			startIndex = 1
+		}
+
 		ePacket := ExtendedConsensusPacket{
-			PacketType: packet.ConsensusData[0],
+			PacketType: packet.ConsensusData[startIndex],
 			Round:      round,
 		}
 		ePacket.Signer.CopyFrom(signer)
@@ -494,7 +501,7 @@ func (api *API) GetBlockConsensusContext(blockNumber uint64) ([32]byte, error) {
 	currentheader := api.chain.CurrentHeader()
 
 	var context [32]byte
-	key, err := GetBlockConsensusContextKey(blockNumber)
+	key, err := GetConsensusContextKey(blockNumber)
 	if err != nil {
 		return context, err
 	}

@@ -191,3 +191,35 @@ func TestPos_PackAddress(t *testing.T) {
 
 	fmt.Println("encoded", encoded)
 }
+
+func testGetBlockConsensusContextForBlock(t *testing.T, blockNumber uint64, expectedBlockNumber uint64) {
+	expectedKey, err := GetConsensusContextKey(expectedBlockNumber)
+	if err != nil {
+		fmt.Println("err", err)
+		t.Fatalf("failed 1")
+		return
+	}
+
+	key, err := GetBlockConsensusContextKeyForBlock(blockNumber)
+	if err != nil {
+		fmt.Println("err", err)
+		t.Fatalf("failed 2")
+		return
+	}
+
+	if key != expectedKey {
+		fmt.Println("blockNumber", blockNumber, "expectedKey", expectedKey, "got", key)
+		t.Fatalf("failed 3")
+		return
+	}
+}
+
+func Test_GetBlockConsensusContextForBlock(t *testing.T) {
+	testGetBlockConsensusContextForBlock(t, uint64(500000), uint64(436000))
+	testGetBlockConsensusContextForBlock(t, uint64(500001), uint64(436001))
+	testGetBlockConsensusContextForBlock(t, uint64(500002), uint64(436002))
+
+	testGetBlockConsensusContextForBlock(t, uint64(933888), uint64(869888))
+	testGetBlockConsensusContextForBlock(t, uint64(933889), uint64(421889))
+	testGetBlockConsensusContextForBlock(t, uint64(933890), uint64(421890))
+}

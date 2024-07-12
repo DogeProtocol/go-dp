@@ -89,8 +89,11 @@ type HandlerConfig struct {
 }
 
 type ConsensusHandler interface {
-	HandleConsensusPacket(packet *eth.ConsensusPacket) error
+	HandleConsensusPacket(packet *eth.ConsensusPacket, fromPeerId string) error
 	HandleRequestConsensusDataPacket(packet *eth.RequestConsensusDataPacket) ([]*eth.ConsensusPacket, error)
+	OnPeerConnected(peerId string) error
+	OnPeerDisconnected(peerId string) error
+	ShouldRebroadCast(packet *eth.ConsensusPacket, fromPeerId string) bool
 }
 
 type ConsensusPacketHandler struct {
@@ -139,6 +142,8 @@ type P2PHandler struct {
 
 	handlePeerListFn HandlePeerList
 
+	localPeerId string
+
 	rebroadcastCount int
 
 	rebroadcastMap map[common.Hash]int64 //packetHash to unixnano of packet first-time-received-time hash
@@ -165,10 +170,11 @@ func (h *P2PHandler) SetConsensusHandler(handler ConsensusHandler) {
 	h.consensusHandler = consensusHandler
 }
 
-func (h *P2PHandler) SetPeerHandler(handleFn HandlePeerList) {
+func (h *P2PHandler) SetPeerHandler(handleFn HandlePeerList, localPeerId string) {
 	lock.Lock()
 	defer lock.Unlock()
 	h.handlePeerListFn = handleFn
+	h.localPeerId = localPeerId
 }
 
 // NewHandler returns a P2PHandler for all Ethereum chain management protocol.
@@ -290,7 +296,7 @@ func NewHandler(config *HandlerConfig) (*P2PHandler, error) {
 }
 
 // runEthPeer registers an eth peer into the joint eth/snap peerset, adds it to
-// various subsistems and starts handling messages.
+// various subsystems and starts handling messages.
 func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	// TODO(karalabe): Not sure why this is needed
 	if !h.chainSync.handlePeerEvent(peer) {
@@ -326,6 +332,10 @@ func (h *P2PHandler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	if err := h.peers.registerPeer(peer); err != nil {
 		peer.Log().Error("Ethereum peer registration failed", "err", err)
 		return err
+	}
+	err := h.consensusHandler.Handler.OnPeerConnected(peer.ID())
+	if err != nil {
+		log.Debug("OnPeerConnected", "error", err)
 	}
 	defer h.unregisterPeer(peer.ID())
 
@@ -405,6 +415,11 @@ func (h *P2PHandler) unregisterPeer(id string) {
 
 	if err := h.peers.unregisterPeer(id); err != nil {
 		logger.Error("Ethereum peer removal failed", "err", err)
+	}
+
+	err := h.consensusHandler.Handler.OnPeerDisconnected(id)
+	if err != nil {
+		log.Debug("OnPeerDisconnected", "error", err)
 	}
 }
 
@@ -543,6 +558,22 @@ func (h *P2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPacket
 	}
 
 	return nil
+}
+
+func (h *P2PHandler) SendConsensusPacket(peerList []string, packet *eth.ConsensusPacket) error {
+	for _, peerId := range peerList {
+		peer, ok := h.peers.getPeer(peerId)
+		if ok == false {
+			return errors.New("peer not found")
+		}
+		peer.AsyncSendConsensusPacket(packet)
+	}
+	log.Trace("SendConsensusPacket", "send peer count", len(peerList), "packetHash", packet.Hash())
+	return nil
+}
+
+func (h *P2PHandler) GetLocalPeerId() string {
+	return h.localPeerId
 }
 
 func (h *P2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {

@@ -187,7 +187,7 @@ func makeSealer(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 		P2P: p2p.Config{
 			ListenAddr:  "0.0.0.0:0",
 			NoDiscovery: true,
-			MaxPeers:    25,
+			MaxPeers:    128,
 		},
 	}
 	// Start the node and configure a full Ethereum node on it

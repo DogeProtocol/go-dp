@@ -134,14 +134,27 @@ func (p *ProofOfStake) GetConsensusContext(key string, blockHash common.Hash) ([
 	return out, nil
 }
 
-func GetBlockConsensusContextKey(blockNumber uint64) (string, error) {
+func GetConsensusContextKey(blockNumber uint64) (string, error) {
 	var key string
 	if blockNumber <= CONSENSUS_CONTEXT_START_BLOCK {
-		return key, errors.New("GetBlockConsensusContext blockNumber below CONSENSUS_CONTEXT_START_BLOCK")
+		return key, errors.New("GetBlockConsensusContextFn blockNumber below CONSENSUS_CONTEXT_START_BLOCK")
 	}
 
 	//bc for block context
 	key = "bc-" + strconv.FormatUint(blockNumber, 10)
 
 	return key, nil
+}
+
+func GetBlockConsensusContextKeyForBlock(currrentBlockNumber uint64) (string, error) {
+	var key string
+	if currrentBlockNumber < CONTEXT_BASED_START_BLOCK {
+		return key, errors.New("GetBlockConsensusContextFn blockNumber below CONTEXT_BASED_START_BLOCK")
+	}
+
+	if currrentBlockNumber > CONSENSUS_CONTEXT_START_BLOCK+CONSENSUS_CONTEXT_MAX_BLOCK_COUNT {
+		return GetConsensusContextKey(currrentBlockNumber - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
+	} else {
+		return GetConsensusContextKey(currrentBlockNumber - CONTEXT_BASED_BLOCK_THRESHOLD)
+	}
 }

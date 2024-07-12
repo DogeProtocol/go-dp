@@ -60,6 +60,7 @@ type MockP2PHandler struct {
 	consensusHandler *ConsensusHandler
 	validatorDetails *ValidatorDetailsTest
 	networkDetails   MockNetworkDetails
+	localPeerId      string
 }
 
 func (m *MockP2PManager) DoesFinalizedTransactionExistFn(txnHash common.Hash) (bool, error) {
@@ -68,6 +69,13 @@ func (m *MockP2PManager) DoesFinalizedTransactionExistFn(txnHash common.Hash) (b
 
 	exists, ok := m.txnFinalize[txnHash]
 	return exists && ok, nil
+}
+
+func (m *MockP2PManager) GetBlockConsensusContext(key string, blockHash common.Hash) ([32]byte, error) {
+	var blockContext [32]byte
+	copy(blockContext[:], []byte(key))
+
+	return blockContext, nil
 }
 
 func (m *MockP2PManager) SetTransactionFinalizeState(txnHash common.Hash, state bool) {
@@ -147,7 +155,14 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 	dataToVerify := append(packet.ParentHash.Bytes(), packet.ConsensusData...)
 	digestHash := crypto.Keccak256(dataToVerify)
 
-	packetType := ConsensusPacketType(packet.ConsensusData[0])
+	var startIndex int
+	if packet.ConsensusData[0] >= MinConsensusNetworkProtocolVersion {
+		startIndex = 2
+	} else {
+		startIndex = 1
+	}
+
+	packetType := ConsensusPacketType(packet.ConsensusData[startIndex])
 	if shouldSignFull(TEST_CONSENSUS_BLOCK_NUMBER) && packetType == CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packet.ParentHash.IsEqualTo(getTestParentHash(TEST_CONSENSUS_BLOCK_NUMBER)) {
 		pubKey, err := cryptobase.SigAlg.PublicKeyFromSignatureWithContext(digestHash, packet.Signature, FULL_SIGN_CONTEXT)
 		if err != nil {
@@ -179,6 +194,14 @@ func getSigner(packet *eth.ConsensusPacket) (common.Address, error) {
 
 		return validator, nil
 	}
+}
+
+func (p *MockP2PHandler) SendConsensusPacket(peerList []string, packet *eth.ConsensusPacket) error {
+	return nil
+}
+
+func (p *MockP2PHandler) GetLocalPeerId() string {
+	return p.localPeerId
 }
 
 func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) error {
@@ -213,7 +236,7 @@ func (p *MockP2PHandler) BroadcastConsensusData(packet *eth.ConsensusPacket) err
 			if p.mockP2pManager.ArePacketsBetweenValidatorsBlocked(p.validator, signer) {
 				continue
 			}
-			err = handler.HandleConsensusPacket(packet)
+			err = handler.HandleConsensusPacket(packet, val.localPeerId)
 			if err != nil {
 				continue
 			}
@@ -295,7 +318,7 @@ func (p *MockP2PHandler) RequestConsensusData(packet *eth.RequestConsensusDataPa
 			}
 
 			for _, pkt := range consensusPackets {
-				p.consensusHandler.HandleConsensusPacket(pkt)
+				p.consensusHandler.HandleConsensusPacket(pkt, val.localPeerId)
 			}
 		}
 	}
@@ -377,6 +400,7 @@ func Initialize(numKeys int) (vm *ValidatorManager, mockp2pManager *MockP2PManag
 		consensusHandler := NewConsensusPacketHandler()
 		consensusHandler.getValidatorsFn = vm.GetValidatorsFn
 		consensusHandler.doesFinalizedTransactionExistFn = mockp2pManager.DoesFinalizedTransactionExistFn
+		consensusHandler.getBlockConsensusContext = mockp2pManager.GetBlockConsensusContext
 		account := accounts.Account{
 			Address: addr,
 		}
@@ -480,7 +504,7 @@ func ValidateBlockConsensusDataTest(parentHash common.Hash, p2p *MockP2PManager,
 			t.Fatalf("failed")
 		}
 
-		err = ValidateBlockConsensusDataInner(txns, parentHash, blockConsensusData, blockAdditionalConsensusData, validatorMap, TEST_CONSENSUS_BLOCK_NUMBER, nil)
+		err = ValidateBlockConsensusDataInner(txns, parentHash, blockConsensusData, blockAdditionalConsensusData, validatorMap, TEST_CONSENSUS_BLOCK_NUMBER, nil, common.ZERO_HASH)
 		if err != nil {
 			fmt.Println("ValidateBlockConsensusDataInner", err, handler.validator)
 			t.Fatalf("ValidateBlockConsensusDataInner failed")
@@ -583,7 +607,7 @@ func testPacketHandler_min_basic(t *testing.T) {
 	parentHash := common.BytesToHash([]byte{1})
 
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 
 	skipped := false
 	c := 0
@@ -633,7 +657,7 @@ func testPacketHandler_extended_failure(t *testing.T, numKeys int, minPass int, 
 	parentHash := common.BytesToHash([]byte{1})
 
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 
 	for _, handler := range p2p.mockP2pHandlers {
 		h := handler
@@ -695,7 +719,7 @@ func testPacketHandler_block_proposer_timedout(t *testing.T) {
 	parentHash := common.BytesToHash([]byte{1})
 	c := 1
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 
 	for _, handler := range p2p.mockP2pHandlers {
 		h := handler
@@ -738,7 +762,7 @@ func testPacketHandler_min_negative(t *testing.T, numKeys int, minPass int, unre
 	parentHash := common.BytesToHash([]byte{1})
 	c := 1
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 	skipList := make(map[common.Address]bool)
 
 	for _, handler := range p2p.mockP2pHandlers {
@@ -777,7 +801,7 @@ func testPacketHandler_no_round2_then_round2(t *testing.T, numKeys int, minPass 
 	parentHash := common.BytesToHash([]byte{1})
 	c := 1
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 	skipCount := 0
 	unresponsiveValCount := 2
 	var valSkipList []common.Address
@@ -884,7 +908,7 @@ func TestPacketHandler_no_round2_then_round2(t *testing.T) {
 func testPacketHandler_bifurcated(t *testing.T) {
 	_, p2p, valMap := Initialize(4)
 	parentHash := common.BytesToHash([]byte{1})
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 	c := 0
 	startTime := time.Now().UnixNano() / int64(time.Millisecond)
 
@@ -1291,7 +1315,7 @@ func testPacketHandler_split_increasing_txns_some_unresponsive(t *testing.T, num
 	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 
 	j := 0
 	numTxns := 0
@@ -1444,7 +1468,7 @@ func testPacketHandler_packet_loss_txns_some_unresponsive(t *testing.T, numVal i
 	_, p2p, valMap := Initialize(numKeys)
 
 	parentHash := common.BytesToHash([]byte{1})
-	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER)
+	proposer, _ := getBlockProposer(parentHash, valMap, 1, nil, TEST_CONSENSUS_BLOCK_NUMBER, common.ZERO_HASH)
 
 	j := 0
 	numTxns := 0
@@ -1910,6 +1934,10 @@ func TestValidateBlockProposalTime(t *testing.T) {
 	if ValidateBlockProposalTime(1, GetProposalTime(1)+1) == true {
 		t.Fatalf("failed 4")
 	}
+
+	if ValidateBlockProposalTime(BLOCK_TIME_ORIG_START_BLOCK, GetProposalTime(BLOCK_TIME_ORIG_START_BLOCK)) == false {
+		t.Fatalf("failed 5")
+	}
 }
 
 func TestValidateBlockProposalTimeConsensus(t *testing.T) {
@@ -1996,6 +2024,14 @@ func TestValidateBlockProposalTimeConsensus(t *testing.T) {
 	if ValidateBlockProposalTimeConsensus(1, uint64(tm)) == true {
 		t.Fatalf("failed 13")
 	}
+
+	tm = time.Now().UTC().Add(time.Minute * time.Duration(1)).Unix()
+	if tm%60 != 0 {
+		tm = tm - (tm % 60)
+	}
+	if ValidateBlockProposalTimeConsensus(BLOCK_TIME_ORIG_START_BLOCK, uint64(tm)) == false {
+		t.Fatalf("failed 14")
+	}
 }
 
 func Test_consensuspacket_negative(t *testing.T) {
@@ -2006,13 +2042,13 @@ func Test_consensuspacket_negative(t *testing.T) {
 		h := handler
 
 		var p0 eth.ConsensusPacket
-		err := h.consensusHandler.HandleConsensusPacket(&p0)
+		err := h.consensusHandler.HandleConsensusPacket(&p0, handler.localPeerId)
 		if err == nil {
 			t.Fatalf("failed1")
 		}
 
 		p1 := eth.ConsensusPacket{}
-		err = h.consensusHandler.HandleConsensusPacket(&p1)
+		err = h.consensusHandler.HandleConsensusPacket(&p1, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed2")
@@ -2022,7 +2058,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			Signature: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p2)
+		err = h.consensusHandler.HandleConsensusPacket(&p2, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed3")
@@ -2032,7 +2068,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p3)
+		err = h.consensusHandler.HandleConsensusPacket(&p3, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed4")
@@ -2043,7 +2079,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 0),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p4)
+		err = h.consensusHandler.HandleConsensusPacket(&p4, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed5")
@@ -2054,7 +2090,7 @@ func Test_consensuspacket_negative(t *testing.T) {
 			ConsensusData: make([]byte, 10),
 		}
 
-		err = h.consensusHandler.HandleConsensusPacket(&p5)
+		err = h.consensusHandler.HandleConsensusPacket(&p5, handler.localPeerId)
 
 		if err == nil {
 			t.Fatalf("failed6")
@@ -2236,6 +2272,68 @@ func TestPacketHandler_getBlockProposerV2(t *testing.T) {
 
 	validatorMap = make(map[common.Address]*ValidatorDetailsV2)
 	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000001"), 50) == true {
+		t.Fatalf("failed")
+	}
+}
+
+func TestPacketHandler_getBlockProposerV3(t *testing.T) {
+	validatorMap := make(map[common.Address]*ValidatorDetailsV2)
+
+	for i := 0; i < 100; i++ {
+		v := &ValidatorDetailsV2{
+			Validator:     common.BytesToAddress([]byte(string(rune(i)))),
+			LastNiLBlock:  new(big.Int),
+			NilBlockCount: new(big.Int),
+		}
+		validatorMap[v.Validator] = v
+	}
+
+	for i := 101; i < 128; i++ {
+		v := &ValidatorDetailsV2{
+			Validator:     common.BytesToAddress([]byte(string(rune(i)))),
+			LastNiLBlock:  big.NewInt(50),
+			NilBlockCount: big.NewInt(10),
+		}
+		validatorMap[v.Validator] = v
+	}
+
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000052"), 500000) == false {
+		t.Fatalf("failed")
+	}
+
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x000000000000000000000000000000000000000000000000000000000000003F"), 500001) == false {
+		t.Fatalf("failed")
+	}
+
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000035"), 500002) == false {
+		t.Fatalf("failed")
+	}
+
+	validatorMap = make(map[common.Address]*ValidatorDetailsV2)
+	for i := 0; i < MIN_VALIDATORS; i++ {
+		if i == 0 {
+			v := &ValidatorDetailsV2{
+				Validator:     common.BytesToAddress([]byte(string(rune(i)))),
+				LastNiLBlock:  big.NewInt(20),
+				NilBlockCount: big.NewInt(100),
+			}
+			validatorMap[v.Validator] = v
+		} else {
+			v := &ValidatorDetailsV2{
+				Validator:     common.BytesToAddress([]byte(string(rune(i)))),
+				LastNiLBlock:  new(big.Int),
+				NilBlockCount: new(big.Int),
+			}
+			validatorMap[v.Validator] = v
+		}
+	}
+
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000000"), 500003) == false {
+		t.Fatalf("failed")
+	}
+
+	validatorMap = make(map[common.Address]*ValidatorDetailsV2)
+	if testGetBlockProposerV2(&validatorMap, common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000001"), 500004) == true {
 		t.Fatalf("failed")
 	}
 }

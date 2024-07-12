@@ -86,6 +86,11 @@ var (
 
 	VALIDATOR_NIL_BLOCK_START_BLOCK      = STAKING_CONTRACT_V2_CUTOFF_BLOCK + 1
 	BLOCK_PROPOSER_NIL_BLOCK_START_BLOCK = VALIDATOR_NIL_BLOCK_START_BLOCK + 16
+
+	CONTEXT_BASED_START_BLOCK     = uint64(536000)
+	CONTEXT_BASED_BLOCK_THRESHOLD = uint64(64000)
+	BLOCK_TIME_ORIG_START_BLOCK   = uint64(CONTEXT_BASED_START_BLOCK + 1)
+	PACKET_PROTOCOL_START_BLOCK   = uint64(BLOCK_TIME_ORIG_START_BLOCK + 32)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -230,13 +235,19 @@ func New(chainConfig *params.ChainConfig, db ethdb.Database,
 
 	proofofstake.consensusHandler.getValidatorsFn = proofofstake.GetValidators
 	proofofstake.consensusHandler.listValidatorsFn = proofofstake.ListValidatorsAsMap
-	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExistFn
+	proofofstake.consensusHandler.doesFinalizedTransactionExistFn = proofofstake.DoesFinalizedTransactionExist
+	proofofstake.consensusHandler.getBlockConsensusContext = proofofstake.GetConsensusContext
 
 	return proofofstake
 }
 
-func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler) {
-	c.consensusHandler.p2pHandler = handler
+func (c *ProofOfStake) SetP2PHandler(handler *handler.P2PHandler, localPeerId string) {
+	log.Info("ProofOfStake SetP2PHandler", "localPeerId", localPeerId)
+	if localPeerId == "" || len(localPeerId) == 0 {
+		panic("invalid local peer id")
+	}
+
+	c.consensusHandler.SetP2PHandler(handler, localPeerId)
 }
 
 func (c *ProofOfStake) SetBlockchain(blockchain *core.BlockChain) {
@@ -249,7 +260,7 @@ func (c *ProofOfStake) Author(header *types.Header) (common.Address, error) {
 	return ZERO_ADDRESS, nil
 }
 
-func (c *ProofOfStake) DoesFinalizedTransactionExistFn(txnHash common.Hash) (bool, error) {
+func (c *ProofOfStake) DoesFinalizedTransactionExist(txnHash common.Hash) (bool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
 
@@ -606,7 +617,7 @@ func (c *ProofOfStake) VerifyBlock(chain consensus.ChainHeaderReader, block *typ
 		}
 	}
 
-	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap)
+	err = ValidateBlockConsensusData(block, &validatorDepositMap, &valDetailsMap, c.GetConsensusContext, c.GetValidators)
 	if err != nil {
 		log.Trace("ValidateBlockConsensusData", "err", err)
 	}
@@ -796,9 +807,9 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 	}
 
 	if header.Number.Uint64() > CONSENSUS_CONTEXT_START_BLOCK {
-		key, err := GetBlockConsensusContextKey(header.Number.Uint64())
+		key, err := GetConsensusContextKey(header.Number.Uint64())
 		if err != nil {
-			log.Error("GetBlockConsensusContext err", "err", err)
+			log.Error("GetBlockConsensusContextFn err", "err", err)
 			return err
 		}
 		var consensuscontext [32]byte
@@ -811,7 +822,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 		//Remove the oldest key
 		if header.Number.Uint64() > (CONSENSUS_CONTEXT_START_BLOCK + CONSENSUS_CONTEXT_MAX_BLOCK_COUNT) {
-			oldKey, err := GetBlockConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
+			oldKey, err := GetConsensusContextKey(header.Number.Uint64() - CONSENSUS_CONTEXT_MAX_BLOCK_COUNT)
 			if err != nil {
 				log.Error("GetBlockConsensusContextKey oldKey err", "err", err)
 				return err
@@ -827,7 +838,7 @@ func (c *ProofOfStake) Finalize(chain consensus.ChainHeaderReader, header *types
 
 	//Fix blocktime
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if (header.Number.Uint64() == 1 || header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0) && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
+	if (header.Number.Uint64() == 1 || header.Number.Uint64()%BLOCK_PERIOD_TIME_CHANGE == 0 || header.Number.Uint64() >= BLOCK_TIME_ORIG_START_BLOCK) && blockConsensusData.VoteType == VOTE_TYPE_OK && parent.Time < blockConsensusData.BlockTime {
 		header.Time = blockConsensusData.BlockTime
 	} else {
 		header.Time = parent.Time + c.config.Period
@@ -912,6 +923,8 @@ func (c *ProofOfStake) Authorize(validator common.Address, signFn SignerFn, sign
 	c.consensusHandler.signFn = signFn
 	c.consensusHandler.signFnWithContext = signFnWithContext
 	c.consensusHandler.account = account
+
+	c.consensusHandler.peerHandler.SetSignFn(signFn, account)
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using

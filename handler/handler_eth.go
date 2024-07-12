@@ -107,9 +107,9 @@ func (h *EthHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 
 	case *eth.ConsensusPacket:
 		if h.consensusHandler != nil {
-			err := h.consensusHandler.Handler.HandleConsensusPacket(packet)
+			err := h.consensusHandler.Handler.HandleConsensusPacket(packet, peer.ID())
 			if err != nil {
-				log.Trace("Error in HandleConsensusPacket", "err", err)
+				log.Trace("Error in HandleConsensusPacket", "err", err, "peer", peer.ID())
 			} else {
 				go h.rebroadcast(peer.ID(), packet)
 			}
@@ -320,6 +320,9 @@ func (h *EthHandler) ShouldRebroadcastIfYesSetFlag(packetHash common.Hash) bool 
 
 func (h *EthHandler) rebroadcast(incomingPeerId string, packet *eth.ConsensusPacket) {
 	log.Trace("rebroadcast", "packet", packet.Hash().Hex())
+	if h.consensusHandler.Handler.ShouldRebroadCast(packet, incomingPeerId) == false {
+		return
+	}
 	packetHash := packet.Hash()
 	shouldRebroadcast := h.ShouldRebroadcastIfYesSetFlag(packetHash)
 	if shouldRebroadcast == false {
@@ -329,7 +332,7 @@ func (h *EthHandler) rebroadcast(incomingPeerId string, packet *eth.ConsensusPac
 	for i := len(peerList) - 1; i > 0; i-- { //Fisher Yates shuffle. Send to a random set of peers each time
 		minVal := 0
 		maxVal := i
-		j := rand.Intn(maxVal-minVal) + minVal
+		j := rand.Intn(maxVal-minVal) + minVal //non-crypto rand is ok for this purpose
 		temp := peerList[i]
 		peerList[i] = peerList[j]
 		peerList[j] = temp
