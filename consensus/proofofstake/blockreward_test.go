@@ -50,6 +50,18 @@ func TestRewardGenerateYearly(t *testing.T) {
 	}
 }
 
+func TestRewardGenerateBlocks1(t *testing.T) {
+	startBlockNumber := big.NewInt(500000)
+	endBlockNumber := big.NewInt(500005)
+	incrementBlock := big.NewInt(1)
+
+	for startBlockNumber.Int64() <= endBlockNumber.Int64() {
+		reward := new(big.Int).Set(GetReward(startBlockNumber))
+		fmt.Println("Block Number : ", startBlockNumber, " reward : ", reward)
+		startBlockNumber = common.SafeAddBigInt(startBlockNumber, incrementBlock)
+	}
+}
+
 func TestRewardGenerateBlocks(t *testing.T) {
 	startBlockNumber := big.NewInt(22338000 - 1000)
 	endBlockNumber := big.NewInt(22338000)
