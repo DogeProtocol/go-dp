@@ -330,6 +330,7 @@ func NewConsensusPacketHandler() *ConsensusHandler {
 	isConsensusRelay := false
 	isConsensusRelayEnv := os.Getenv("IS_CONSENSUS_RELAY")
 	if len(isConsensusRelayEnv) > 0 && isConsensusRelayEnv == "1" {
+		log.Info("isConsensusRelay")
 		isConsensusRelay = true
 	}
 
@@ -2433,7 +2434,7 @@ func (cph *ConsensusHandler) HandleConsensus(parentHash common.Hash, txns []comm
 	cph.outerPacketLock.Lock()
 	defer cph.outerPacketLock.Unlock()
 
-	const MaxRand = 6
+	const MaxRand = 9
 	const minRand = 1
 
 	rndVal := rand.Intn(MaxRand-minRand) + minRand

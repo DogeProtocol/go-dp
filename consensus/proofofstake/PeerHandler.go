@@ -45,6 +45,17 @@ type PeerHandler struct {
 	parentHashLock     sync.Mutex
 	currentParentHash  common.Hash
 	currentBlockNumber uint64
+
+	totalBlocks                   int64
+	packetsReceivedTotal          int64
+	packetsReceivedFromRelayTotal int64
+	packetsSent                   int64
+	packetsSentToRelays           int64
+
+	packetsReceivedTotalCurrentParentHash          int64
+	packetsReceivedFromRelayTotalCurrentParentHash int64
+	packetsSentCurrentParentHash                   int64
+	packetsSentToRelaysCurrentParentHash           int64
 }
 
 // Sent by a ConsensusRelay to another node
@@ -154,6 +165,13 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 
 		go p.HandleRequestConsensusSync(&requestConsensusSyncDetails, fromPeerId)
 	} else if packetType >= CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packetType <= CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
+		p.peerLock.Lock()
+		if p.consensusRelayMap[fromPeerId] == true {
+			p.packetsReceivedTotalCurrentParentHash = p.packetsReceivedTotalCurrentParentHash + 1 //todo: check parentHash before updating these counters
+			p.packetsReceivedFromRelayTotalCurrentParentHash = p.packetsReceivedFromRelayTotalCurrentParentHash + 1
+		}
+		p.peerLock.Unlock()
+
 		if p.isConsensusRelay {
 			go p.BroadcastToSyncPeers(packet, fromPeerId)
 		}
@@ -371,6 +389,7 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
 	log.Debug("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
+	p.packetsSentToRelaysCurrentParentHash = p.packetsSentToRelaysCurrentParentHash + int64(len(sendList))
 	go p.p2pHandler.SendConsensusPacket(sendList, packet)
 
 	return len(sendList)
@@ -426,6 +445,7 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 	log.Debug("BroadcastToSyncPeers", "sendPeerMap count", len(sendPeerList), "sendPeerList count", len(sendPeerList), "syncPeerMap count", len(p.syncPeerMap), "alreadySentCount", alreadySentCount,
 		"packetHash", packet.Hash(), "parentHash", packet.ParentHash)
 
+	p.packetsSentCurrentParentHash = p.packetsSentCurrentParentHash + int64(len(sendPeerList))
 	go p.p2pHandler.SendConsensusPacket(sendPeerList, packet)
 
 	return len(sendPeerList)
@@ -444,8 +464,34 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
 
+	if p.currentParentHash.IsEqualTo(ZERO_HASH) == false {
+		if p.isConsensusRelay {
+			log.Info("Consensus Relay Stats", "parentHash", p.currentParentHash, "peerMap count", len(p.peerMap), "syncPeerMap count", len(p.syncPeerMap), "consensusRelayMap count", len(p.consensusRelayMap),
+				"packetsSentCurrentParentHash", p.packetsSentCurrentParentHash, "packetsSentToRelaysCurrentParentHash", p.packetsSentToRelaysCurrentParentHash,
+				"packetsReceivedTotalCurrentParentHash", p.packetsReceivedTotalCurrentParentHash, "packetsReceivedFromRelayTotalCurrentParentHash", p.packetsReceivedFromRelayTotalCurrentParentHash,
+				"totalBlocks handled this session", p.totalBlocks, "packetSyncMap count", len(p.packetSyncMap), "currentBlockNumber", p.currentBlockNumber,
+				"packetsSent", p.packetsSent, "packetsSentToRelays", p.packetsSentToRelays, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal)
+		} else {
+			log.Info("Consensus Peer Stats", "parentHash", p.currentParentHash, "peerMap count", len(p.peerMap), "consensusRelayMap count", len(p.consensusRelayMap), "currentBlockNumber", p.currentBlockNumber,
+				"packetsReceivedTotalCurrentParentHash", p.packetsReceivedTotalCurrentParentHash, "packetsReceivedFromRelayTotalCurrentParentHash", p.packetsReceivedFromRelayTotalCurrentParentHash,
+				"totalBlocks handled this session", p.totalBlocks, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal)
+		}
+	}
+
 	p.currentParentHash = parentHash
 	p.currentBlockNumber = currentBlockNumber
+	p.totalBlocks = p.totalBlocks + 1
+
+	p.packetsReceivedTotal = p.packetsReceivedTotal + p.packetsReceivedTotalCurrentParentHash
+	p.packetsReceivedFromRelayTotal = p.packetsReceivedFromRelayTotal + p.packetsReceivedFromRelayTotalCurrentParentHash
+
+	p.packetsSent = p.packetsSent + p.packetsSentCurrentParentHash
+	p.packetsSentToRelays = p.packetsSentToRelays + p.packetsSentToRelaysCurrentParentHash
+
+	p.packetsReceivedTotalCurrentParentHash = 0
+	p.packetsReceivedFromRelayTotalCurrentParentHash = 0
+	p.packetsSentCurrentParentHash = 0
+	p.packetsSentToRelaysCurrentParentHash = 0
 
 	//Cleanup old packets
 	for k, v := range p.packetSyncMap {
@@ -455,22 +501,46 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 		delete(p.packetSyncMap, k)
 	}
 
-	if currentBlockNumber == PACKET_PROTOCOL_START_BLOCK { //Special case, to trigger on-going connections
-		if p.isConsensusRelay {
+	if p.isConsensusRelay {
+		if currentBlockNumber == PACKET_PROTOCOL_START_BLOCK { //Special case, to trigger on-going connections
 			go p.SendCapabilityToAllPeers()
+		} else if currentBlockNumber > PACKET_PROTOCOL_START_BLOCK {
+			if len(p.peerMap) > len(p.syncPeerMap) && currentBlockNumber%128 == 0 {
+				go p.SendCapabilityToDeltaPeers()
+			}
 		}
 	}
 }
 
-func (p *PeerHandler) SendCapabilityToAllPeers() {
+func (p *PeerHandler) SendCapabilityToDeltaPeers() {
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
 
 	peerList := make([]string, 0)
 
 	for peerId, _ := range p.peerMap {
+		if p.syncPeerMap[peerId] == false {
+			peerList = append(peerList, []string{peerId}...)
+		}
+	}
+	log.Info("SendCapabilityToDeltaPeers", "total peer count", len(p.peerMap), "send peer count", len(peerList))
+
+	p.SendCapabilityPacket(peerList)
+}
+
+func (p *PeerHandler) SendCapabilityToAllPeers() {
+	p.peerLock.Lock()
+	defer p.peerLock.Unlock()
+
+	log.Info("SendCapabilityToAllPeers")
+
+	peerList := make([]string, 0)
+
+	for peerId, _ := range p.peerMap {
 		peerList = append(peerList, []string{peerId}...)
 	}
+
+	log.Info("SendCapabilityToAllPeers", "send peer count", len(peerList))
 
 	p.SendCapabilityPacket(peerList)
 }
