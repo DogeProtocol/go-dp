@@ -482,15 +482,16 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 	p.currentBlockNumber = currentBlockNumber
 	p.totalBlocks = p.totalBlocks + 1
 
-	p.packetsReceivedTotalCurrentParentHash = 0
-	p.packetsReceivedFromRelayTotalCurrentParentHash = 0
 	p.packetsReceivedTotal = p.packetsReceivedTotal + p.packetsReceivedTotalCurrentParentHash
 	p.packetsReceivedFromRelayTotal = p.packetsReceivedFromRelayTotal + p.packetsReceivedFromRelayTotalCurrentParentHash
 
-	p.packetsSentCurrentParentHash = 0
-	p.packetsSentToRelaysCurrentParentHash = 0
 	p.packetsSent = p.packetsSent + p.packetsSentCurrentParentHash
 	p.packetsSentToRelays = p.packetsSentToRelays + p.packetsSentToRelaysCurrentParentHash
+
+	p.packetsReceivedTotalCurrentParentHash = 0
+	p.packetsReceivedFromRelayTotalCurrentParentHash = 0
+	p.packetsSentCurrentParentHash = 0
+	p.packetsSentToRelaysCurrentParentHash = 0
 
 	//Cleanup old packets
 	for k, v := range p.packetSyncMap {
