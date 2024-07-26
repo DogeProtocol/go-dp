@@ -166,8 +166,8 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 		go p.HandleRequestConsensusSync(&requestConsensusSyncDetails, fromPeerId)
 	} else if packetType >= CONSENSUS_PACKET_TYPE_PROPOSE_BLOCK && packetType <= CONSENSUS_PACKET_TYPE_COMMIT_BLOCK {
 		p.peerLock.Lock()
+		p.packetsReceivedTotalCurrentParentHash = p.packetsReceivedTotalCurrentParentHash + 1 //todo: check parentHash before updating these counters
 		if p.consensusRelayMap[fromPeerId] == true {
-			p.packetsReceivedTotalCurrentParentHash = p.packetsReceivedTotalCurrentParentHash + 1 //todo: check parentHash before updating these counters
 			p.packetsReceivedFromRelayTotalCurrentParentHash = p.packetsReceivedFromRelayTotalCurrentParentHash + 1
 		}
 		p.peerLock.Unlock()
@@ -464,6 +464,14 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 	p.peerLock.Lock()
 	defer p.peerLock.Unlock()
 
+	p.totalBlocks = p.totalBlocks + 1
+
+	p.packetsReceivedTotal = p.packetsReceivedTotal + p.packetsReceivedTotalCurrentParentHash
+	p.packetsReceivedFromRelayTotal = p.packetsReceivedFromRelayTotal + p.packetsReceivedFromRelayTotalCurrentParentHash
+
+	p.packetsSent = p.packetsSent + p.packetsSentCurrentParentHash
+	p.packetsSentToRelays = p.packetsSentToRelays + p.packetsSentToRelaysCurrentParentHash
+
 	if p.currentParentHash.IsEqualTo(ZERO_HASH) == false {
 		if p.isConsensusRelay {
 			log.Info("Consensus Relay Stats", "parentHash", p.currentParentHash, "peerMap count", len(p.peerMap), "syncPeerMap count", len(p.syncPeerMap), "consensusRelayMap count", len(p.consensusRelayMap),
@@ -480,13 +488,6 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 
 	p.currentParentHash = parentHash
 	p.currentBlockNumber = currentBlockNumber
-	p.totalBlocks = p.totalBlocks + 1
-
-	p.packetsReceivedTotal = p.packetsReceivedTotal + p.packetsReceivedTotalCurrentParentHash
-	p.packetsReceivedFromRelayTotal = p.packetsReceivedFromRelayTotal + p.packetsReceivedFromRelayTotalCurrentParentHash
-
-	p.packetsSent = p.packetsSent + p.packetsSentCurrentParentHash
-	p.packetsSentToRelays = p.packetsSentToRelays + p.packetsSentToRelaysCurrentParentHash
 
 	p.packetsReceivedTotalCurrentParentHash = 0
 	p.packetsReceivedFromRelayTotalCurrentParentHash = 0
