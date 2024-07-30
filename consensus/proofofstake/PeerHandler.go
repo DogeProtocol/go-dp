@@ -174,6 +174,9 @@ func (p *PeerHandler) HandleConsensusPacket(packet *eth.ConsensusPacket, fromPee
 
 		if p.isConsensusRelay {
 			go p.BroadcastToSyncPeers(packet, fromPeerId)
+			if p.syncPeerMap[fromPeerId] == true { //if received from sync peers, send to other relays
+				go p.BroadcastToConsensusRelays(packet, fromPeerId)
+			}
 		}
 	} else {
 		log.Debug("PeerHandler unhandled packet type", "packetType", packetType, "fromPeerId", fromPeerId)
@@ -373,10 +376,17 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 	}
 
 	sendPeerMap := packetSyncDetails.sendPeerMap
+	incomingPeerMap := packetSyncDetails.incomingPeerMap
+	incomingPeerMap[fromPeerId] = true
 
 	alreadySentCount := 0
 	for k, _ := range p.consensusRelayMap {
 		_, ok := sendPeerMap[k]
+		if ok {
+			alreadySentCount = alreadySentCount + 1
+			continue
+		}
+		_, ok = incomingPeerMap[k]
 		if ok {
 			alreadySentCount = alreadySentCount + 1
 			continue
@@ -386,6 +396,8 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 	}
 
 	packetSyncDetails.sendPeerMap = sendPeerMap
+	packetSyncDetails.incomingPeerMap = incomingPeerMap
+
 	p.packetSyncMap[packet.Hash()] = packetSyncDetails
 
 	log.Debug("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
@@ -430,6 +442,11 @@ func (p *PeerHandler) BroadcastToSyncPeers(packet *eth.ConsensusPacket, fromPeer
 			continue
 		}
 		_, ok := sendPeerMap[peerId]
+		if ok {
+			alreadySentCount = alreadySentCount + 1
+			continue
+		}
+		_, ok = incomingPeerMap[peerId]
 		if ok {
 			alreadySentCount = alreadySentCount + 1
 			continue
