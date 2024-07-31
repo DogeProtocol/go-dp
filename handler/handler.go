@@ -564,7 +564,8 @@ func (h *P2PHandler) SendConsensusPacket(peerList []string, packet *eth.Consensu
 	for _, peerId := range peerList {
 		peer, ok := h.peers.getPeer(peerId)
 		if ok == false {
-			return errors.New("peer not found")
+			log.Trace("SendConsensusPacket peer not found", "peerId", peer)
+			continue
 		}
 		peer.AsyncSendConsensusPacket(packet)
 	}
