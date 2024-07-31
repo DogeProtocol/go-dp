@@ -1786,7 +1786,11 @@ func (cph *ConsensusHandler) handleCommitPacket(validator common.Address, packet
 			log.Debug("BlockStats", "maxTxnsInBlock", cph.maxTransactionsInBlock, "totalTxns", cph.totalTransactions, "okBlocks", cph.okVoteBlocks, "nilBlocks", cph.nilVoteBlocks)
 			for statKey, statVal := range cph.timeStatMap {
 				if statVal > 0 {
-					log.Debug("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
+					if blockStateDetails.blockNumber%25 == 0 {
+						log.Info("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
+					} else {
+						log.Debug("TimeStatsBlockCount", "stat", statKey, "blocks", statVal)
+					}
 				}
 			}
 
