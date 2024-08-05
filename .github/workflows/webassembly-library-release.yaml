@@ -37,6 +37,7 @@ jobs:
       run: |
         cd ${{ github.workspace }}/build/wasm && tar -czf ${{ github.workspace }}/build/webassembly-wasm.tar.gz .
         sha256sum ${{ github.workspace }}/build/webassembly-wasm.tar.gz >${{ github.workspace }}/build/webassembly-wasm.txt
+        base64 ${{ github.workspace }}/build/wasm/libgodp.wasm >${{ github.workspace }}/build/libgodp.wasm.base64
     - name: Check Release Files
       run: |
         ls  ${{ github.workspace }}/build/webassembly-*.*
