@@ -35,7 +35,7 @@ jobs:
       run:  ls  ${{ github.workspace }}/build
     - name: Create Release
       run: |
-        base64 ${{ github.workspace }}/build/wasm/libgodp.wasm >${{ github.workspace }}/build/wasm/libgodp.wasm.base64      
+        base64 ${{ github.workspace }}/build/wasm/libgodp.wasm >${{ github.workspace }}/build/wasm/libgodp.wasm.base64 -w 0      
         cd ${{ github.workspace }}/build/wasm && tar -czf ${{ github.workspace }}/build/webassembly-wasm.tar.gz .
         sha256sum ${{ github.workspace }}/build/webassembly-wasm.tar.gz >${{ github.workspace }}/build/webassembly-wasm.txt
     - name: Check Release Files
@@ -51,4 +51,4 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         allowUpdates: true
-        artifacts: "build/*.gz,build/*.txt"
+        artifacts: "build/*.gz,build/*.txt,build/wasm/*.base64"
