@@ -51,11 +51,13 @@ type PeerHandler struct {
 	packetsReceivedFromRelayTotal int64
 	packetsSent                   int64
 	packetsSentToRelays           int64
+	localPacketsSentToRelays      int64
 
 	packetsReceivedTotalCurrentParentHash          int64
 	packetsReceivedFromRelayTotalCurrentParentHash int64
 	packetsSentCurrentParentHash                   int64
 	packetsSentToRelaysCurrentParentHash           int64
+	localPacketsSentToRelaysCurrentParentHash      int64
 }
 
 // Sent by a ConsensusRelay to another node
@@ -402,6 +404,10 @@ func (p *PeerHandler) BroadcastToConsensusRelays(packet *eth.ConsensusPacket, fr
 
 	log.Debug("BroadcastToConsensusRelays", "relay count", len(p.consensusRelayMap), "send list count", len(sendList), "alreadySentCount", alreadySentCount, "packetHash", packet.Hash(), "parentHash", packet.ParentHash)
 	p.packetsSentToRelaysCurrentParentHash = p.packetsSentToRelaysCurrentParentHash + int64(len(sendList))
+	if fromPeerId == p.localPeerId {
+		p.localPacketsSentToRelaysCurrentParentHash = p.localPacketsSentToRelaysCurrentParentHash + int64(len(sendList))
+	}
+
 	go p.p2pHandler.SendConsensusPacket(sendList, packet)
 
 	return len(sendList)
@@ -488,18 +494,23 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 
 	p.packetsSent = p.packetsSent + p.packetsSentCurrentParentHash
 	p.packetsSentToRelays = p.packetsSentToRelays + p.packetsSentToRelaysCurrentParentHash
+	p.localPacketsSentToRelays = p.localPacketsSentToRelays + p.localPacketsSentToRelaysCurrentParentHash
 
 	if p.currentParentHash.IsEqualTo(ZERO_HASH) == false {
 		if p.isConsensusRelay {
-			log.Info("Consensus Relay Stats", "parentHash", p.currentParentHash, "peerMap count", len(p.peerMap), "syncPeerMap count", len(p.syncPeerMap), "consensusRelayMap count", len(p.consensusRelayMap),
+			log.Info("Consensus Relay Stats", "parentHash", p.currentParentHash, "peer count", len(p.peerMap), "sync peer count", len(p.syncPeerMap), "relay peer count", len(p.consensusRelayMap),
 				"packetsSentCurrentParentHash", p.packetsSentCurrentParentHash, "packetsSentToRelaysCurrentParentHash", p.packetsSentToRelaysCurrentParentHash,
 				"packetsReceivedTotalCurrentParentHash", p.packetsReceivedTotalCurrentParentHash, "packetsReceivedFromRelayTotalCurrentParentHash", p.packetsReceivedFromRelayTotalCurrentParentHash,
-				"totalBlocks handled this session", p.totalBlocks, "packetSyncMap count", len(p.packetSyncMap), "currentBlockNumber", p.currentBlockNumber,
-				"packetsSent", p.packetsSent, "packetsSentToRelays", p.packetsSentToRelays, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal)
+				"localPacketsSentToRelaysCurrentParentHash", p.localPacketsSentToRelaysCurrentParentHash,
+				"totalBlocks handled this session", p.totalBlocks, "packetSyncMap current parentHash count", len(p.packetSyncMap), "currentBlockNumber", p.currentBlockNumber,
+				"packetsSent", p.packetsSent, "packetsSentToRelays total", p.packetsSentToRelays, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal,
+				"localPacketsSentToRelays total", p.localPacketsSentToRelays)
 		} else {
-			log.Info("Consensus Peer Stats", "parentHash", p.currentParentHash, "peerMap count", len(p.peerMap), "consensusRelayMap count", len(p.consensusRelayMap), "currentBlockNumber", p.currentBlockNumber,
+			log.Info("Consensus Peer Stats", "parentHash", p.currentParentHash, "peer count", len(p.peerMap), "relay peer count", len(p.consensusRelayMap), "currentBlockNumber", p.currentBlockNumber,
 				"packetsReceivedTotalCurrentParentHash", p.packetsReceivedTotalCurrentParentHash, "packetsReceivedFromRelayTotalCurrentParentHash", p.packetsReceivedFromRelayTotalCurrentParentHash,
-				"totalBlocks handled this session", p.totalBlocks, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal)
+				"localPacketsSentToRelaysCurrentParentHash", p.localPacketsSentToRelaysCurrentParentHash,
+				"totalBlocks handled this session", p.totalBlocks, "packetsReceivedTotal", p.packetsReceivedTotal, "packetsReceivedFromRelayTotal", p.packetsReceivedFromRelayTotal,
+				"localPacketsSentToRelays total", p.localPacketsSentToRelays)
 		}
 	}
 
@@ -510,6 +521,7 @@ func (p *PeerHandler) SetCurrentParentHash(parentHash common.Hash, currentBlockN
 	p.packetsReceivedFromRelayTotalCurrentParentHash = 0
 	p.packetsSentCurrentParentHash = 0
 	p.packetsSentToRelaysCurrentParentHash = 0
+	p.localPacketsSentToRelaysCurrentParentHash = 0
 
 	//Cleanup old packets
 	for k, v := range p.packetSyncMap {
