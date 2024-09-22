@@ -350,8 +350,6 @@ func geth(ctx *cli.Context) error {
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
 func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, passphrase string) {
-	debug.Memsize.Add("node", stack)
-
 	if ctx.IsSet(utils.ProfPortFlag.Name) {
 		profPort := ctx.GlobalInt(utils.ProfPortFlag.Name)
 		go profiling.StartProfiling(profPort)
