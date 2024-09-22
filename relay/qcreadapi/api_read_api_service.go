@@ -28,7 +28,7 @@ import (
 // This service should implement the business logic for every endpoint for the ReadApiAPI API.
 // Include any external packages or services that will be required by this service.
 type ReadApiAPIService struct {
-
+  DpUrl string
 }
 
 type RPCTransaction struct {
@@ -48,9 +48,9 @@ type RPCTransaction struct {
 }
 
 // NewReadApiAPIService creates a default api service
-func NewReadApiAPIService() *ReadApiAPIService {
+func NewReadApiAPIService(dpUrl string) *ReadApiAPIService {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(3), log.StreamHandler(colorable.NewColorableStderr(), log.TerminalFormat(true))))
-	return &ReadApiAPIService{}
+	return &ReadApiAPIService{DpUrl: dpUrl}
 }
 
 // GetAccountDetails - Get account details
@@ -58,9 +58,9 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 
 	startTime := time.Now()
 
-	log.Info(relay.InfoTitleAccountDetails, relay.MsgDial, relay.DIAL_READ_URL)
+	log.Info(relay.InfoTitleAccountDetails, relay.MsgDial, s.DpUrl)
 
-	client, err := rpc.Dial(relay.DIAL_READ_URL)
+	client, err := rpc.Dial(s.DpUrl)
 	if err != nil {
 		log.Error(relay.MsgDial, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
@@ -128,9 +128,9 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 	startTime := time.Now()
 
-	log.Info(relay.InfoTitleTransaction, relay.MsgDial, relay.DIAL_READ_URL)
+	log.Info(relay.InfoTitleTransaction, relay.MsgDial, s.DpUrl)
 
-	client, err := rpc.Dial(relay.DIAL_READ_URL)
+	client, err := rpc.Dial(s.DpUrl)
 	if err != nil {
 		log.Error(relay.MsgDial,relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
