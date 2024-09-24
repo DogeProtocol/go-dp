@@ -28,6 +28,7 @@ type Config struct {
 	Api		string `json:"api"`
 	Ip		string `json:"ip"`
 	Port	string `json:"port"`
+	DpUrl   string `json:"dpurl"`
 }
 
 type Configs struct {
@@ -57,6 +58,7 @@ func main() {
 		api := config.Api
 		ip := config.Ip
 		port := config.Port
+		dpUrl := config.DpUrl
 
 		if net.ParseIP(ip) == nil {
 			fmt.Println("Check configuration ip value ", ip)
@@ -69,11 +71,11 @@ func main() {
 		}
 
 		if strings.EqualFold(api ,"read") {
-			go qcReadApi(ip, port)
+			go qcReadApi(ip, port, dpUrl)
 		}
 
 		if strings.EqualFold(api ,"write") {
-			go qcWriteApi(ip, port)
+			go qcWriteApi(ip, port, dpUrl)
 		}
 	}
 
@@ -81,21 +83,21 @@ func main() {
 	<-make(chan int)
 }
 
-func qcReadApi(ip string, port string) {
-	ReadApiAPIService := qcreadapi.NewReadApiAPIService()
+func qcReadApi(ip string, port string, dpUrl string) {
+	ReadApiAPIService := qcreadapi.NewReadApiAPIService(dpUrl)
 	ReadApiAPIController := qcreadapi.NewReadApiAPIController(ReadApiAPIService)
 	readRouter := qcreadapi.NewRouter(ReadApiAPIController)
 
-	fmt.Println("Read api server is listening on : ", ip + ":" + port)
+	fmt.Println("Read api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl)
 	http.ListenAndServe(ip + ":" + port, readRouter)
 }
 
-func qcWriteApi(ip string, port string) {
-	WriteApiAPIService := qcwriteapi.NewWriteApiAPIService()
+func qcWriteApi(ip string, port string, dpUrl string) {
+	WriteApiAPIService := qcwriteapi.NewWriteApiAPIService(dpUrl)
 	WriteApiAPIController := qcwriteapi.NewWriteApiAPIController(WriteApiAPIService)
 	writeRouter := qcwriteapi.NewRouter(WriteApiAPIController)
 
-	fmt.Println("Write api server is listening on : ", ip + ":" + port)
+	fmt.Println("Write api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl)
 	http.ListenAndServe(ip + ":" + port,  writeRouter)
 }
 

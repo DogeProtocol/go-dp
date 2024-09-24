@@ -19,7 +19,6 @@ package debug
 import (
 	"fmt"
 	"io"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
@@ -27,13 +26,10 @@ import (
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/metrics"
 	"github.com/DogeProtocol/dp/metrics/exp"
-	"github.com/fjl/memsize/memsizeui"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/urfave/cli.v1"
 )
-
-var Memsize memsizeui.Handler
 
 var (
 	verbosityFlag = cli.IntFlag{
@@ -256,13 +252,7 @@ func StartPProf(address string, withMetrics bool) {
 	if withMetrics {
 		exp.Exp(metrics.DefaultRegistry)
 	}
-	http.Handle("/memsize/", http.StripPrefix("/memsize", &Memsize))
-	log.Info("Starting pprof server", "addr", fmt.Sprintf("http://%s/debug/pprof", address))
-	go func() {
-		if err := http.ListenAndServe(address, nil); err != nil {
-			log.Error("Failure in running pprof server", "err", err)
-		}
-	}()
+
 }
 
 // Exit stops all running profiles, flushing their output to the

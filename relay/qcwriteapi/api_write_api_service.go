@@ -27,12 +27,13 @@ import (
 // This service should implement the business logic for every endpoint for the WriteApiAPI API.
 // Include any external packages or services that will be required by this service.
 type WriteApiAPIService struct {
+	DpUrl string
 }
 
 // NewWriteApiAPIService creates a default api service
-func NewWriteApiAPIService() *WriteApiAPIService {
+func NewWriteApiAPIService(dpUrl string) *WriteApiAPIService {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(3), log.StreamHandler(colorable.NewColorableStderr(), log.TerminalFormat(true))))
-	return &WriteApiAPIService{}
+	return &WriteApiAPIService{DpUrl: dpUrl}
 }
 
 // SendTransaction - Send Transaction
@@ -40,9 +41,9 @@ func (s *WriteApiAPIService) SendTransaction(ctx context.Context, sendTransactio
 
 	startTime := time.Now()
 
-	log.Info(relay.InfoTitleSendTransaction, relay.MsgDial, relay.DIAL_WRITE_URL)
+	log.Info(relay.InfoTitleSendTransaction, relay.MsgDial, s.DpUrl)
 
-	client, err := rpc.Dial(relay.DIAL_WRITE_URL)
+	client, err := rpc.Dial(s.DpUrl)
 	if err != nil {
 		log.Error(relay.MsgDial, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
 		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
