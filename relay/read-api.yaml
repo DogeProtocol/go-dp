@@ -6,7 +6,7 @@ paths:
   '/accounts/{address}':
     get:
       tags:
-        - ReadApi
+        - Read
       summary: Get account details
       operationId: GetAccountDetails
       parameters:
@@ -45,7 +45,7 @@ paths:
   '/transaction/{hash}':
     get:
       tags:
-        - ReadApi
+        - Read
       summary: Get Transaction
       operationId: GetTransaction
       parameters:

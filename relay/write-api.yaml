@@ -6,7 +6,7 @@ paths:
   '/transactions':
     post:
       tags:
-        - WriteApi
+        - Write
       summary: Send Transaction
       operationId: SendTransaction
       requestBody:
