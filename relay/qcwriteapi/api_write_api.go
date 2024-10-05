@@ -22,6 +22,7 @@ import (
 type WriteApiAPIController struct {
 	service WriteApiAPIServicer
 	errorHandler ErrorHandler
+	corsAllowedOrigins string
 }
 
 // WriteApiAPIOption for how the controller is set up.
@@ -35,10 +36,11 @@ func WithWriteApiAPIErrorHandler(h ErrorHandler) WriteApiAPIOption {
 }
 
 // NewWriteApiAPIController creates a default api controller
-func NewWriteApiAPIController(s WriteApiAPIServicer, opts ...WriteApiAPIOption) *WriteApiAPIController {
+func NewWriteApiAPIController(s WriteApiAPIServicer, corsAllowedOrigins string, opts ...WriteApiAPIOption) *WriteApiAPIController {
 	controller := &WriteApiAPIController{
 		service:      s,
 		errorHandler: DefaultErrorHandler,
+		corsAllowedOrigins: corsAllowedOrigins,
 	}
 
 	for _, opt := range opts {
@@ -59,8 +61,19 @@ func (c *WriteApiAPIController) Routes() Routes {
 	}
 }
 
+func (c *WriteApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Request) {
+	(*w).Header().Set("Access-Control-Allow-Origin", c.corsAllowedOrigins)
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
 // SendTransaction - Send Transaction
 func (c *WriteApiAPIController) SendTransaction(w http.ResponseWriter, r *http.Request) {
+	c.setupCORS(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
 	sendTransactionRequestParam := SendTransactionRequest{}
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
@@ -79,6 +92,9 @@ func (c *WriteApiAPIController) SendTransaction(w http.ResponseWriter, r *http.R
 	result, err := c.service.SendTransaction(r.Context(), sendTransactionRequestParam)
 	// If an error occurred, encode the error with the status code
 	if err != nil {
+		if result.Code == http.StatusMethodNotAllowed {
+			result = Response(http.StatusBadRequest, result.Body)
+		}
 		c.errorHandler(w, r, err, &result)
 		return
 	}
