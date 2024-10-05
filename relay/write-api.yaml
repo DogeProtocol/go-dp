@@ -1,7 +1,9 @@
 openapi: 3.0.1
 info:
-  title: QC Write API
+  title: Quantum Coin Write API
   version: v1
+servers:
+  - url: https://relaywrite.dpapi.org
 paths:
   '/transactions':
     post:
@@ -24,8 +26,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransactionSummaryResponse'
-        '404':
-          description: Not Found
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:

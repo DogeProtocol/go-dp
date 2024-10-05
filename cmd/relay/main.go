@@ -29,6 +29,7 @@ type Config struct {
 	Ip		string `json:"ip"`
 	Port	string `json:"port"`
 	DpUrl   string `json:"dpurl"`
+	CorsAllowedOrigins    string `json:"corsAllowedOrigins"`
 }
 
 type Configs struct {
@@ -59,6 +60,7 @@ func main() {
 		ip := config.Ip
 		port := config.Port
 		dpUrl := config.DpUrl
+		corsAllowedOrigins := config.CorsAllowedOrigins
 
 		if net.ParseIP(ip) == nil {
 			fmt.Println("Check configuration ip value ", ip)
@@ -71,11 +73,11 @@ func main() {
 		}
 
 		if strings.EqualFold(api ,"read") {
-			go qcReadApi(ip, port, dpUrl)
+			go qcReadApi(ip, port, dpUrl, corsAllowedOrigins)
 		}
 
 		if strings.EqualFold(api ,"write") {
-			go qcWriteApi(ip, port, dpUrl)
+			go qcWriteApi(ip, port, dpUrl, corsAllowedOrigins)
 		}
 	}
 
@@ -83,26 +85,25 @@ func main() {
 	<-make(chan int)
 }
 
-func qcReadApi(ip string, port string, dpUrl string) {
+func qcReadApi(ip string, port string, dpUrl string, corsAllowedOrigins string) {
 	ReadApiAPIService := qcreadapi.NewReadApiAPIService(dpUrl)
-	ReadApiAPIController := qcreadapi.NewReadApiAPIController(ReadApiAPIService)
+	ReadApiAPIController := qcreadapi.NewReadApiAPIController(ReadApiAPIService, corsAllowedOrigins)
 	readRouter := qcreadapi.NewRouter(ReadApiAPIController)
 
-	fmt.Println("Read api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl)
+	fmt.Println("Read api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl, "corsAllowedOrigins" + ":" + corsAllowedOrigins)
 	http.ListenAndServe(ip + ":" + port, readRouter)
 }
 
-func qcWriteApi(ip string, port string, dpUrl string) {
+func qcWriteApi(ip string, port string, dpUrl string, corsAllowedOrigins string) {
 	WriteApiAPIService := qcwriteapi.NewWriteApiAPIService(dpUrl)
-	WriteApiAPIController := qcwriteapi.NewWriteApiAPIController(WriteApiAPIService)
+	WriteApiAPIController := qcwriteapi.NewWriteApiAPIController(WriteApiAPIService, corsAllowedOrigins)
 	writeRouter := qcwriteapi.NewRouter(WriteApiAPIController)
 
-	fmt.Println("Write api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl)
+	fmt.Println("Write api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl, "corsAllowedOrigins" + ":" + corsAllowedOrigins)
 	http.ListenAndServe(ip + ":" + port,  writeRouter)
 }
 
 func readConfigJsonDataFile(filename string)  ([]Config, error) {
-
 	if _, err := os.Stat(filename); err != nil {
 		return nil, errors.New("File not found " + filename)
 	}

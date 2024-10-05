@@ -1,7 +1,9 @@
 openapi: 3.0.1
 info:
-  title: QC Read API
+  title: Quantum Coin Read API
   version: v1
+servers:
+  - url: https://relayread.dpapi.org
 paths:
   '/accounts/{address}':
     get:

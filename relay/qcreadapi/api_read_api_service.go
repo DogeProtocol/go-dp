@@ -75,40 +75,40 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 	var balance *hexutil.Big
 	err = client.CallContext(ctx, &balance, "eth_getBalance", common.HexToAddress(address), "latest")
 	if err != nil {
-		log.Error(relay.MsgBalance, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
-		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
+		log.Error(relay.MsgBalance, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 
 	var nonce *hexutil.Big
 	err = client.CallContext(ctx, &nonce, "eth_getTransactionCount", common.HexToAddress(address), "latest")
 	if err != nil {
-		log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
-		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
+		log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 
 	var blockNumber *hexutil.Uint64
 	err = client.CallContext(ctx, &blockNumber, "eth_blockNumber")
 	if err != nil {
-		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
-		return Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
+		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 
 	accountBalance, err := hexutil.DecodeBig(balance.String())
 	if err != nil {
-		log.Error(relay.MsgBalance, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusUnprocessableEntity)
-		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+		log.Error(relay.MsgBalance, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+		return Response(http.StatusBadRequest, nil), errors.New(err.Error())
 	}
 
 	accountNonce, err := hexutil.DecodeBig(nonce.String())
 	if err != nil {
-		log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusUnprocessableEntity)
-		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+		log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+		return Response(http.StatusBadRequest, nil), errors.New(err.Error())
 	}
 
 	latestBlockNumber, err := hexutil.DecodeBig(blockNumber.String())
 	if err != nil {
-		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusUnprocessableEntity)
-		return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+		return Response(http.StatusBadRequest, nil), errors.New(err.Error())
 	}
 
 	b := accountBalance.String()
@@ -145,8 +145,8 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 	var raw json.RawMessage
 	err =  client.CallContext(ctx, &raw, "eth_getTransactionByHash", common.HexToHash(hash))
 	if err != nil {
-		log.Error(relay.MsgTransaction, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
-		return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
+		log.Error(relay.MsgTransaction, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return  Response(http.StatusInternalServerError, nil), errors.New(err.Error())
 	}
 
 	if raw != nil {
@@ -155,8 +155,8 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 		err = json.Unmarshal(raw, &rpcTxn);
 		if err != nil {
-			log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusUnprocessableEntity)
-			return Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+			log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+			return Response(http.StatusBadRequest, nil), errors.New(err.Error())
 		}
 
 		var blochHash string
@@ -184,8 +184,8 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 		transNonce := rpcTxn.Nonce
 		n, err := hexutil.DecodeBig(transNonce.String())
 		if err != nil {
-			log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusUnprocessableEntity)
-			return  Response(http.StatusUnprocessableEntity, nil), errors.New(err.Error())
+			log.Error(relay.MsgNonce, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+			return  Response(http.StatusBadRequest, nil), errors.New(err.Error())
 		}
 
 		nonce := n.Int64()
@@ -195,8 +195,8 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 		var receipt map[string]interface{}
 		err =  client.CallContext(ctx, &receipt, "eth_getTransactionReceipt", common.HexToHash(hash))
 		if err != nil {
-			log.Error(relay.MsgTransactionReceipt, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusMethodNotAllowed)
-			return  Response(http.StatusMethodNotAllowed, nil), errors.New(err.Error())
+			log.Error(relay.MsgTransactionReceipt, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusServiceUnavailable)
+			return  Response(http.StatusServiceUnavailable, nil), errors.New(err.Error())
 		}
 
 		var transactionReceipt  TransactionReceipt
@@ -213,9 +213,9 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 		} else {
 			duration := time.Now().Sub(startTime)
 
-			log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusPartialContent)
+			log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusOK)
 
-			return  Response(http.StatusPartialContent, TransactionResponse{TransactionDetails{
+			return  Response(http.StatusOK, TransactionResponse{TransactionDetails{
 				&blochHash, &blockNumber, from,gas, gasPrice, txnHash,
 				input, nonce , &to,value,
 				transactionReceipt}}),	nil
@@ -234,5 +234,5 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 	log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusNoContent)
 
-	return  Response(http.StatusNoContent,nil), nil
+	return  Response(http.StatusNotFound,nil), nil
 }

@@ -21,6 +21,7 @@ import (
 type ReadApiAPIController struct {
 	service ReadApiAPIServicer
 	errorHandler ErrorHandler
+	corsAllowedOrigins string
 }
 
 // ReadApiAPIOption for how the controller is set up.
@@ -34,10 +35,11 @@ func WithReadApiAPIErrorHandler(h ErrorHandler) ReadApiAPIOption {
 }
 
 // NewReadApiAPIController creates a default api controller
-func NewReadApiAPIController(s ReadApiAPIServicer, opts ...ReadApiAPIOption) *ReadApiAPIController {
+func NewReadApiAPIController(s ReadApiAPIServicer, corsAllowedOrigins string, opts ...ReadApiAPIOption) *ReadApiAPIController {
 	controller := &ReadApiAPIController{
 		service:      s,
 		errorHandler: DefaultErrorHandler,
+		corsAllowedOrigins: corsAllowedOrigins,
 	}
 
 	for _, opt := range opts {
@@ -63,8 +65,19 @@ func (c *ReadApiAPIController) Routes() Routes {
 	}
 }
 
+func (c *ReadApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Request) {
+	(*w).Header().Set("Access-Control-Allow-Origin", c.corsAllowedOrigins)
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
 // GetAccountDetails - Get account details
 func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.Request) {
+	c.setupCORS(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
 	params := mux.Vars(r)
 	addressParam := params["address"]
 	if addressParam == "" {
@@ -83,6 +96,11 @@ func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.
 
 // GetTransaction - Get Transaction
 func (c *ReadApiAPIController) GetTransaction(w http.ResponseWriter, r *http.Request) {
+	c.setupCORS(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
 	params := mux.Vars(r)
 	hashParam := params["hash"]
 	if hashParam == "" {
