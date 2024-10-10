@@ -157,27 +157,51 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 }
 
 //export ContractData
-func ContractData(argv **C.char, argvLength int) (*C.char, *C.char) {
+func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
+	/*
 	length := argvLength
 	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(argv))[:length:length]
 	args := make([]string, length)
 	for i, cString := range cStrings {
 		args[i] = C.GoString(cString)
 	}
+	*/
+	//argv := make([]*C.char, len(args))
+	
+	var method String
+	var abiString String
+	arguments := make([]interface{}, 0, argvLength-2)
+	for i, s := range args {
+    		//cs := C.CString(s)
+    		//defer C.free(unsafe.Pointer(cs))
+    		//argv[i] = cs
+	    switch{ 
+		case i == 0: 
+       			method = C.GoString( C.CString(s))
+       		case i == 1: 
+			abiString = C.GoString(C.CString(s))
+	    	default:  
+			arguments = append(arguments, C.GoString(C.CString(s)))
+	    }
+	}
 
-	method := args[0]
+	abiData, err := abi.JSON(strings.NewReader(abiString))
+	
+	/*
+	method := C.GoString(argv[0])
 
-	abiData, err := abi.JSON(strings.NewReader(args[1]))
+	abiData, err := abi.JSON(strings.NewReader(C.GoString(argv[1])))
 
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
 
-	arguments := make([]interface{}, 0, len(args)-2)
-	for _, i := range args[2:] {
+	arguments := make([]interface{}, 0, len(argv)-2)
+	for _, i := range argv[2:] {
 		arguments = append(arguments, i)
 	}
-
+	*/
+	
 	data, err := abiData.Pack(method, arguments...)
 	if err != nil {
 		return nil, C.CString(err.Error())
