@@ -168,8 +168,8 @@ func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
 	*/
 	//argv := make([]*C.char, len(args))
 	
-	var method String
-	var abiString String
+	var method string
+	var abiString string
 	arguments := make([]interface{}, 0, argvLength-2)
 	for i, s := range args {
     		//cs := C.CString(s)
@@ -177,7 +177,7 @@ func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
     		//argv[i] = cs
 	    switch{ 
 		case i == 0: 
-       			method = C.GoString( C.CString(s))
+       			method = C.GoString(C.CString(s))
        		case i == 1: 
 			abiString = C.GoString(C.CString(s))
 	    	default:  
