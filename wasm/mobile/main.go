@@ -178,7 +178,7 @@ func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
 	length := argvLength
 	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(args))[:length:length]
 	
-	for i, cString := range cStrings { {
+	for i, cString := range cStrings { 
 	    switch i { 
 		case 0: 
        			method = C.GoString(cString)
