@@ -167,21 +167,25 @@ func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
 	}
 	*/
 	//argv := make([]*C.char, len(args))
+	    		//cs := C.CString(s)
+    		//defer C.free(unsafe.Pointer(cs))
+    		//argv[i] = cs
 	
 	var method string
 	var abiString string
 	arguments := make([]interface{}, 0, argvLength-2)
-	for i, s := range args {
-    		//cs := C.CString(s)
-    		//defer C.free(unsafe.Pointer(cs))
-    		//argv[i] = cs
-	    switch{ 
-		case i == 0: 
-       			method = C.GoString(C.CString(s))
-       		case i == 1: 
-			abiString = C.GoString(C.CString(s))
+	
+	length := argvLength
+	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(args))[:length:length]
+	
+	for i, cString := range cStrings { {
+	    switch i { 
+		case 0: 
+       			method = C.GoString(cString)
+       		case 1: 
+			abiString = C.GoString(cString)
 	    	default:  
-			arguments = append(arguments, C.GoString(C.CString(s)))
+			arguments = append(arguments, C.GoString(cString))
 	    }
 	}
 
@@ -286,11 +290,15 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	g, _ := strconv.Atoi(args4)
 	var gasLimit = uint64(g)
 
-	var chainId, _ = new(big.Int).SetString(args5, 0)
+	//var data []byte //args5.String()
+	//data := C.GoBytes(unsafe.Pointer(C.CString(args5)), C.int(len(args5)))
+	d := (*[1 << 30-1]byte)(unsafe.Pointer(C.CString(args5)))
+	size := bytes.IndexByte(d[:], 0)
+	data := make([]byte, size)
+	copy(data, d)
 
-	//var data []byte //args6.String()
-	data := C.GoBytes(unsafe.Pointer(C.CString(args6)), C.int(len(args6)))
-
+	var chainId, _ = new(big.Int).SetString(args6, 0)
+	
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
 		Value: weiVal, Data: data, ChainId: chainId}
