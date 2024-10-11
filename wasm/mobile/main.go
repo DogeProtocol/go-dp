@@ -292,10 +292,7 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 
 	//var data []byte //args5.String()
 	//data := C.GoBytes(unsafe.Pointer(C.CString(args5)), C.int(len(args5)))
-	d := (*[1 << 30-1]byte)(unsafe.Pointer(C.CString(args5)))
-	size := bytes.IndexByte(d[:], 0)
-	data := make([]byte, size)
-	copy(data, d)
+	data :=[]byte(args5)
 
 	var chainId, _ = new(big.Int).SetString(args6, 0)
 	
