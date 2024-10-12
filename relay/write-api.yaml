@@ -11,6 +11,13 @@ paths:
         - Write
       summary: Send Transaction
       operationId: SendTransaction
+      parameters:
+        - name: Authorization
+          in: header
+          required: false
+          description: API Key, if authorization is enabled
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -28,6 +35,12 @@ paths:
                 $ref: '#/components/schemas/TransactionSummaryResponse'
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:

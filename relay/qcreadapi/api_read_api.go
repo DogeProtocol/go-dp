@@ -11,17 +11,23 @@
 package qcreadapi
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 )
 
+const AUTHORIZATION_HEADER_NAME = "Authorization"
+
 // ReadApiAPIController binds http requests to an api service and writes the service results to the http response
 type ReadApiAPIController struct {
 	service ReadApiAPIServicer
 	errorHandler ErrorHandler
 	corsAllowedOrigins string
+	enableAuth bool
+	apiKeysMap map[string]bool
 }
 
 // ReadApiAPIOption for how the controller is set up.
@@ -35,11 +41,23 @@ func WithReadApiAPIErrorHandler(h ErrorHandler) ReadApiAPIOption {
 }
 
 // NewReadApiAPIController creates a default api controller
-func NewReadApiAPIController(s ReadApiAPIServicer, corsAllowedOrigins string, opts ...ReadApiAPIOption) *ReadApiAPIController {
+func NewReadApiAPIController(s ReadApiAPIServicer, corsAllowedOrigins string, enableAuth bool, apiKeys string, opts ...ReadApiAPIOption) *ReadApiAPIController {
 	controller := &ReadApiAPIController{
 		service:      s,
 		errorHandler: DefaultErrorHandler,
 		corsAllowedOrigins: corsAllowedOrigins,
+		enableAuth: enableAuth,
+		apiKeysMap: make(map[string]bool),
+	}
+
+	if len(apiKeys) > 0 {
+		apiKeyList := strings.Split(apiKeys, ",")
+		for _, key := range apiKeyList {
+			if len(key) == 0 {
+				continue
+			}
+			controller.apiKeysMap[key] = true
+		}
 	}
 
 	for _, opt := range opts {
@@ -54,13 +72,13 @@ func (c *ReadApiAPIController) Routes() Routes {
 	return Routes{
 		"GetAccountDetails": Route{
 			strings.ToUpper("Get"),
-			"/accounts/{address}",
+			"/account/{address}",
 			c.GetAccountDetails,
 		},
-		"GetTransaction": Route{
+		"GetTransactionDetails": Route{
 			strings.ToUpper("Get"),
 			"/transaction/{hash}",
-			c.GetTransaction,
+			c.GetTransactionDetails,
 		},
 	}
 }
@@ -71,10 +89,48 @@ func (c *ReadApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Reque
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
+func (c *ReadApiAPIController) authorize(req *http.Request) bool {
+	if c.enableAuth == false {
+		fmt.Println("a1")
+		return  true
+	}
+
+	if req.Header == nil {
+		fmt.Println("a2")
+		return  false
+	}
+
+	apiKey := req.Header.Get(AUTHORIZATION_HEADER_NAME)
+
+	if len(apiKey) == 0 {
+		fmt.Println("a3")
+		return false
+	}
+
+	if c.apiKeysMap[apiKey] == true {
+		fmt.Println("a4")
+		return true
+	}
+
+	fmt.Println("a5")
+
+	return false
+}
+
 // GetAccountDetails - Get account details
 func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GetAccountDetails")
 	c.setupCORS(&w, r)
 	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	if c.authorize(r) == false {
+		result := Response(http.StatusUnauthorized, nil)
+		// If no error, encode the body and the result code
+		_ = EncodeJSONResponse(result.Body, &result.Code, w)
+
+		c.errorHandler(w, r, errors.New("Unauthorized"), &result)
 		return
 	}
 
@@ -84,6 +140,7 @@ func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.
 		c.errorHandler(w, r, &RequiredError{"address"}, nil)
 		return
 	}
+
 	result, err := c.service.GetAccountDetails(r.Context(), addressParam)
 	// If an error occurred, encode the error with the status code
 	if err != nil {
@@ -95,9 +152,18 @@ func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.
 }
 
 // GetTransaction - Get Transaction
-func (c *ReadApiAPIController) GetTransaction(w http.ResponseWriter, r *http.Request) {
+func (c *ReadApiAPIController) GetTransactionDetails(w http.ResponseWriter, r *http.Request) {
 	c.setupCORS(&w, r)
 	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	if c.authorize(r) == false {
+		result := Response(http.StatusUnauthorized, nil)
+		// If no error, encode the body and the result code
+		_ = EncodeJSONResponse(result.Body, &result.Code, w)
+
+		c.errorHandler(w, r, errors.New("Unauthorized"), &result)
 		return
 	}
 
@@ -107,12 +173,13 @@ func (c *ReadApiAPIController) GetTransaction(w http.ResponseWriter, r *http.Req
 		c.errorHandler(w, r, &RequiredError{"hash"}, nil)
 		return
 	}
-	result, err := c.service.GetTransaction(r.Context(), hashParam)
+	result, err := c.service.GetTransactionDetails(r.Context(), hashParam)
 	// If an error occurred, encode the error with the status code
 	if err != nil {
 		c.errorHandler(w, r, err, &result)
 		return
 	}
+
 	// If no error, encode the body and the result code
 	_ = EncodeJSONResponse(result.Body, &result.Code, w)
 }

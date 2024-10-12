@@ -18,11 +18,15 @@ import (
 	"errors"
 )
 
+const AUTHORIZATION_HEADER_NAME = "Authorization"
+
 // WriteApiAPIController binds http requests to an api service and writes the service results to the http response
 type WriteApiAPIController struct {
 	service WriteApiAPIServicer
 	errorHandler ErrorHandler
 	corsAllowedOrigins string
+	enableAuth bool
+	apiKeysMap map[string]bool
 }
 
 // WriteApiAPIOption for how the controller is set up.
@@ -36,11 +40,23 @@ func WithWriteApiAPIErrorHandler(h ErrorHandler) WriteApiAPIOption {
 }
 
 // NewWriteApiAPIController creates a default api controller
-func NewWriteApiAPIController(s WriteApiAPIServicer, corsAllowedOrigins string, opts ...WriteApiAPIOption) *WriteApiAPIController {
+func NewWriteApiAPIController(s WriteApiAPIServicer, corsAllowedOrigins string, enableAuth bool, apiKeys string, opts ...WriteApiAPIOption) *WriteApiAPIController {
 	controller := &WriteApiAPIController{
 		service:      s,
 		errorHandler: DefaultErrorHandler,
 		corsAllowedOrigins: corsAllowedOrigins,
+		enableAuth: enableAuth,
+		apiKeysMap: make(map[string]bool),
+	}
+
+	if len(apiKeys) > 0 {
+		apiKeyList := strings.Split(apiKeys, ",")
+		for _, key := range apiKeyList {
+			if len(key) == 0 {
+				continue
+			}
+			controller.apiKeysMap[key] = true
+		}
 	}
 
 	for _, opt := range opts {
@@ -67,10 +83,41 @@ func (c *WriteApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Requ
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
+func (c *WriteApiAPIController) authorize(w http.ResponseWriter, req *http.Request) bool {
+	if c.enableAuth == false {
+		return  true
+	}
+
+	if req.Header == nil {
+		return  false
+	}
+
+	apiKey := req.Header.Get(AUTHORIZATION_HEADER_NAME)
+
+	if len(apiKey) == 0 {
+		return false
+	}
+
+	if c.apiKeysMap[apiKey] == true {
+		return true
+	}
+
+	return false
+}
+
 // SendTransaction - Send Transaction
 func (c *WriteApiAPIController) SendTransaction(w http.ResponseWriter, r *http.Request) {
 	c.setupCORS(&w, r)
 	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	if c.authorize(w, r) == false {
+		result := Response(http.StatusUnauthorized, nil)
+		// If no error, encode the body and the result code
+		_ = EncodeJSONResponse(result.Body, &result.Code, w)
+
+		c.errorHandler(w, r, errors.New("Unauthorized"), &result)
 		return
 	}
 

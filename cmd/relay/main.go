@@ -30,6 +30,8 @@ type Config struct {
 	Port	string `json:"port"`
 	DpUrl   string `json:"dpurl"`
 	CorsAllowedOrigins    string `json:"corsAllowedOrigins"`
+	EnableAuth bool `json:"enableAuth"`
+	ApiKeys string `json:"apiKeys"`
 }
 
 type Configs struct {
@@ -61,6 +63,8 @@ func main() {
 		port := config.Port
 		dpUrl := config.DpUrl
 		corsAllowedOrigins := config.CorsAllowedOrigins
+		enableAuth := config.EnableAuth
+		apiKeys := config.ApiKeys
 
 		if net.ParseIP(ip) == nil {
 			fmt.Println("Check configuration ip value ", ip)
@@ -73,11 +77,11 @@ func main() {
 		}
 
 		if strings.EqualFold(api ,"read") {
-			go qcReadApi(ip, port, dpUrl, corsAllowedOrigins)
+			go qcReadApi(ip, port, dpUrl, corsAllowedOrigins,enableAuth,apiKeys)
 		}
 
 		if strings.EqualFold(api ,"write") {
-			go qcWriteApi(ip, port, dpUrl, corsAllowedOrigins)
+			go qcWriteApi(ip, port, dpUrl, corsAllowedOrigins,enableAuth,apiKeys)
 		}
 	}
 
@@ -85,18 +89,18 @@ func main() {
 	<-make(chan int)
 }
 
-func qcReadApi(ip string, port string, dpUrl string, corsAllowedOrigins string) {
+func qcReadApi(ip string, port string, dpUrl string, corsAllowedOrigins string, enableAuth bool, apiKeys string) {
 	ReadApiAPIService := qcreadapi.NewReadApiAPIService(dpUrl)
-	ReadApiAPIController := qcreadapi.NewReadApiAPIController(ReadApiAPIService, corsAllowedOrigins)
+	ReadApiAPIController := qcreadapi.NewReadApiAPIController(ReadApiAPIService, corsAllowedOrigins, enableAuth, apiKeys)
 	readRouter := qcreadapi.NewRouter(ReadApiAPIController)
 
 	fmt.Println("Read api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl, "corsAllowedOrigins" + ":" + corsAllowedOrigins)
 	http.ListenAndServe(ip + ":" + port, readRouter)
 }
 
-func qcWriteApi(ip string, port string, dpUrl string, corsAllowedOrigins string) {
+func qcWriteApi(ip string, port string, dpUrl string, corsAllowedOrigins string, enableAuth bool, apiKeys string) {
 	WriteApiAPIService := qcwriteapi.NewWriteApiAPIService(dpUrl)
-	WriteApiAPIController := qcwriteapi.NewWriteApiAPIController(WriteApiAPIService, corsAllowedOrigins)
+	WriteApiAPIController := qcwriteapi.NewWriteApiAPIController(WriteApiAPIService, corsAllowedOrigins, enableAuth, apiKeys)
 	writeRouter := qcwriteapi.NewRouter(WriteApiAPIController)
 
 	fmt.Println("Write api server is listening on : ", ip + ":" + port, "dpUrl" + ":" + dpUrl, "corsAllowedOrigins" + ":" + corsAllowedOrigins)
