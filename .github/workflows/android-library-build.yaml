@@ -26,10 +26,10 @@ jobs:
         mkdir ${{ github.workspace }}/build/arm64-v8a
         mkdir ${{ github.workspace }}/build/x86
         mkdir ${{ github.workspace }}/build/x86_64
-        ls /usr/local/lib/android/sdk/ndk/
+        ls /usr/local/lib/android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/
     - name: Build Android library
       env:
-        LIB_PATH: /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin
+        LIB_PATH: /usr/local/lib/android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin
       run: |                
         export CGO_ENABLED=1
         export GOOS=android
