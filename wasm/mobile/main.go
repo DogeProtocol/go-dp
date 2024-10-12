@@ -179,6 +179,7 @@ func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
 	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(args))[:length:length]
 	
 	for i, cString := range cStrings { 
+		fmt.Println("cString : ", cString)
 	    switch i { 
 		case 0: 
        			method = C.GoString(cString)
@@ -238,7 +239,10 @@ func ParseBigFloatInner(value *C.char) (*C.char, *C.char) {
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)
 	_, err := fmt.Sscan(C.GoString(value), f)
-	return C.CString(f.String()), C.CString(err.Error())
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
+	return C.CString(f.String()), nil
 }
 
 //export WeiToEther
@@ -291,8 +295,9 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	var gasLimit = uint64(g)
 
 	//var data []byte //args5.String()
-	//data := C.GoBytes(unsafe.Pointer(C.CString(args5)), C.int(len(args5)))
-	data :=[]byte(args5)
+	data := C.GoBytes(unsafe.Pointer(C.CString(args5)), C.int(len(args5)))
+	//data :=[]byte(args5)
+	//fmt.Println("data :", data[:])
 
 	var chainId, _ = new(big.Int).SetString(args6, 0)
 	
