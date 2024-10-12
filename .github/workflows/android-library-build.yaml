@@ -1,0 +1,73 @@
+name: android library Build
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
+      fail-fast: true
+
+      matrix:
+        os: [ubuntu-latest]
+        build_type: [Release]
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+       go-version: '^1.23.1'
+    - name: Create build folder
+      run: |
+        mkdir ${{ github.workspace }}/build
+        mkdir ${{ github.workspace }}/build/armeabi-v7a
+        mkdir ${{ github.workspace }}/build/arm64-v8a
+        mkdir ${{ github.workspace }}/build/x86
+        mkdir ${{ github.workspace }}/build/x86_64
+        ls /usr/local/lib/android/sdk/ndk/
+    - name: Build Android library
+      env:
+        LIB_PATH: /usr/local/lib/android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin
+      run: |                
+        export CGO_ENABLED=1
+        export GOOS=android
+        export GOARCH=arm64
+        export CC=$LIB_PATH/aarch64-linux-android21-clang  
+        export CXX=$LIB_PATH/aarch64-linux-android21-clang++ 
+        go build -buildmode=c-shared -o ${{ github.workspace }}/build/arm64-v8a/libgodp.so ${{ github.workspace }}/wasm/mobile/main.go
+        export GOARCH=386
+        export CC=$LIB_PATH/i686-linux-android21-clang  
+        export CXX=$LIB_PATH/i686-linux-android21-clang++ 
+        go build -buildmode=c-shared -o ${{ github.workspace }}/build/x86/libgodp.so ${{ github.workspace }}/wasm/mobile/main.go
+        export GOARCH=amd64
+        export CC=$LIB_PATH/x86_64-linux-android21-clang
+        export CXX=$LIB_PATH/x86_64-linux-android21-clang++ 
+        go build -buildmode=c-shared -o ${{ github.workspace }}/build/x86_64/libgodp.so ${{ github.workspace }}/wasm/mobile/main.go
+        export GOARCH=arm
+        export GOARM=7
+        export CC=$LIB_PATH/armv7a-linux-androideabi21-clang  
+        export CXX=$LIB_PATH/armv7a-linux-androideabi21-clang++ 
+        go build -buildmode=c-shared -o ${{ github.workspace }}/build/armeabi-v7a/libgodp.so ${{ github.workspace }}/wasm/mobile/main.go
+    - name: Check Files
+      run:  ls  ${{ github.workspace }}/build
+    - name: Create Release
+      run: |
+        cd ${{ github.workspace }}/build/armeabi-v7a && tar -czf ${{ github.workspace }}/build/android-armeabi-v7a.tar.gz .
+        sha256sum ${{ github.workspace }}/build/android-armeabi-v7a.tar.gz >${{ github.workspace }}/build/android-armeabi-v7a.txt
+        cd ${{ github.workspace }}/build/arm64-v8a && tar -czf ${{ github.workspace }}/build/android-arm64-v8a.tar.gz .
+        sha256sum ${{ github.workspace }}/build/android-arm64-v8a.tar.gz >${{ github.workspace }}/build/android-arm64-v8a.txt
+        cd ${{ github.workspace }}/build/x86 && tar -czf ${{ github.workspace }}/build/android-x86.tar.gz .
+        sha256sum ${{ github.workspace }}/build/android-x86.tar.gz >${{ github.workspace }}/build/android-x86.txt
+        cd ${{ github.workspace }}/build/x86_64 && tar -czf ${{ github.workspace }}/build/android-x86_64.tar.gz .
+        sha256sum ${{ github.workspace }}/build/android-x86_64.tar.gz >${{ github.workspace }}/build/android--x86_64.txt
+    - name: Check Release Files
+      run: |
+        ls  ${{ github.workspace }}/build/android-*.*
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: android-library-release
+        path: |
+          ${{ github.workspace }}/build/*.*
