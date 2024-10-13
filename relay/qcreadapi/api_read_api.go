@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const AUTHORIZATION_HEADER_NAME = "Authorization"
+const API_KEY_HEADER_NAME = "X-Api-Key"
 
 // ReadApiAPIController binds http requests to an api service and writes the service results to the http response
 type ReadApiAPIController struct {
@@ -86,7 +86,8 @@ func (c *ReadApiAPIController) Routes() Routes {
 func (c *ReadApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Request) {
 	(*w).Header().Set("Access-Control-Allow-Origin", c.corsAllowedOrigins)
 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	//(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Api-Key")
+	(*w).Header().Set("Access-Control-Allow-Headers", "*")
 }
 
 func (c *ReadApiAPIController) authorize(req *http.Request) bool {
@@ -100,7 +101,7 @@ func (c *ReadApiAPIController) authorize(req *http.Request) bool {
 		return  false
 	}
 
-	apiKey := req.Header.Get(AUTHORIZATION_HEADER_NAME)
+	apiKey := req.Header.Get(API_KEY_HEADER_NAME)
 
 	if len(apiKey) == 0 {
 		fmt.Println("a3")
@@ -121,6 +122,7 @@ func (c *ReadApiAPIController) authorize(req *http.Request) bool {
 func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("GetAccountDetails")
 	c.setupCORS(&w, r)
+	fmt.Println("method", (*r).Method)
 	if (*r).Method == "OPTIONS" {
 		return
 	}

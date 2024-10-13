@@ -11,13 +11,6 @@ paths:
         - Write
       summary: Send Transaction
       operationId: SendTransaction
-      parameters:
-        - name: Authorization
-          in: header
-          required: false
-          description: API Key, if authorization is enabled
-          schema:
-            type: string
       requestBody:
         content:
           application/json:
@@ -79,3 +72,10 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+security:
+  - ApiKeyAuth: [] # use the same name as under securitySchemes

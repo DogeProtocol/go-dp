@@ -18,7 +18,7 @@ import (
 	"errors"
 )
 
-const AUTHORIZATION_HEADER_NAME = "Authorization"
+const API_KEY_HEADER_NAME = "X-Api-Key"
 
 // WriteApiAPIController binds http requests to an api service and writes the service results to the http response
 type WriteApiAPIController struct {
@@ -80,7 +80,7 @@ func (c *WriteApiAPIController) Routes() Routes {
 func (c *WriteApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Request) {
 	(*w).Header().Set("Access-Control-Allow-Origin", c.corsAllowedOrigins)
 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	(*w).Header().Set("Access-Control-Allow-Headers", "*")
 }
 
 func (c *WriteApiAPIController) authorize(w http.ResponseWriter, req *http.Request) bool {
@@ -92,7 +92,7 @@ func (c *WriteApiAPIController) authorize(w http.ResponseWriter, req *http.Reque
 		return  false
 	}
 
-	apiKey := req.Header.Get(AUTHORIZATION_HEADER_NAME)
+	apiKey := req.Header.Get(API_KEY_HEADER_NAME)
 
 	if len(apiKey) == 0 {
 		return false
