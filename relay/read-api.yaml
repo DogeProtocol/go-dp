@@ -18,6 +18,12 @@ paths:
           description: the string representing the address
           schema:
             type: string
+        - name: x-request-id
+          in: header
+          required: false
+          description: request id
+          schema:
+            type: string
       responses:
         '200':
           description: Success
@@ -67,6 +73,12 @@ paths:
           in: path
           required: true
           description: The transaction hash
+          schema:
+            type: string
+        - name: x-request-id
+          in: header
+          required: false
+          description: request id
           schema:
             type: string
       responses:

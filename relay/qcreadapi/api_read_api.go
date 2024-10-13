@@ -13,6 +13,7 @@ package qcreadapi
 import (
 	"errors"
 	"fmt"
+	"github.com/DogeProtocol/dp/log"
 	"net/http"
 	"strings"
 
@@ -20,6 +21,7 @@ import (
 )
 
 const API_KEY_HEADER_NAME = "X-Api-Key"
+const REQUEST_ID_HEADER_NAME = "X-Request-Id"
 
 // ReadApiAPIController binds http requests to an api service and writes the service results to the http response
 type ReadApiAPIController struct {
@@ -120,7 +122,14 @@ func (c *ReadApiAPIController) authorize(req *http.Request) bool {
 
 // GetAccountDetails - Get account details
 func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("GetAccountDetails")
+	if r.Header != nil {
+		requestId := r.Header.Get(REQUEST_ID_HEADER_NAME)
+
+		if len(requestId) > 0 {
+			log.Info("GetAccountDetails", "requestId", requestId)
+		}
+	}
+
 	c.setupCORS(&w, r)
 	fmt.Println("method", (*r).Method)
 	if (*r).Method == "OPTIONS" {
@@ -155,6 +164,14 @@ func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.
 
 // GetTransaction - Get Transaction
 func (c *ReadApiAPIController) GetTransactionDetails(w http.ResponseWriter, r *http.Request) {
+	if r.Header != nil {
+		requestId := r.Header.Get(REQUEST_ID_HEADER_NAME)
+
+		if len(requestId) > 0 {
+			log.Info("GetTransactionDetails", "requestId", requestId)
+		}
+	}
+
 	c.setupCORS(&w, r)
 	if (*r).Method == "OPTIONS" {
 		return

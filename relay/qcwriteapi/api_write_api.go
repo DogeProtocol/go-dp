@@ -12,6 +12,7 @@ package qcwriteapi
 
 import (
 	"encoding/json"
+	"github.com/DogeProtocol/dp/log"
 	"io"
 	"net/http"
 	"strings"
@@ -19,6 +20,7 @@ import (
 )
 
 const API_KEY_HEADER_NAME = "X-Api-Key"
+const REQUEST_ID_HEADER_NAME = "X-Request-Id"
 
 // WriteApiAPIController binds http requests to an api service and writes the service results to the http response
 type WriteApiAPIController struct {
@@ -107,6 +109,14 @@ func (c *WriteApiAPIController) authorize(w http.ResponseWriter, req *http.Reque
 
 // SendTransaction - Send Transaction
 func (c *WriteApiAPIController) SendTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Header != nil {
+		requestId := r.Header.Get(REQUEST_ID_HEADER_NAME)
+
+		if len(requestId) > 0 {
+			log.Info("SendTransaction", "requestId", requestId)
+		}
+	}
+
 	c.setupCORS(&w, r)
 	if (*r).Method == "OPTIONS" {
 		return
