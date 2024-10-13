@@ -12,7 +12,6 @@ package qcreadapi
 
 import (
 	"errors"
-	"fmt"
 	"github.com/DogeProtocol/dp/log"
 	"net/http"
 	"strings"
@@ -94,28 +93,22 @@ func (c *ReadApiAPIController) setupCORS(w *http.ResponseWriter, req *http.Reque
 
 func (c *ReadApiAPIController) authorize(req *http.Request) bool {
 	if c.enableAuth == false {
-		fmt.Println("a1")
 		return  true
 	}
 
 	if req.Header == nil {
-		fmt.Println("a2")
 		return  false
 	}
 
 	apiKey := req.Header.Get(API_KEY_HEADER_NAME)
 
 	if len(apiKey) == 0 {
-		fmt.Println("a3")
 		return false
 	}
 
 	if c.apiKeysMap[apiKey] == true {
-		fmt.Println("a4")
 		return true
 	}
-
-	fmt.Println("a5")
 
 	return false
 }
@@ -131,7 +124,6 @@ func (c *ReadApiAPIController) GetAccountDetails(w http.ResponseWriter, r *http.
 	}
 
 	c.setupCORS(&w, r)
-	fmt.Println("method", (*r).Method)
 	if (*r).Method == "OPTIONS" {
 		return
 	}

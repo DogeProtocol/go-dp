@@ -11,9 +11,9 @@
 package qcreadapi
 
 import (
+	"fmt"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/DogeProtocol/dp/log"
 	"github.com/DogeProtocol/dp/relay"
 	"github.com/DogeProtocol/dp/common"
@@ -222,8 +222,6 @@ func (s *ReadApiAPIService) GetTransactionDetails(ctx context.Context, hash stri
 				input, isDiscarded, nonce , &to,value,
 				transactionReceipt}
 
-
-			fmt.Println("a1")
 			Dump(txnDetails)
 
 			return  Response(http.StatusOK, TransactionResponse{txnDetails}),	nil
@@ -237,7 +235,6 @@ func (s *ReadApiAPIService) GetTransactionDetails(ctx context.Context, hash stri
 			input, isDiscarded, nonce , &to,value,
 			transactionReceipt}
 
-		fmt.Println("a2")
 		Dump(txnDetails)
 
 		return Response(http.StatusOK,TransactionResponse{txnDetails}),	nil
