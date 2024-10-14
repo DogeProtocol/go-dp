@@ -157,27 +157,56 @@ func TxData(from, nonce, to, value, gasLimit, data, chainId,
 }
 
 //export ContractData
-func ContractData(argv **C.char, argvLength int) (*C.char, *C.char) {
+func ContractData(args **C.char, argvLength int) (*C.char, *C.char) {
+	/*
 	length := argvLength
 	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(argv))[:length:length]
 	args := make([]string, length)
 	for i, cString := range cStrings {
 		args[i] = C.GoString(cString)
 	}
+	*/
+	//argv := make([]*C.char, len(args))
+	    		//cs := C.CString(s)
+    		//defer C.free(unsafe.Pointer(cs))
+    		//argv[i] = cs
+	
+	var method string
+	var abiString string
+	arguments := make([]interface{}, 0, argvLength-2)
+	
+	length := argvLength
+	cStrings := (*[1 << 28]*C.char)(unsafe.Pointer(args))[:length:length]
+	
+	for i, cString := range cStrings { 
+		fmt.Println("cString : ", cString)
+	    switch i { 
+		case 0: 
+       			method = C.GoString(cString)
+       		case 1: 
+			abiString = C.GoString(cString)
+	    	default:  
+			arguments = append(arguments, C.GoString(cString))
+	    }
+	}
 
-	method := args[0]
+	abiData, err := abi.JSON(strings.NewReader(abiString))
+	
+	/*
+	method := C.GoString(argv[0])
 
-	abiData, err := abi.JSON(strings.NewReader(args[1]))
+	abiData, err := abi.JSON(strings.NewReader(C.GoString(argv[1])))
 
 	if err != nil {
 		return nil, C.CString(err.Error())
 	}
 
-	arguments := make([]interface{}, 0, len(args)-2)
-	for _, i := range args[2:] {
+	arguments := make([]interface{}, 0, len(argv)-2)
+	for _, i := range argv[2:] {
 		arguments = append(arguments, i)
 	}
-
+	*/
+	
 	data, err := abiData.Pack(method, arguments...)
 	if err != nil {
 		return nil, C.CString(err.Error())
@@ -210,7 +239,10 @@ func ParseBigFloatInner(value *C.char) (*C.char, *C.char) {
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)
 	_, err := fmt.Sscan(C.GoString(value), f)
-	return C.CString(f.String()), C.CString(err.Error())
+	if err != nil {
+		return nil, C.CString(err.Error())
+	}
+	return C.CString(f.String()), nil
 }
 
 //export WeiToEther
@@ -262,11 +294,13 @@ func transaction(args0, args1, args2, args3, args4, args5, args6 string) (transa
 	g, _ := strconv.Atoi(args4)
 	var gasLimit = uint64(g)
 
-	var chainId, _ = new(big.Int).SetString(args5, 0)
+	//var data []byte //args5.String()
+	data := C.GoBytes(unsafe.Pointer(C.CString(args5)), C.int(len(args5)))
+	//data :=[]byte(args5)
+	//fmt.Println("data :", data[:])
 
-	//var data []byte //args6.String()
-	data := C.GoBytes(unsafe.Pointer(C.CString(args6)), C.int(len(args6)))
-
+	var chainId, _ = new(big.Int).SetString(args6, 0)
+	
 	transactionDetails := TransactionDetails{
 		FromAddress: fromAddress, ToAddress: toAddress, Nonce: nonce, GasLimit: gasLimit,
 		Value: weiVal, Data: data, ChainId: chainId}

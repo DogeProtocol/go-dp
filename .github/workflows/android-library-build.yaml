@@ -1,8 +1,6 @@
-name: android library Release
+name: android library Build
 on:
-  push:
-    tags:
-      - '*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,8 +25,7 @@ jobs:
         mkdir ${{ github.workspace }}/build/armeabi-v7a
         mkdir ${{ github.workspace }}/build/arm64-v8a
         mkdir ${{ github.workspace }}/build/x86
-        mkdir ${{ github.workspace }}/build/x86_64
-        ls /usr/local/lib/android/sdk/ndk/
+        mkdir ${{ github.workspace }}/build/x86_64        
     - name: Build Android library
       env:
         LIB_PATH: /usr/local/lib/android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin
@@ -63,7 +60,7 @@ jobs:
         cd ${{ github.workspace }}/build/x86 && tar -czf ${{ github.workspace }}/build/android-x86.tar.gz .
         sha256sum ${{ github.workspace }}/build/android-x86.tar.gz >${{ github.workspace }}/build/android-x86.txt
         cd ${{ github.workspace }}/build/x86_64 && tar -czf ${{ github.workspace }}/build/android-x86_64.tar.gz .
-        sha256sum ${{ github.workspace }}/build/android-x86_64.tar.gz >${{ github.workspace }}/build/android-x86_64.txt
+        sha256sum ${{ github.workspace }}/build/android-x86_64.tar.gz >${{ github.workspace }}/build/android--x86_64.txt
     - name: Check Release Files
       run: |
         ls  ${{ github.workspace }}/build/android-*.*
@@ -73,8 +70,3 @@ jobs:
         name: android-library-release
         path: |
           ${{ github.workspace }}/build/*.*
-    - name: release
-      uses: ncipollo/release-action@v1
-      with:
-        allowUpdates: true
-        artifacts: "build/*.gz,build/*.txt"
