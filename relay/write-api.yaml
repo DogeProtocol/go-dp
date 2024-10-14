@@ -11,6 +11,13 @@ paths:
         - Write
       summary: Send Transaction
       operationId: SendTransaction
+      parameters:
+        - name: x-request-id
+          in: header
+          required: false
+          description: request id
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -28,6 +35,12 @@ paths:
                 $ref: '#/components/schemas/TransactionSummaryResponse'
         '400':
           description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -66,3 +79,10 @@ components:
           type: integer
           format: int32
       additionalProperties: false
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+security:
+  - ApiKeyAuth: [] # use the same name as under securitySchemes

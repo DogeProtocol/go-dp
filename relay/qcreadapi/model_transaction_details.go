@@ -21,6 +21,8 @@ type TransactionDetails struct {
 	// The number of the block in which the transaction was executed. If this transaction is pending or was discarded, this will be null.
 	BlockNumber *int64 `json:"blockNumber,omitempty"`
 
+	DiscardReason string `json:"discardReason,omitempty"`
+
 	From string `json:"from,omitempty"`
 
 	Gas string `json:"gas,omitempty"`
@@ -30,6 +32,8 @@ type TransactionDetails struct {
 	Hash string `json:"hash,omitempty"`
 
 	Input string `json:"input,omitempty"`
+
+	IsDiscarded bool `json:"isDiscarded,omitempty"`
 
 	Nonce int64 `json:"nonce,omitempty"`
 

@@ -4,13 +4,17 @@
     "ip": "127.0.0.1",
     "port": "9090",
     "dpurl": "http://127.0.0.1:8545",
-    "corsAllowedOrigins": "*"
+    "corsAllowedOrigins": "*",
+    "enableAuth": false,
+    "apiKeys": ""
   },
   {
     "api": "write",
     "ip": "127.0.0.1",
     "port": "9091",
     "dpurl": "http://127.0.0.1:8545",
-    "corsAllowedOrigins": "*"
+    "corsAllowedOrigins": "*",
+    "enableAuth": false,
+    "apiKeys": ""
   }
 ]

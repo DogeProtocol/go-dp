@@ -114,6 +114,8 @@ var STALE_BLOCK_WARN_TIME = int64(1800 * 1000)
 var BLOCK_PROPOSER_OFFLINE_NIL_BLOCK_MULTIPLIER = uint64(2)
 var BLOCK_PROPOSER_OFFLINE_MAX_DELAY_BLOCK_COUNT = uint64(1024)
 
+var MIN_VALIDATORS int = 3
+
 type BlockRoundState byte
 type VoteType byte
 type ConsensusPacketType byte
@@ -155,7 +157,6 @@ const (
 )
 
 const (
-	MIN_VALIDATORS int = 3
 	MAX_VALIDATORS int = 128
 )
 
@@ -295,6 +296,20 @@ func GetTimeStatBucket(state string, ms int64) string {
 }
 
 func NewConsensusPacketHandler() *ConsensusHandler {
+	minVal := os.Getenv("MIN_VALIDATORS")
+	if len(minVal) > 0 {
+		var err error
+		MIN_VALIDATORS, err = strconv.Atoi(minVal)
+		if err != nil {
+			log.Error("Error parsing MIN_VALIDATORS environment variable")
+			panic(err)
+		}
+		if MIN_VALIDATORS < 1 || MIN_VALIDATORS > MAX_VALIDATORS {
+			log.Error("Invalid MIN_VALIDATORS", "MIN_VALIDATORS", MIN_VALIDATORS)
+			panic("Invalid MIN_VALIDATORS")
+		}
+	}
+
 	timeStatMap := make(map[string]int)
 
 	timeStatMap[PROPOSAL_KEY_PREFIX+"-0s-to-1s"] = 0

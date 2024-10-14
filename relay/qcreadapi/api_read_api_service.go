@@ -11,6 +11,7 @@
 package qcreadapi
 
 import (
+	"fmt"
 	"context"
 	"encoding/json"
 	"github.com/DogeProtocol/dp/log"
@@ -123,11 +124,12 @@ func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address strin
 		AccountDetails{&b,&n,&l}}), nil
 }
 
-// GetTransaction - Get transaction
-func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (ImplResponse, error) {
+// GetTransactionDetails - Get transaction Details
+func (s *ReadApiAPIService) GetTransactionDetails(ctx context.Context, hash string) (ImplResponse, error) {
 
 	startTime := time.Now()
-
+	isDiscarded := false
+	discardReason := ""
 	log.Info(relay.InfoTitleTransaction, relay.MsgDial, s.DpUrl)
 
 	client, err := rpc.Dial(s.DpUrl)
@@ -215,19 +217,27 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 
 			log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusOK)
 
-			return  Response(http.StatusOK, TransactionResponse{TransactionDetails{
-				&blochHash, &blockNumber, from,gas, gasPrice, txnHash,
-				input, nonce , &to,value,
-				transactionReceipt}}),	nil
+			txnDetails := TransactionDetails{
+				&blochHash, &blockNumber, discardReason, from,gas, gasPrice, txnHash,
+				input, isDiscarded, nonce , &to,value,
+				transactionReceipt}
+
+			Dump(txnDetails)
+
+			return  Response(http.StatusOK, TransactionResponse{txnDetails}),	nil
 		}
 		duration := time.Now().Sub(startTime)
 
 		log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusOK)
 
-		return Response(http.StatusOK,TransactionResponse{TransactionDetails{
-			&blochHash, &blockNumber, from,gas, gasPrice, txnHash,
-			input, nonce , &to,value,
-			transactionReceipt}}),	nil
+		txnDetails := TransactionDetails{
+			&blochHash, &blockNumber, discardReason, from,gas, gasPrice, txnHash,
+			input, isDiscarded, nonce , &to,value,
+			transactionReceipt}
+
+		Dump(txnDetails)
+
+		return Response(http.StatusOK,TransactionResponse{txnDetails}),	nil
 	}
 
 	duration := time.Now().Sub(startTime)
@@ -235,4 +245,9 @@ func (s *ReadApiAPIService) GetTransaction(ctx context.Context, hash string) (Im
 	log.Info(relay.InfoTitleTransaction, relay.MsgHash, hash, relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusNoContent)
 
 	return  Response(http.StatusNotFound,nil), nil
+}
+
+func Dump(data interface{}){
+	b,_:=json.MarshalIndent(data, "", "  ")
+	fmt.Print(string(b))
 }

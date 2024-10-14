@@ -22,7 +22,7 @@ import (
 // pass the data to a ReadApiAPIServicer to perform the required actions, then write the service results to the http response.
 type ReadApiAPIRouter interface { 
 	GetAccountDetails(http.ResponseWriter, *http.Request)
-	GetTransaction(http.ResponseWriter, *http.Request)
+	GetTransactionDetails(http.ResponseWriter, *http.Request)
 }
 
 
@@ -32,5 +32,5 @@ type ReadApiAPIRouter interface {
 // and updated with the logic required for the API.
 type ReadApiAPIServicer interface { 
 	GetAccountDetails(context.Context, string) (ImplResponse, error)
-	GetTransaction(context.Context, string) (ImplResponse, error)
+	GetTransactionDetails(context.Context, string) (ImplResponse, error)
 }
