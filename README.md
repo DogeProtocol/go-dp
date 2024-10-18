@@ -1,6 +1,6 @@
 ## Go DP
 
-go-dp is a Golang implementation of the Doge Protocol blockchain node client. This is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum). DP quantum coin is a quantum resistant blockchain.
+go-dp is a Golang implementation of the Quantum Coin blockchain node client. This is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum). DP quantum coin is a quantum resistant blockchain.
 
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/bbbMPyzJTM)
 
