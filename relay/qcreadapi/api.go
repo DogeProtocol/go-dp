@@ -21,6 +21,7 @@ import (
 // The ReadApiAPIRouter implementation should parse necessary information from the http request,
 // pass the data to a ReadApiAPIServicer to perform the required actions, then write the service results to the http response.
 type ReadApiAPIRouter interface { 
+	GetLatestBlockDetails(http.ResponseWriter, *http.Request)
 	GetAccountDetails(http.ResponseWriter, *http.Request)
 	GetTransactionDetails(http.ResponseWriter, *http.Request)
 }
@@ -31,6 +32,7 @@ type ReadApiAPIRouter interface {
 // while the service implementation can be ignored with the .openapi-generator-ignore file
 // and updated with the logic required for the API.
 type ReadApiAPIServicer interface { 
+	GetLatestBlockDetails(context.Context) (ImplResponse, error)
 	GetAccountDetails(context.Context, string) (ImplResponse, error)
 	GetTransactionDetails(context.Context, string) (ImplResponse, error)
 }

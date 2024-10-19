@@ -3,9 +3,10 @@ package relay
 import "errors"
 
 var (
-	InfoTitleAccountDetails  = "Get account details"
-	InfoTitleTransaction     = "Get Transaction"
-	InfoTitleSendTransaction = "Send Transaction"
+	InfoTitleLatestBlockDetails = "Get latest block details"
+	InfoTitleAccountDetails     = "Get account details"
+	InfoTitleTransaction        = "Get Transaction"
+	InfoTitleSendTransaction    = "Send Transaction"
 )
 
 var (
