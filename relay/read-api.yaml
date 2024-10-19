@@ -5,6 +5,57 @@ info:
 servers:
   - url: https://relayread.dpapi.org
 paths:
+  '/latestblock':
+    get:
+      tags:
+        - Read
+      summary: Get latest block details
+      operationId: GetLatestBlockDetails
+      parameters:
+        - name: x-request-id
+          in: header
+          required: false
+          description: request id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockDetailsResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '429':
+          description: Request was throttled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+        '503':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseModel'
+
   '/account/{address}':
     get:
       tags:
@@ -121,6 +172,21 @@ paths:
 
 components:
   schemas:
+    BlockDetails:
+      type: object
+      properties:
+        blockNumber:
+          type: integer
+          format: int64
+          nullable: true
+          description: The block number as of which the details were retrieved
+      additionalProperties: false
+    BlockDetailsResponse:
+      type: object
+      properties:
+        result:
+          allOf:
+            - $ref: '#/components/schemas/BlockDetails'
     AccountDetails:
       type: object
       properties:

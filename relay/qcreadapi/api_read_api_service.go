@@ -54,6 +54,40 @@ func NewReadApiAPIService(dpUrl string) *ReadApiAPIService {
 	return &ReadApiAPIService{DpUrl: dpUrl}
 }
 
+// GetLatestBlockDetails - Get latest block details
+func (s *ReadApiAPIService) GetLatestBlockDetails(ctx context.Context) (ImplResponse, error) {
+
+	startTime := time.Now()
+
+	log.Info(relay.InfoTitleLatestBlockDetails, relay.MsgDial, s.DpUrl)
+
+	client, err := rpc.Dial(s.DpUrl)
+	if err != nil {
+		log.Error(relay.MsgDial, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
+	}
+	defer client.Close()
+
+	var blockNumber *hexutil.Uint64
+	err = client.CallContext(ctx, &blockNumber, "eth_blockNumber")
+	if err != nil {
+		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusInternalServerError)
+		return Response(http.StatusInternalServerError, nil), errors.New(err.Error())
+	}
+
+	latestBlockNumber, err := hexutil.DecodeBig(blockNumber.String())
+	if err != nil {
+		log.Error(relay.MsgBlockNumber, relay.MsgError, errors.New(err.Error()), relay.MsgStatus, http.StatusBadRequest)
+		return Response(http.StatusBadRequest, nil), errors.New(err.Error())
+	}
+
+	duration := time.Now().Sub(startTime)
+
+	log.Info(relay.InfoTitleLatestBlockDetails, "blockNumber", latestBlockNumber.Int64(),  relay.MsgTimeDuration, duration, relay.MsgStatus, http.StatusOK)
+	l := latestBlockNumber.Int64()
+	return Response(http.StatusOK, LatestBlockDetailsResponse{BlockDetails{&l}}), nil
+}
+
 // GetAccountDetails - Get account details
 func (s *ReadApiAPIService) GetAccountDetails(ctx context.Context, address string) (ImplResponse, error) {
 

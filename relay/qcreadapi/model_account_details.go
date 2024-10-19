@@ -11,8 +11,6 @@
 package qcreadapi
 
 
-
-
 type AccountDetails struct {
 
 	Balance *string `json:"balance,omitempty"`

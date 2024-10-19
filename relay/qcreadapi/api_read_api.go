@@ -71,6 +71,11 @@ func NewReadApiAPIController(s ReadApiAPIServicer, corsAllowedOrigins string, en
 // Routes returns all the api routes for the ReadApiAPIController
 func (c *ReadApiAPIController) Routes() Routes {
 	return Routes{
+		"GetLatestBlockDetails": Route{
+			strings.ToUpper("Get"),
+			"/latestblock",
+			c.GetLatestBlockDetails,
+		},
 		"GetAccountDetails": Route{
 			strings.ToUpper("Get"),
 			"/account/{address}",
@@ -111,6 +116,40 @@ func (c *ReadApiAPIController) authorize(req *http.Request) bool {
 	}
 
 	return false
+}
+
+// GetLatestBlockDetails - Get latest block details
+func (c *ReadApiAPIController) GetLatestBlockDetails(w http.ResponseWriter, r *http.Request) {
+	if r.Header != nil {
+		requestId := r.Header.Get(REQUEST_ID_HEADER_NAME)
+
+		if len(requestId) > 0 {
+			log.Info("GetLatestBlockDetails", "requestId", requestId)
+		}
+	}
+
+	c.setupCORS(&w, r)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	if c.authorize(r) == false {
+		result := Response(http.StatusUnauthorized, nil)
+		// If no error, encode the body and the result code
+		_ = EncodeJSONResponse(result.Body, &result.Code, w)
+
+		c.errorHandler(w, r, errors.New("Unauthorized"), &result)
+		return
+	}
+
+	result, err := c.service.GetLatestBlockDetails(r.Context())
+	// If an error occurred, encode the error with the status code
+	if err != nil {
+		c.errorHandler(w, r, err, &result)
+		return
+	}
+	// If no error, encode the body and the result code
+	_ = EncodeJSONResponse(result.Body, &result.Code, w)
 }
 
 // GetAccountDetails - Get account details
